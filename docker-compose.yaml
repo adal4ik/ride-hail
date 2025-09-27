@@ -24,6 +24,9 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq_definitions.json:/etc/rabbitmq/rabbitmq_definitions.json
     ports:
       - "5672:5672"    # AMQP
       - "15672:15672"  # Management UI
