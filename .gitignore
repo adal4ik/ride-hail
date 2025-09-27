@@ -1,0 +1,17 @@
+# binaries
+/bin/
+/build/
+*.exe
+*.out
+
+
+# Go
+vendor/
+.env
+
+
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
