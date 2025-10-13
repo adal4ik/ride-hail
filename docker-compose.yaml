@@ -1,19 +1,16 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: ridehail-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORDL-admin}
+      POSTGRES_DB: ${DB_NAME:-ride-hail}
     ports:
       - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${POSTGRES_DB:-ride-hail}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -21,9 +18,6 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: ridehail-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     volumes:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./rabbitmq_definitions.json:/etc/rabbitmq/rabbitmq_definitions.json
@@ -36,44 +30,41 @@ services:
       timeout: 3s
       retries: 10
 
-  ride-service:
-    build:
-      context: .
-      dockerfile: docker/ride-service.Dockerfile
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    ports:
-      - "3000:${RIDE_HTTP_PORT}"
+  # ride-service:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/ride-service.Dockerfile
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   ports:
+  #     - "3000:${RIDE_HTTP_PORT}"
 
-  driver-location-service:
-    build:
-      context: .
-      dockerfile: docker/driver-location-service.Dockerfile
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    ports:
-      - "3001:${DRIVER_HTTP_PORT}"
+  # driver-location-service:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/driver-location-service.Dockerfile
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   ports:
+  #     - "3001:${DRIVER_HTTP_PORT}"
 
-  admin-service:
-    build:
-      context: .
-      dockerfile: docker/admin-service.Dockerfile
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    ports:
-      - "3004:${ADMIN_HTTP_PORT}"
-
-volumes:
-  pgdata:
+  # admin-service:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/admin-service.Dockerfile
+  #   env_file: .env
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   ports:
+  #     - "3004:${ADMIN_HTTP_PORT}"
