@@ -1,0 +1,158 @@
+{
+    "users": [
+        {
+            "name": "admin",
+            "password": "admin",
+            "tags": "administrator"
+        }
+    ],
+    "vhosts": [
+        {
+            "name": "/"
+        },
+        {
+            "name": "fake-taxi"
+        }
+    ],
+    "permissions": [
+        {
+            "user": "admin",
+            "vhost": "fake-taxi",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+        }
+    ],
+    "exchanges": [
+        {
+            "name": "ride_topic",
+            "vhost": "fake-taxi",
+            "type": "topic",
+            "durable": true,
+            "auto_delete": false,
+            "internal": false,
+            "arguments": {}
+        },
+        {
+            "name": "driver_topic",
+            "vhost": "fake-taxi",
+            "type": "topic",
+            "durable": true,
+            "auto_delete": false,
+            "internal": false,
+            "arguments": {}
+        },
+        {
+            "name": "location_fanout",
+            "vhost": "fake-taxi",
+            "type": "fanout",
+            "durable": true,
+            "auto_delete": false,
+            "internal": false,
+            "arguments": {}
+        },
+        {
+            "name": "dlx",
+            "vhost": "fake-taxi",
+            "type": "direct",
+            "durable": true,
+            "auto_delete": false,
+            "internal": false,
+            "arguments": {}
+        }
+    ],
+    "queues": [
+        {
+            "name": "ride_requests",
+            "vhost": "fake-taxi",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dead_messages"
+            }
+        },
+        {
+            "name": "ride_status",
+            "vhost": "fake-taxi",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dead_messages"
+            }
+        },
+        {
+            "name": "driver_responses",
+            "vhost": "fake-taxi",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dead_messages"
+            }
+        },
+        {
+            "name": "driver_status",
+            "vhost": "fake-taxi",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dead_messages"
+            }
+        },
+        {
+            "name": "location_updates",
+            "vhost": "fake-taxi",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "dead_messages"
+            }
+        }
+    ],
+    "bindings": [
+        {
+            "source": "ride_topic",
+            "vhost": "fake-taxi",
+            "destination": "ride_requests",
+            "destination_type": "queue",
+            "routing_key": "ride.request.*",
+            "arguments": {}
+        },
+        {
+            "source": "ride_topic",
+            "vhost": "fake-taxi",
+            "destination": "ride_status",
+            "destination_type": "queue",
+            "routing_key": "ride.status.*",
+            "arguments": {}
+        },
+        {
+            "source": "driver_topic",
+            "vhost": "fake-taxi",
+            "destination": "driver_responses",
+            "destination_type": "queue",
+            "routing_key": "driver.response.*",
+            "arguments": {}
+        },
+        {
+            "source": "driver_topic",
+            "vhost": "fake-taxi",
+            "destination": "driver_status",
+            "destination_type": "queue",
+            "routing_key": "driver.status.*",
+            "arguments": {}
+        },
+        {
+            "source": "location_fanout",
+            "vhost": "fake-taxi",
+            "destination": "location_updates",
+            "destination_type": "queue",
+            "routing_key": "location",
+            "arguments": {}
+        }
+    ]
+}
