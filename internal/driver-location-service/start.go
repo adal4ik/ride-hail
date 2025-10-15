@@ -18,3 +18,5 @@ func Run(ctx context.Context, l mylogger.Logger, cfg *config.Config) error {
 	fmt.Println("Gracefully shutting down...")
 	return nil
 }
+
+// https://www.youtube.com/watch?v=lak8Xw1GNl0
