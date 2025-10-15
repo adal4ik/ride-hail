@@ -1,5 +1,5 @@
 b:
-	go build -o rh ./cmd/app/main.go
+	go build -o bin/rh ./cmd/app/main.go
 u:
 	docker-compose up --build
 d:

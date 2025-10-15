@@ -7,4 +7,4 @@ set -a
 source .env
 set +a
 
-make build
+make b
