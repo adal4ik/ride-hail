@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS rides (
   ride_id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
   ride_number TEXT UNIQUE NOT NULL,
   passenger_id UUID NOT NULL REFERENCES users (user_id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
   driver_id UUID REFERENCES drivers (driver_id),
   vehicle_type vehicle_type NOT NULL DEFAULT 'ECONOMY',
   status ride_status DEFAULT 'REQUESTED',

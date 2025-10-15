@@ -8,6 +8,7 @@
 # Go
 vendor/
 .env
+.yaml
 
 
 
