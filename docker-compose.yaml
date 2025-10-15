@@ -1,16 +1,16 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgis/postgis:16-3.4-alpine
     container_name: ridehail-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORDL-admin}
-      POSTGRES_DB: ${DB_NAME:-ride-hail}
+      POSTGRES_USER: ${DB_USER:-ridehail_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ridehail_pass}
+      POSTGRES_DB: ${DB_NAME:-ridehail_db}
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${POSTGRES_DB:-ride-hail}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ridehail_user} -d ${POSTGRES_DB:-ridehail_db}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -29,6 +29,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    container_name: migrate
+    image: migrate/migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations/:/migrations
+    command: [
+      "-path", "/migrations/",
+      "-database",
+      "postgres://${POSTGRES_USER:-ridehail_user}:${POSTGRES_PASSWORD:-ridehail_pass}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-ridehail_db}?sslmode=disable",
+      "up"
+    ]
+    env_file:
+      - .env
 
   # ride-service:
   #   build:

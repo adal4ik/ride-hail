@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS rides (
+  ride_id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
+  ride_number TEXT UNIQUE NOT NULL,
+  passenger_id UUID NOT NULL REFERENCES users (user_id),
+  driver_id UUID REFERENCES drivers (driver_id),
+  vehicle_type vehicle_type NOT NULL DEFAULT 'ECONOMY',
+  status ride_status DEFAULT 'REQUESTED',
+  priority INTEGER DEFAULT 1 CHECK (priority BETWEEN 1 AND 10),
+  requested_at TIMESTAMPTZ DEFAULT NOW (),
+  matched_at TIMESTAMPTZ,
+  arrived_at TIMESTAMPTZ,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
+  cancellation_reason TEXT,
+  estimated_fare DECIMAL(10, 2),
+  final_fare DECIMAL(10, 2),
+  pickup_coord_id UUID REFERENCES coordinates (coordinate_id),
+  destination_coord_id UUID REFERENCES coordinates (coordinate_id)
+);
