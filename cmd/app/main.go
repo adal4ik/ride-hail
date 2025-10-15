@@ -11,6 +11,7 @@ import (
 
 	adminservice "ride-hail/internal/admin-service"
 	"ride-hail/internal/config"
+	driverlocationservice "ride-hail/internal/driver-location-service"
 	"ride-hail/internal/mylogger"
 )
 
@@ -69,7 +70,13 @@ func main() {
 			l.Action("admin_service_failed").Error("Error in admin-service", err)
 		}
 		l.Action("admin_service_completed").Info("Admin Service shut down successfully")
-
+	case "driver-location-service", "dls":
+		driverServiceLogger := appLogger.With("service", "driver-location-service")
+		driverServiceLogger.Action("driver_location_service_started").Info("Driver and Location service starting up")
+		if err := driverlocationservice.Run(ctx, driverServiceLogger, cfg); err != nil {
+			driverServiceLogger.Action("driver_location_service_failed").Error("Error in driver-location-service", err)
+		}
+		driverServiceLogger.Action("driver_location_service_completed").Info("Driver and Location service shut down successfully")
 	default:
 		appLogger.Action("ride_hail_system_failed").Error("Failed to start ride hail system", ErrUnknownService)
 		help(fs)
