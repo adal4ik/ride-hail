@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log/slog"
+	"fmt"
 	"os"
 	"strconv"
 	// "gopkg.in/yaml.v3"
@@ -12,6 +12,7 @@ type Config struct {
 	RabbitMq *RabbitMqconfig
 	WS       *WebSocketconfig
 	Srv      *Serviceconfig
+	Log      *Loggerconfig
 }
 
 type DBconfig struct {
@@ -35,12 +36,15 @@ type Serviceconfig struct {
 	DriverLocationServicePort string `yaml:"driver_location_service"`
 	AdminServicePort          string `yaml:"admin_service"`
 }
+type Loggerconfig struct {
+	Level string `yaml:"level"`
+}
 
-func New(log slog.Logger) *Config {
+func New() (*Config, error) {
 	getEnv := func(key, def string) string {
 		val := os.Getenv(key)
 		if val == "" {
-			log.Warn("using default key", "key", key, "default-key", def)
+			fmt.Printf("using default key %v\n", def)
 			return def
 		}
 		return val
@@ -49,12 +53,12 @@ func New(log slog.Logger) *Config {
 	getEnvInt := func(key string, def int) int {
 		valStr := os.Getenv(key)
 		if valStr == "" {
-			log.Warn("using default key", "key", key, "default-key", def)
+			fmt.Printf("using default key %v\n", def)
 			return def
 		}
 		val, err := strconv.Atoi(valStr)
 		if err != nil {
-			log.Warn("cannot use atoi, usign default key", "key", key, "default-key", def)
+			fmt.Printf("using default key %v\n", def)
 			return def
 		}
 		return val
@@ -82,9 +86,12 @@ func New(log slog.Logger) *Config {
 			DriverLocationServicePort: getEnv("DRIVER_LOCATION_SERVICE_PORT", "3001"),
 			AdminServicePort:          getEnv("ADMIN_SERVICE_PORT", "3004"),
 		},
+		Log: &Loggerconfig{
+			Level: getEnv("LOG_LEVEL", "INFO"),
+		},
 	}
 
-	return cnf
+	return cnf, nil
 }
 
 // func NewFromYAML(path string) (*Config, error) {
