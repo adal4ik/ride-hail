@@ -12,6 +12,7 @@ import (
 	adminservice "ride-hail/internal/admin-service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	rideservice "ride-hail/internal/ride-service"
 )
 
 var (
@@ -69,7 +70,13 @@ func main() {
 			l.Action("admin_service_failed").Error("Error in admin-service", err)
 		}
 		l.Action("admin_service_completed").Info("Admin Service shut down successfully")
-
+	case "ride-service", "rs":
+		l := appLogger.With("service", "ride-service")
+		l.Info("Admin Service starting up")
+		if err := rideservice.Execute(ctx, l, cfg); err != nil {
+			l.Error("Error in admin-service", err)
+		}
+		l.Info("Admin Service shut down successfully")
 	default:
 		appLogger.Action("ride_hail_system_failed").Error("Failed to start ride hail system", ErrUnknownService)
 		help(fs)
