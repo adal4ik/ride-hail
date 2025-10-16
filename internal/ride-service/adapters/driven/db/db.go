@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"ride-hail/internal/admin-service/core/ports"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -22,7 +22,7 @@ type DB struct {
 }
 
 // Start initializes and returns a new DB instance with a single connection
-func Start(ctx context.Context, dbCfg *config.DBconfig, mylog mylogger.Logger) (ports.IDB, error) {
+func New(ctx context.Context, dbCfg *config.DBconfig, mylog mylogger.Logger) (ports.IDB, error) {
 	d := &DB{
 		cfg:   dbCfg,
 		ctx:   ctx,
@@ -66,7 +66,8 @@ func (d *DB) IsAlive() error {
 func (d *DB) connect() error {
 	// Establish connection
 	conn, err := pgx.Connect(d.ctx, fmt.Sprintf(
-		"postgres://%v:%v@%v:%v/%v?sslmode=disable",
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+
 		d.cfg.User,
 		d.cfg.Password,
 		d.cfg.Host,
@@ -74,7 +75,7 @@ func (d *DB) connect() error {
 		d.cfg.Database,
 	))
 	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
+		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 	d.conn = conn
 	return nil

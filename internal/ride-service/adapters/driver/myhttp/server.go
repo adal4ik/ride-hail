@@ -11,7 +11,6 @@ import (
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/adapters/driven/db"
-	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/core/ports"
 )
 
@@ -31,24 +30,28 @@ type Server struct {
 	wg     sync.WaitGroup
 }
 
-func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) *Server {
-	return &Server{
+func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) (*Server) {
+	s := &Server{
 		ctx:    ctx,
 		appCtx: appCtx,
 		cfg:    cfg,
 		mylog:  mylog,
 		mux:    http.NewServeMux(),
 	}
+
+	return s
 }
 
 // Run initializes routes and starts listening. It returns when the server stops.
 func (s *Server) Run() error {
 	mylog := s.mylog.Action("server_started")
+
 	// Initialize database connection
-	if err := s.initializeDatabase(); err != nil {
-		mylog.Error("Failed to connect to database", err)
-		return err
+	db, err := db.New(s.ctx, s.cfg.DB, mylog)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
+	s.db = db
 	mylog.Info("Successful database connection")
 
 	// Configure routes and handlers
@@ -64,7 +67,6 @@ func (s *Server) Run() error {
 	mylog = mylog.WithGroup("details").With("port", s.cfg.Srv.RideServicePort)
 
 	mylog.Info("server is running")
-	// Start the HTTP server and handle graceful shutdown
 	return s.startHTTPServer()
 }
 
@@ -121,28 +123,19 @@ func (s *Server) startHTTPServer() error {
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
 	// Repositories and services
-	systemOverviewRepo := db.NewSystemOverviewRepo(s.db)
-	activeRidesRepo := db.NewActiveDrivesRepo(s.db)
+	// systemOverviewRepo := db.NewSystemOverviewRepo(s.db)
+	// activeRidesRepo := db.NewActiveDrivesRepo(s.db)
 
-	systemOverviewService := service.NewSystemOverviewService(s.ctx, s.mylog, systemOverviewRepo)
-	activeRidesService := service.NewActiveDrivesService(s.ctx, s.mylog, activeRidesRepo)
+	// systemOverviewService := service.NewSystemOverviewService(s.ctx, s.mylog, systemOverviewRepo)
+	// activeRidesService := service.NewActiveDrivesService(s.ctx, s.mylog, activeRidesRepo)
 
-	// systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
-	// activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
+	// // systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
+	// // activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
 
-	// Register routes
-	s.mux.Handle("POST /rides", nil)
-	s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
+	// // Register routes
+	// s.mux.Handle("POST /rides", nil)
+	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 
 	// websocket routes
-	// ....
-}
-
-func (s *Server) initializeDatabase() error {
-	db, err := db.Start(s.ctx, s.cfg.DB, s.mylog)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
-	}
-	s.db = db
-	return nil
+	//
 }
