@@ -22,6 +22,6 @@ func NewActiveDrivesService(ctx context.Context, mylog mylogger.Logger, activeDr
 	}
 }
 
-func (as *ActiveDrivesService) GetActiveRides(ctx context.Context) (dto.ActiveDrives, error) {
+func (as *ActiveDrivesService) GetActiveRides(ctx context.Context, page, pageSize, offset int) (dto.ActiveDrives, error) {
 	return dto.ActiveDrives{}, nil
 }

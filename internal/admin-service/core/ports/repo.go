@@ -16,7 +16,7 @@ type IDB interface {
 
 type ISystemOverviewRepo interface {
 	GetMetrics(ctx context.Context) (dto.MetricsParams, error)
-	GetDriverContribution(ctx context.Context) (dto.DriverContributionParams, error)
+	GetDriverDistribution(ctx context.Context) (dto.DriverDistributionParams, error)
 	GetHotspots(ctx context.Context) ([]dto.HotspotsParams, error)
 }
 

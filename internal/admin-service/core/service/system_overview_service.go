@@ -27,21 +27,21 @@ func NewSystemOverviewService(ctx context.Context, mylog mylogger.Logger, system
 func (ds *SystemOverviewService) GetSystemOverview(ctx context.Context) (dto.SystemOverview, error) {
 	metrics, err := ds.systemOverviewRepo.GetMetrics(ctx)
 	if err != nil {
-		return dto.SystemOverview{}, fmt.Errorf("Failed to get metrics")
+		return dto.SystemOverview{}, fmt.Errorf("Failed to get metrics: %v", err)
 	}
-	driverContribution, err := ds.systemOverviewRepo.GetDriverContribution(ctx)
+	driverDistribution, err := ds.systemOverviewRepo.GetDriverDistribution(ctx)
 	if err != nil {
-		return dto.SystemOverview{}, fmt.Errorf("Failed to get driver contribution")
+		return dto.SystemOverview{}, fmt.Errorf("Failed to get driver distribution: %v", err)
 	}
 	hotspots, err := ds.systemOverviewRepo.GetHotspots(ctx)
 	if err != nil {
-		return dto.SystemOverview{}, fmt.Errorf("Failed to get hotspots")
+		return dto.SystemOverview{}, fmt.Errorf("Failed to get hotspots: %v", err)
 	}
 
 	systemOverview := dto.SystemOverview{
 		Timestamp:          time.Now().Format(time.RFC3339),
 		Metrics:            metrics,
-		DriverContribution: driverContribution,
+		DriverDistribution: driverDistribution,
 		Hotspots:           hotspots,
 	}
 

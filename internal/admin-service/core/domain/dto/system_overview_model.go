@@ -3,7 +3,7 @@ package dto
 type SystemOverview struct {
 	Timestamp          string                   `json:"timestamp"`
 	Metrics            MetricsParams            `json:"metrics"`
-	DriverContribution DriverContributionParams `json:"driver_contribution"`
+	DriverDistribution DriverDistributionParams `json:"driver_contribution"`
 	Hotspots           []HotspotsParams         `json:"hotspots"`
 }
 
@@ -17,7 +17,7 @@ type MetricsParams struct {
 	AverageRideDurationMinutes float32 `json:"average_ride_duration_minutes"`
 	CancellationRate           float32 `json:"cancellation_rate"`
 }
-type DriverContributionParams struct {
+type DriverDistributionParams struct {
 	Economy string `json:"ECONOMY"`
 	Premium string `json:"PREMIUM"`
 	XL      string `json:"XL"`

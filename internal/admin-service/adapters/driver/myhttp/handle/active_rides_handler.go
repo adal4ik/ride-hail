@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"ride-hail/internal/admin-service/core/service"
@@ -27,7 +28,35 @@ func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), WaitTime*time.Second)
 		defer cancel()
 
-		activeRides, err := dh.activeDrivesService.GetActiveRides(ctx)
+		// Get query parameters with defaults
+		pageStr := r.URL.Query().Get("page")
+		pageSizeStr := r.URL.Query().Get("page_size")
+
+		// Set defaults if not provided
+		if pageStr == "" {
+			pageStr = "1"
+		}
+		if pageSizeStr == "" {
+			pageSizeStr = "20"
+		}
+
+		// Convert to integers
+		page, err := strconv.Atoi(pageStr)
+		if err != nil || page < 1 {
+			http.Error(w, "Invalid page parameter", http.StatusBadRequest)
+			return
+		}
+
+		pageSize, err := strconv.Atoi(pageSizeStr)
+		if err != nil || pageSize < 1 || pageSize > 100 {
+			http.Error(w, "Invalid page_size parameter", http.StatusBadRequest)
+			return
+		}
+
+		// Calculate offset for SQL
+		offset := (page - 1) * pageSize
+
+		activeRides, err := dh.activeDrivesService.GetActiveRides(ctx, page, pageSize, offset)
 		if err != nil {
 			jsonError(w, http.StatusInternalServerError, fmt.Errorf("failed to get active rides: %v", err))
 			return
