@@ -1,4 +1,4 @@
-package domain
+package dto
 
 type RidesCancelRequestDto struct {
 	Reason string `json:"reason"`

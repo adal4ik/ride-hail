@@ -24,10 +24,11 @@ type DB struct {
 // Start initializes and returns a new DB instance with a single connection
 func New(ctx context.Context, dbCfg *config.DBconfig, mylog mylogger.Logger) (ports.IDB, error) {
 	d := &DB{
-		cfg:   dbCfg,
-		ctx:   ctx,
-		mylog: mylog,
-		mu:    &sync.Mutex{},
+		cfg:          dbCfg,
+		ctx:          ctx,
+		mylog:        mylog,
+		mu:           &sync.Mutex{},
+		reconnecting: false,
 	}
 
 	if err := d.connect(); err != nil {

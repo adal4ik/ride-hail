@@ -1,4 +1,4 @@
-package messagebroker
+package messagebrokerdto
 
 import "time"
 
