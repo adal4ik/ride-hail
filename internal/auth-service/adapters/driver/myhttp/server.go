@@ -135,10 +135,6 @@ func (s *Server) Configure() {
 	s.mux.Handle("POST /login", authHandler.Login())
 	s.mux.Handle("POST /logout", authHandler.Logout())
 	s.mux.Handle("POST /protected", authMiddle.Middle(authHandler.Protected()))
-
-	// Websockets
-	// s.mux.Handle("GET /ws/passengers/{passenger_id}", wsHandler.Passenger())
-	// s.mux.Handle("GET /ws/drivers/{driver_id}", wsHandler.Driver())
 }
 
 func (s *Server) initializeDatabase() error {
