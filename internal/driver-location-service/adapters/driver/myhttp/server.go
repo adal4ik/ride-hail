@@ -121,20 +121,4 @@ func (s *Server) startHTTPServer() error {
 
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
-	// Repositories and services
-	// systemOverviewRepo := db.NewSystemOverviewRepo(s.db)
-	// activeRidesRepo := db.NewActiveDrivesRepo(s.db)
-
-	// systemOverviewService := service.NewSystemOverviewService(s.ctx, s.mylog, systemOverviewRepo)
-	// activeRidesService := service.NewActiveDrivesService(s.ctx, s.mylog, activeRidesRepo)
-
-	// // systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
-	// // activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
-
-	// // Register routes
-	// s.mux.Handle("POST /rides", nil)
-	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
-
-	// websocket routes
-	//
 }

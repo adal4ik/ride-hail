@@ -1,5 +1,3 @@
 package ports
 
-type IRidesWebsocket interface {
-	
-}
+type IDriverWebsocket interface{}
