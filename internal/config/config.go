@@ -22,20 +22,25 @@ type DBconfig struct {
 	Password string `yaml:"password"`
 	Database string `yaml:"database"`
 }
+
 type RabbitMqconfig struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
+	VHost    string `yaml:"vhost"`
 }
+
 type WebSocketconfig struct {
 	Port int `yaml:"port"`
 }
+
 type Serviceconfig struct {
 	RideServicePort           string `yaml:"ride_service"`
 	DriverLocationServicePort string `yaml:"driver_location_service"`
 	AdminServicePort          string `yaml:"admin_service"`
 }
+
 type Loggerconfig struct {
 	Level string `yaml:"level"`
 }
@@ -77,6 +82,7 @@ func New() (*Config, error) {
 			Port:     getEnvInt("RABBITMQ_PORT", 5672),
 			User:     getEnv("RABBITMQ_USER", "guest"),
 			Password: getEnv("RABBITMQ_PASSWORD", "guest"),
+			VHost:    getEnv("RABBITMQ_VHOST", "fake-taxi"),
 		},
 		WS: &WebSocketconfig{
 			Port: getEnvInt("WS_PORT", 8080),

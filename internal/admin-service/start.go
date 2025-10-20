@@ -3,9 +3,11 @@ package adminservice
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os/signal"
 	"syscall"
 
+	"ride-hail/internal/admin-service/adapters/driver/myhttp"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 )
@@ -14,7 +16,7 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	newCtx, close := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	defer close()
 
-	server := http.NewServer(newCtx, ctx, mylog, cfg.Srv.AdminServicePort)
+	server := myhttp.NewServer(newCtx, ctx, mylog, cfg)
 
 	// Run server in goroutine
 	runErrCh := make(chan error, 1)

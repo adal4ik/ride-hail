@@ -1,0 +1,141 @@
+package myhttp
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"sync"
+	"time"
+
+	"ride-hail/internal/config"
+	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/adapters/driven/db"
+	"ride-hail/internal/ride-service/core/ports"
+)
+
+var ErrServerClosed = errors.New("Server closed")
+
+const WaitTime = 10
+
+type Server struct {
+	mux    *http.ServeMux
+	cfg    *config.Config
+	srv    *http.Server
+	mylog  mylogger.Logger
+	db     ports.IDB
+	ctx    context.Context
+	appCtx context.Context
+	mu     sync.Mutex
+	wg     sync.WaitGroup
+}
+
+func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) (*Server) {
+	s := &Server{
+		ctx:    ctx,
+		appCtx: appCtx,
+		cfg:    cfg,
+		mylog:  mylog,
+		mux:    http.NewServeMux(),
+	}
+
+	return s
+}
+
+// Run initializes routes and starts listening. It returns when the server stops.
+func (s *Server) Run() error {
+	mylog := s.mylog.Action("server_started")
+
+	// Initialize database connection
+	db, err := db.New(s.ctx, s.cfg.DB, mylog)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	s.db = db
+	mylog.Info("Successful database connection")
+
+	// Configure routes and handlers
+	s.Configure()
+
+	s.mu.Lock()
+	s.srv = &http.Server{
+		Addr:    fmt.Sprintf(":%v", s.cfg.Srv.RideServicePort),
+		Handler: s.mux,
+	}
+	s.mu.Unlock()
+
+	mylog = mylog.WithGroup("details").With("port", s.cfg.Srv.RideServicePort)
+
+	mylog.Info("server is running")
+	return s.startHTTPServer()
+}
+
+// Stop provides a programmatic shutdown. Accepts a context for timeout control.
+func (s *Server) Stop(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.mylog.Info("Shutting down HTTP server...")
+
+	s.wg.Wait()
+
+	if s.srv != nil {
+		shutdownCtx, cancel := context.WithTimeout(ctx, WaitTime*time.Second)
+		defer cancel()
+
+		if err := s.srv.Shutdown(shutdownCtx); err != nil {
+			s.mylog.Error("Failed to shut down HTTP server gracefully", err)
+			return fmt.Errorf("http server shutdown: %w", err)
+		}
+	}
+
+	if s.db != nil {
+		if err := s.db.Close(); err != nil {
+			s.mylog.Error("Failed to close database", err)
+			return fmt.Errorf("db close: %w", err)
+		}
+		s.mylog.Info("Database closed")
+	}
+
+	s.mylog.Info("HTTP server shut down gracefully")
+	return nil
+}
+
+func (s *Server) startHTTPServer() error {
+	errCh := make(chan error, 1)
+
+	go func() {
+		if err := s.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		} else {
+			errCh <- nil
+		}
+	}()
+
+	select {
+	case <-s.ctx.Done():
+		return nil
+	case err := <-errCh:
+		return err
+	}
+}
+
+// Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
+func (s *Server) Configure() {
+	// Repositories and services
+	// systemOverviewRepo := db.NewSystemOverviewRepo(s.db)
+	// activeRidesRepo := db.NewActiveDrivesRepo(s.db)
+
+	// systemOverviewService := service.NewSystemOverviewService(s.ctx, s.mylog, systemOverviewRepo)
+	// activeRidesService := service.NewActiveDrivesService(s.ctx, s.mylog, activeRidesRepo)
+
+	// // systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
+	// // activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
+
+	// // Register routes
+	// s.mux.Handle("POST /rides", nil)
+	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
+
+	// websocket routes
+	//
+}
