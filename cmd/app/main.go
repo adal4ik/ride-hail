@@ -76,7 +76,7 @@ func main() {
 	case "driver-location-service", "dls":
 		driverServiceLogger := appLogger.With("service", "driver-location-service")
 		driverServiceLogger.Action("driver_location_service_started").Info("Driver and Location service starting up")
-		if err := driverlocationservice.Run(ctx, driverServiceLogger, cfg); err != nil {
+		if err := driverlocationservice.Execute(ctx, driverServiceLogger, cfg); err != nil {
 			driverServiceLogger.Action("driver_location_service_failed").Error("Error in driver-location-service", err)
 		}
 		driverServiceLogger.Action("driver_location_service_completed").Info("Driver and Location service shut down successfully")

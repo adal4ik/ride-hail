@@ -1,22 +1,41 @@
-package driverlocationservice
+package rideservice
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"errors"
+	"net/http"
 	"os/signal"
-	"syscall"
-
 	"ride-hail/internal/config"
+	"ride-hail/internal/driver-location-service/adapters/driver/myhttp"
 	"ride-hail/internal/mylogger"
+	"syscall"
 )
 
-func Run(ctx context.Context, l mylogger.Logger, cfg *config.Config) error {
-	shutdown, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
-	<-shutdown.Done()
-	fmt.Println("Gracefully shutting down...")
-	return nil
-}
+type DriverLocationService struct{}
 
-// https://www.youtube.com/watch?v=lak8Xw1GNl0
+func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) error {
+	newCtx, close := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	defer close()
+
+	server := myhttp.NewServer(newCtx, ctx, mylog, cfg)
+
+	// Run server in goroutine
+	runErrCh := make(chan error, 1)
+	go func() {
+		runErrCh <- server.Run()
+	}()
+
+	// Wait for signal or server crash
+	select {
+	case <-newCtx.Done():
+		mylog.Info("Shutdown signal received")
+		return server.Stop(context.Background())
+	case err := <-runErrCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			mylog.Error("Server failed unexpectedly", err)
+			return err
+		}
+		mylog.Info("Server exited normally")
+		return nil
+	}
+}
