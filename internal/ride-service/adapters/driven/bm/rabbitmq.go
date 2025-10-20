@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
+	messagebroker "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -32,10 +32,10 @@ type RabbitMQ struct {
 }
 
 // create RabbitMQ adapter
-func New(ctx context.Context, rabbitmqCfg config.RabbitMqconfig, mylog mylogger.Logger) (ports.IRidesBroker, error) {
+func New(ctx context.Context, cfg config.Config, mylog mylogger.Logger) (ports.IRidesBroker, error) {
 	r := &RabbitMQ{
 		ctx:          ctx,
-		cfg:          rabbitmqCfg,
+		cfg:          *cfg.RabbitMq,
 		mylog:        mylog,
 		mu:           &sync.Mutex{},
 		reconnecting: false,
@@ -46,7 +46,7 @@ func New(ctx context.Context, rabbitmqCfg config.RabbitMqconfig, mylog mylogger.
 	return r, nil
 }
 
-func (r *RabbitMQ) PushMessage(ctx context.Context, message messagebrokerdto.Ride) error {
+func (r *RabbitMQ) PushMessageToDrivers(ctx context.Context, message messagebroker.Ride) error {
 	mylog := r.mylog.Action("pushMessage")
 
 	if r.conn.IsClosed() {
@@ -65,6 +65,10 @@ func (r *RabbitMQ) PushMessage(ctx context.Context, message messagebrokerdto.Rid
 		DeliveryMode: amqp.Persistent,
 		Body:         body,
 	})
+}
+
+func (r *RabbitMQ) ConsumeMessageFromDrivers(ctx context.Context, queue, driverName string) (<-chan amqp.Delivery, error) {
+	return r.ch.ConsumeWithContext(ctx, queue, driverName, false, false, false, false, nil)
 }
 
 func (r *RabbitMQ) IsAlive() bool {
