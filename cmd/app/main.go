@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	authservice "ride-hail/internal/auth-service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"strings"
@@ -87,6 +88,13 @@ func main() {
 			l.Error("Error in admin-service", err)
 		}
 		l.Info("Admin Service shut down successfully")
+	case "auth-service", "au":
+		l := appLogger.With("service", "auth-service")
+		l.Info("Auth Service starting up")
+		if err := authservice.Execute(ctx, l, cfg); err != nil {
+			l.Error("Error in auth-service", err)
+		}
+		l.Info("Auth Service shut down successfully")
 	default:
 		appLogger.Action("ride_hail_system_failed").Error("Failed to start ride hail system", ErrUnknownService)
 		help(fs)
@@ -100,10 +108,12 @@ func help(fs *flag.FlagSet) {
 	fmt.Println("  ride-service (rs)     - Orchestrates ride lifecycle and passenger interactions")
 	fmt.Println("  driver-service (ds)   - Handles driver operations, matching, and location tracking")
 	fmt.Println("  admin-service (as)    - Provides monitoring, analytics, and system oversight")
+	fmt.Println("  auth-service (au)     - User logic")
 	fmt.Println("\nExamples:")
-	fmt.Println("  ./ride-hail-system --mode=ride-service --port=3000")
-	fmt.Println("  ./ride-hail-system --mode=driver-service --port=3001")
-	fmt.Println("  ./ride-hail-system --mode=admin-service --port=3004")
+	fmt.Println("  bin/rh --mode=ride-service --port=3000")
+	fmt.Println("  bin/rh --mode=driver-service --port=3001")
+	fmt.Println("  bin/rh --mode=admin-service --port=3004")
+	fmt.Println("  bin/rh --mode=auth-service --port=3010")
 	fmt.Println("\nConfiguration:")
 	fmt.Println("  Use environment variables or config files for database, RabbitMQ, and service settings")
 }

@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"ride-hail/internal/admin-service/adapters/driven/db"
-	"ride-hail/internal/admin-service/adapters/driver/myhttp/handle"
-	"ride-hail/internal/admin-service/core/service"
+	"ride-hail/internal/auth-service/adapters/driven/db"
+	"ride-hail/internal/auth-service/adapters/driver/myhttp/handle"
+	"ride-hail/internal/auth-service/adapters/driver/myhttp/middleware"
+	"ride-hail/internal/auth-service/core/ports"
+	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"ride-hail/internal/ride-service/core/ports"
 	"sync"
 	"time"
 )
@@ -56,12 +57,12 @@ func (s *Server) Run() error {
 
 	s.mu.Lock()
 	s.srv = &http.Server{
-		Addr:    fmt.Sprintf(":%v", s.cfg.Srv.AdminServicePort),
+		Addr:    fmt.Sprintf(":%v", s.cfg.Srv.AuthServicePort),
 		Handler: s.mux,
 	}
 	s.mu.Unlock()
 
-	mylog = mylog.WithGroup("details").With("port", s.cfg.Srv.AdminServicePort)
+	mylog = mylog.WithGroup("details").With("port", s.cfg.Srv.AuthServicePort)
 
 	mylog.Info("server is running")
 	// Start the HTTP server and handle graceful shutdown
@@ -122,18 +123,22 @@ func (s *Server) startHTTPServer() error {
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
 	// Repositories and services
-	systemOverviewRepo := db.NewSystemOverviewRepo(s.db)
-	activeRidesRepo := db.NewActiveDrivesRepo(s.db)
+	authRepo := db.NewAuthRepo(s.ctx, s.db)
 
-	systemOverviewService := service.NewSystemOverviewService(s.ctx, s.mylog, systemOverviewRepo)
-	activeRidesService := service.NewActiveDrivesService(s.ctx, s.mylog, activeRidesRepo)
+	authService := service.NewAuthService(s.ctx, s.cfg, authRepo, s.mylog)
 
-	systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
-	activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
+	authHandler := handle.NewAuthHandler(authService, s.mylog)
 
-	// Register routes
-	s.mux.Handle("GET /admin/overview", systemOverviewHandler.GetSystemOverview())
-	s.mux.Handle("GET /admin/rides/active", activeRidesHandler.GetActiveRides())
+	authMiddle := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
+
+	s.mux.Handle("POST /register", authHandler.Register())
+	s.mux.Handle("POST /login", authHandler.Login())
+	s.mux.Handle("POST /logout", authHandler.Logout())
+	s.mux.Handle("POST /protected", authMiddle.Middle(authHandler.Protected()))
+
+	// Websockets
+	// s.mux.Handle("GET /ws/passengers/{passenger_id}", wsHandler.Passenger())
+	// s.mux.Handle("GET /ws/drivers/{driver_id}", wsHandler.Driver())
 }
 
 func (s *Server) initializeDatabase() error {

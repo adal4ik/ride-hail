@@ -13,6 +13,7 @@ type Config struct {
 	WS       *WebSocketconfig
 	Srv      *Serviceconfig
 	Log      *Loggerconfig
+	App      *App
 }
 
 type DBconfig struct {
@@ -39,10 +40,16 @@ type Serviceconfig struct {
 	RideServicePort           string `yaml:"ride_service"`
 	DriverLocationServicePort string `yaml:"driver_location_service"`
 	AdminServicePort          string `yaml:"admin_service"`
+	AuthServicePort           string `yaml:"auth_service"`
 }
 
 type Loggerconfig struct {
 	Level string `yaml:"level"`
+}
+
+type App struct {
+	PublicJwtSecret  string `yaml:"public_jwt"`
+	PrivateJwtSecret string `yaml:"private_jwt"`
 }
 
 func New() (*Config, error) {
@@ -91,9 +98,14 @@ func New() (*Config, error) {
 			RideServicePort:           getEnv("RIDE_SERVICE_PORT", "3000"),
 			DriverLocationServicePort: getEnv("DRIVER_LOCATION_SERVICE_PORT", "3001"),
 			AdminServicePort:          getEnv("ADMIN_SERVICE_PORT", "3004"),
+			AuthServicePort:           getEnv("AUTH_SERVICE_PORT", "3010"),
 		},
 		Log: &Loggerconfig{
 			Level: getEnv("LOG_LEVEL", "INFO"),
+		},
+		App: &App{
+			PublicJwtSecret:  getEnv("PUBLIC_JWT", "default-public-secret"),
+			PrivateJwtSecret: getEnv("PRIVATE_JWT", "default-private-secret"),
 		},
 	}
 

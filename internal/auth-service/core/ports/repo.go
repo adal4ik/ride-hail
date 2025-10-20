@@ -2,8 +2,7 @@ package ports
 
 import (
 	"context"
-
-	"ride-hail/internal/admin-service/core/domain/dto"
+	"ride-hail/internal/auth-service/core/domain/models"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -14,12 +13,9 @@ type IDB interface {
 	Close() error
 }
 
-type ISystemOverviewRepo interface {
-	GetMetrics(ctx context.Context) (dto.MetricsParams, error)
-	GetDriverDistribution(ctx context.Context) (dto.DriverDistributionParams, error)
-	GetHotspots(ctx context.Context) ([]dto.HotspotsParams, error)
-}
-
-type IActiveRidesRepo interface {
-	GetActiveRides(ctx context.Context) ([]dto.ActiveDrives, error)
+type IAuthRepo interface {
+	// user_id and error
+	Create(ctx context.Context, user models.User, refreshToken string) (string, error)
+	// user model, refresh token and error
+	GetUserByUsername(ctx context.Context, username string) (models.User, string, error)
 }
