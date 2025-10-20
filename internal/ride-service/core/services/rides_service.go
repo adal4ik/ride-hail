@@ -33,7 +33,7 @@ func (rs *RidesService) CreateRide(dto.RidesRequestDto) (dto.RidesResponseDto, e
 	ctx, cancel  := context.WithCancel(rs.ctx)
 	defer cancel()
 	
-	err := rs.RidesRepo.CreateRide(ctx, m)
+	_, err := rs.RidesRepo.CreateRide(ctx, m)
 	if err != nil {
 		return dto.RidesResponseDto{}, err
 	}

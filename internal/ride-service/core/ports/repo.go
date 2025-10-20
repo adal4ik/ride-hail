@@ -14,5 +14,5 @@ type IDB interface {
 }
 
 type IRidesRepo interface {
-	CreateRide(context.Context, model.Rides) (error)
+	CreateRide(context.Context, model.Rides) (string, error)
 }
