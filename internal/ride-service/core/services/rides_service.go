@@ -38,7 +38,6 @@ type RidesService struct {
 	RidesBroker    ports.IRidesBroker
 	RidesWebsocket ports.IRidesWebsocket
 	ctx            context.Context
-	mylog          mylogger.Logger
 }
 
 func NewRidesService(ctx context.Context,
@@ -127,14 +126,23 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	}
 
 	// publish message to rabbitmq
-	mylog.Info("Inserting ride to BM")
+	log.Info("Inserting ride to BM")
 
 	rideMsg := messagebrokerdto.Ride{}
 
-	if err := rs.RidesBroker.PushMessage(rs.ctx, rideMsg); err != nil {
-		mylog.Error("Failed to publish message", err)
+	if err := rs.RidesBroker.PushMessageToDrivers(rs.ctx, rideMsg); err != nil {
+		log.Error("Failed to publish message", err)
 		return dto.RidesResponseDto{}, fmt.Errorf("cannot send message to broker: %w", err)
 	}
 
-	return dto.RidesResponseDto{}, nil
+	log.Info("successfully created a ride", "ride-id", ride_id)
+	res := dto.RidesResponseDto{
+		RideId:                   ride_id,
+		RideNumber:               RideNumber,
+		Status:                   "REQUESTED",
+		EstimatedFare:            EstimatedFare,
+		EstimatedDistanceKm:      distance,
+		EstimatedDurationMinutes: distance / DEFUALT_RATE_PER_MIN,
+	}
+	return res, nil
 }
