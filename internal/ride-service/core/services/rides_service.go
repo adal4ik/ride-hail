@@ -7,7 +7,6 @@ import (
 
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
-	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
 )
@@ -41,20 +40,21 @@ type RidesService struct {
 }
 
 func NewRidesService(ctx context.Context,
-	mylog mylogger.Logger,
+	log mylogger.Logger,
 	RidesRepo ports.IRidesRepo,
 	RidesBroker ports.IRidesBroker,
 	RidesWebsocket ports.IRidesWebsocket,
 ) ports.IRidesService {
 	return &RidesService{
 		ctx:            ctx,
-		mylog:          mylog,
+		mylog:          log,
 		RidesRepo:      RidesRepo,
 		RidesBroker:    RidesBroker,
 		RidesWebsocket: RidesWebsocket,
 	}
 }
 
+// implement me
 func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDto, error) {
 	m := model.Rides{}
 	log := rs.mylog.Action("CreateRide")

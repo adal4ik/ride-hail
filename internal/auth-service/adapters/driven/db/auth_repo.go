@@ -4,29 +4,29 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"ride-hail/internal/auth-service/core/domain/models"
-	"ride-hail/internal/auth-service/core/ports"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type AuthRepo struct {
 	ctx context.Context
-	db  ports.IDB
+	db  *DB
 }
 
-func NewAuthRepo(ctx context.Context, db ports.IDB) *AuthRepo {
+func NewAuthRepo(ctx context.Context, db *DB) *AuthRepo {
 	return &AuthRepo{
 		ctx: ctx,
 		db:  db,
 	}
 }
 
-var ErrUsernameUnknown = errors.New("unknown username")
+var ErrUnknownEmail = errors.New("unknown email")
 
 func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error) {
 	// Start a new transaction
-	tx, err := ar.db.GetConn().Begin(ctx)
+	tx, err := ar.db.conn.Begin(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to begin transaction: %v", err)
 	}
@@ -54,7 +54,7 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 	return id, nil
 }
 
-func (ar *AuthRepo) GetByName(ctx context.Context, name string) (models.User, error) {
+func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, error) {
 	q := `
 		SELECT 
 			u.user_id,
@@ -69,11 +69,11 @@ func (ar *AuthRepo) GetByName(ctx context.Context, name string) (models.User, er
 		FROM 
 			users u
 		WHERE
-			username = $1
+			u.email = $1
 	`
 
 	var u models.User
-	err := ar.db.GetConn().QueryRow(ctx, q, name).Scan(
+	err := ar.db.conn.QueryRow(ctx, q, name).Scan(
 		&u.UserId,
 		&u.CreatedAt,
 		&u.UpdatedAt,
@@ -86,7 +86,7 @@ func (ar *AuthRepo) GetByName(ctx context.Context, name string) (models.User, er
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.User{}, ErrUsernameUnknown
+			return models.User{}, ErrUnknownEmail
 		}
 		return models.User{}, err
 	}
