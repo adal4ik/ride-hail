@@ -148,28 +148,26 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 
 	log.Debug("Debugging", "RideNumber", RideNumber)
 
-	pickupLocation := messagebrokerdto.Location{
+	rideMsg := messagebrokerdto.Ride{
+		RideID:         ride_id,
+		RideNumber:     RideNumber,
+		RideType:       req.RideType,
+		EstimatedFare:  EstimatedFare,
+		MaxDistanceKm:  distance,
+		TimeoutSeconds: 30,
+		CorrelationID:  generateCorrelationID(),
+	}
+
+	rideMsg.PickupLocation = messagebrokerdto.Location{
 		Lat:     req.PickUpLatitude,
 		Lng:     req.PickUpLongitude,
 		Address: req.PickUpAddress,
 	}
 
-	destinationLocation := messagebrokerdto.Location{
+	rideMsg.DestinationLocation = messagebrokerdto.Location{
 		Lat:     req.DestinationLatitude,
 		Lng:     req.DestinationLongitude,
 		Address: req.DestinationAddress,
-	}
-
-	rideMsg := messagebrokerdto.Ride{
-		RideID:              ride_id,
-		RideNumber:          RideNumber,
-		PickupLocation:      pickupLocation,
-		DestinationLocation: destinationLocation,
-		RideType:            req.RideType,
-		EstimatedFare:       EstimatedFare,
-		MaxDistanceKm:       distance,
-		TimeoutSeconds:      30,
-		CorrelationID:       generateCorrelationID(),
 	}
 
 	if err := rs.RidesBroker.PushMessageToDrivers(rs.ctx, rideMsg); err != nil {

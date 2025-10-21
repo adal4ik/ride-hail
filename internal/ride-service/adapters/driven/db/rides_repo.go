@@ -34,7 +34,14 @@ func (rr *RidesRepo) GetDistance(ctx context.Context, req dto.RidesRequestDto) (
 }
 
 func (rr *RidesRepo) GetNumberRides(ctx context.Context) (int64, error) {
-	q := `SELECT COUNT(*) FROM rides`
+	q := `
+	SELECT 
+		COUNT(*) 
+	FROM 
+		rides
+	WHERE
+		created_at::date = current_date
+	`
 	db := rr.db.conn
 	row := db.QueryRow(ctx, q)
 	var count int64 = 0

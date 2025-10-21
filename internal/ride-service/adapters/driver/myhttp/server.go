@@ -60,12 +60,11 @@ func (s *Server) Run() error {
 	mylog.Info("Successful database connection")
 
 	// Initialize RabbitMQ connection
-	mb, err := bm.New(s.appCtx, *s.cfg, s.mylog)
+	mb, err := bm.New(s.appCtx, *s.cfg.RabbitMq, s.mylog)
 	if err != nil {
 		return fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 	s.mb = mb
-
 	mylog.Info("Successful message broker connection")
 
 	// Configure routes and handlers
@@ -153,5 +152,5 @@ func (s *Server) Configure() {
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 
 	// websocket routes
-	s.mux.Handle("/ws/passengers/{passenger_id}", nil)
+	// s.mux.Handle("/ws/passengers/{passenger_id}", nil)
 }

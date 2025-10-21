@@ -33,10 +33,10 @@ type RabbitMQ struct {
 }
 
 // create RabbitMQ adapter
-func New(ctx context.Context, cfg config.Config, mylog mylogger.Logger) (ports.IRidesBroker, error) {
+func New(ctx context.Context, rabbitmqCfg config.RabbitMqconfig, mylog mylogger.Logger) (ports.IRidesBroker, error) {
 	r := &RabbitMQ{
 		ctx:          ctx,
-		cfg:          *cfg.RabbitMq,
+		cfg:          rabbitmqCfg,
 		mylog:        mylog,
 		mu:           &sync.Mutex{},
 		reconnecting: false,

@@ -580,3 +580,28 @@
 {"timestamp":"2025-10-21T20:46:36+05:00","level":"INFO","message":"Auth Service starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service"}
 {"timestamp":"2025-10-21T20:46:36+05:00","level":"INFO","message":"Successful database connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service","action":"server_started","action":"db_connected"}
 {"timestamp":"2025-10-21T20:46:36+05:00","level":"INFO","message":"server is running","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-21T20:46:56+05:00","level":"INFO","message":"Ride Hail System starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-068","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-21T20:46:56+05:00","level":"INFO","message":"Ride Service starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-068","service":"ride-service"}
+{"timestamp":"2025-10-21T20:46:56+05:00","level":"INFO","message":"Successful database connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-068","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:46:56+05:00","level":"INFO","message":"Successful message broker connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-068","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:48:41+05:00","level":"INFO","message":"Ride Hail System starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-069","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-21T20:48:41+05:00","level":"INFO","message":"Ride Service starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-069","service":"ride-service"}
+{"timestamp":"2025-10-21T20:48:41+05:00","level":"INFO","message":"Successful database connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-069","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:48:41+05:00","level":"INFO","message":"Successful message broker connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-069","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:50:12+05:00","level":"INFO","message":"Ride Hail System starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-070","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-21T20:50:12+05:00","level":"INFO","message":"Ride Service starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-070","service":"ride-service"}
+{"timestamp":"2025-10-21T20:50:12+05:00","level":"INFO","message":"Successful database connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-070","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:50:12+05:00","level":"INFO","message":"Successful message broker connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-070","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:50:14+05:00","level":"INFO","message":"Ride Hail System starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-21T20:50:14+05:00","level":"INFO","message":"Ride Service starting up","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","service":"ride-service"}
+{"timestamp":"2025-10-21T20:50:14+05:00","level":"INFO","message":"Successful database connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:50:14+05:00","level":"INFO","message":"Successful message broker connection","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-21T20:50:14+05:00","level":"INFO","message":"server is running","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","service":"ride-service","action":"server_started","details":{"port":"3002"}}
+{"timestamp":"2025-10-21T20:50:18+05:00","level":"INFO","message":"creating a ride","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","service":"ride-service","action":"CreateRide","RideNumber":"RIDE_20251021_009","passenger-id":"5285f1bf-29a6-4a9d-afe6-4f7094bfc6e6","estimated-fare":3862.8800132409997,"distance":3.62880013241}
+{"timestamp":"2025-10-21T20:50:18+05:00","level":"INFO","message":"Inserting ride to BM","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","service":"ride-service","action":"CreateRide"}
+{"timestamp":"2025-10-21T20:50:18+05:00","level":"INFO","message":"successfully created a ride","hostname":"ALEM-F4-R01-08A","request_id":"startup-071","service":"ride-service","action":"CreateRide","ride-id":"c8186335-6720-4c26-b5b1-9b7726cede3b"}
+{"timestamp":"2025-10-21T21:11:03+05:00","level":"INFO","message":"Shutdown signal received","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service"}
+{"timestamp":"2025-10-21T21:11:03+05:00","level":"INFO","message":"Shutting down HTTP server...","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-21T21:11:03+05:00","level":"INFO","message":"Database closed","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-21T21:11:03+05:00","level":"INFO","message":"HTTP server shut down gracefully","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-21T21:11:03+05:00","level":"INFO","message":"Auth Service shut down successfully","hostname":"ALEM-F4-R01-08A","request_id":"startup-067","service":"auth-service"}
