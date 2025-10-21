@@ -10,21 +10,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type AuthRepo struct {
+type DriverRepo struct {
 	ctx context.Context
 	db  ports.IDB
 }
 
-func NewAuthRepo(ctx context.Context, db ports.IDB) *AuthRepo {
-	return &AuthRepo{
+func NewDriverRepo(ctx context.Context, db ports.IDB) *DriverRepo {
+	return &DriverRepo{
 		ctx: ctx,
 		db:  db,
 	}
 }
 
-var ErrUsernameUnknown = errors.New("unknown username")
-
-func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error) {
+func (ar *DriverRepo) Create(ctx context.Context, user models.Driver) (string, error) {
 	// Start a new transaction
 	tx, err := ar.db.GetConn().Begin(ctx)
 	if err != nil {
@@ -39,7 +37,7 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 	}()
 
 	// First query to insert the user
-	q := `INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id`
+	q := `INSERT INTO drivers (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id`
 	id := ""
 	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role)
 	if err = row.Scan(&id); err != nil {
@@ -54,7 +52,7 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 	return id, nil
 }
 
-func (ar *AuthRepo) GetByName(ctx context.Context, name string) (models.User, error) {
+func (ar *DriverRepo) GetByName(ctx context.Context, name string) (models.User, error) {
 	q := `
 		SELECT 
 			u.user_id,
@@ -73,6 +71,7 @@ func (ar *AuthRepo) GetByName(ctx context.Context, name string) (models.User, er
 	`
 
 	var u models.User
+	var refreshToken string
 	err := ar.db.GetConn().QueryRow(ctx, q, name).Scan(
 		&u.UserId,
 		&u.CreatedAt,
@@ -83,6 +82,7 @@ func (ar *AuthRepo) GetByName(ctx context.Context, name string) (models.User, er
 		&u.PasswordHash,
 		&u.Role,
 		&u.Attrs,
+		&refreshToken,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

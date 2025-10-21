@@ -122,19 +122,26 @@ func (s *Server) startHTTPServer() error {
 
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
-	// Repositories and services
-	authRepo := db.NewAuthRepo(s.ctx, s.db)
-
-	authService := service.NewAuthService(s.ctx, s.cfg, authRepo, s.mylog)
-
-	authHandler := handle.NewAuthHandler(authService, s.mylog)
-
 	authMiddle := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 
-	s.mux.Handle("POST /register", authHandler.Register())
-	s.mux.Handle("POST /login", authHandler.Login())
-	s.mux.Handle("POST /logout", authHandler.Logout())
-	s.mux.Handle("POST /protected", authMiddle.Middle(authHandler.Protected()))
+	// Repositories and services
+	authRepo := db.NewAuthRepo(s.ctx, s.db)
+	authService := service.NewAuthService(s.ctx, s.cfg, authRepo, s.mylog)
+	authHandler := handle.NewAuthHandler(authService, s.mylog)
+
+	s.mux.Handle("POST /user/register", authHandler.Register())
+	s.mux.Handle("POST /user/login", authHandler.Login())
+	s.mux.Handle("POST /user/logout", authHandler.Logout())
+	s.mux.Handle("POST /user/protected", authMiddle.Middle(authHandler.Protected()))
+
+	driverRepo := db.NewDriverRepo(s.ctx, s.db)
+	driverService := service.NewDriverService(s.ctx, s.cfg, driverRepo, s.mylog)
+	driverHandler := handle.NewDriverHandler(driverService, s.mylog)
+
+	s.mux.Handle("POST /driver/register", driverHandler.Register())
+	s.mux.Handle("POST /driver/login", driverHandler.Login())
+	s.mux.Handle("POST /driver/logout", driverHandler.Logout())
+	s.mux.Handle("POST /driver/protected", authMiddle.Middle(driverHandler.Protected()))
 }
 
 func (s *Server) initializeDatabase() error {

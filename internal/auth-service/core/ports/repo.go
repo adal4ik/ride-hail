@@ -15,7 +15,14 @@ type IDB interface {
 
 type IAuthRepo interface {
 	// user_id and error
-	Create(ctx context.Context, user models.User, refreshToken string) (string, error)
+	Create(ctx context.Context, user models.User) (string, error)
 	// user model, refresh token and error
-	GetUserByUsername(ctx context.Context, username string) (models.User, string, error)
+	GetByName(ctx context.Context, name string) (models.User, error)
+}
+
+type IDriverRepo interface {
+	// user_id and error
+	Create(ctx context.Context, user models.Driver) (string, error)
+	// user model, refresh token and error
+	GetByName(ctx context.Context, name string) (models.User, error)
 }

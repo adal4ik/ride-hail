@@ -9,44 +9,45 @@ import (
 	"ride-hail/internal/auth-service/core/ports"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
 )
 
-type AuthService struct {
-	ctx      context.Context
-	cfg      *config.Config
-	authRepo ports.IAuthRepo
-	mylog    mylogger.Logger
+type DriverService struct {
+	ctx        context.Context
+	cfg        *config.Config
+	driverRepo ports.IDriverRepo
+	mylog      mylogger.Logger
 }
 
-func NewAuthService(
+func NewDriverService(
 	ctx context.Context,
 	cfg *config.Config,
-	authRepo ports.IAuthRepo,
+	driverRepo ports.IDriverRepo,
 	mylogger mylogger.Logger,
-) *AuthService {
-	return &AuthService{
-		ctx:      ctx,
-		cfg:      cfg,
-		authRepo: authRepo,
-		mylog:    mylogger,
+) *DriverService {
+	return &DriverService{
+		ctx:        ctx,
+		cfg:        cfg,
+		driverRepo: driverRepo,
+		mylog:      mylogger,
 	}
 }
 
-func (as *AuthService) ValidateRegistration(ctx context.Context, regReq dto.RegistrationRequest) error {
-	as.mylog.Action("validation_started").Info("Validating registration request")
+func (ds *DriverService) ValidateRegistration(ctx context.Context, regReq dto.RegistrationRequest) error {
+	ds.mylog.Action("validation_started").Info("Validating registration request")
 
 	if err := validateName(regReq.Username); err != nil {
-		return fmt.Errorf("invalid username: %v", err)
+		return fmt.Errorf("invalid name: %v", err)
 	}
 
-	if err := validateEmail(regReq.Email); err != nil {
+	if err := ds.validateEmail(regReq.Email); err != nil {
 		return fmt.Errorf("invalid email: %v", err)
 	}
 
-	if err := validatePassword(regReq.Password); err != nil {
+	if err := ds.validatePassword(regReq.Password); err != nil {
 		return fmt.Errorf("invalid password: %v", err)
 	}
 
@@ -54,42 +55,70 @@ func (as *AuthService) ValidateRegistration(ctx context.Context, regReq dto.Regi
 		return fmt.Errorf("invalid role: %v", regReq.Role)
 	}
 
-	as.mylog.Action("validation_completed").Info("Registration successfully validated")
+	ds.mylog.Action("validation_completed").Info("Registration successfully validated")
 	return nil
 }
 
-func (as *AuthService) ValidateAuth(ctx context.Context, authReq dto.AuthRequest) error {
-	as.mylog.Action("validation_started").Info("Validating authentification request")
+func (ds *DriverService) ValidateAuth(ctx context.Context, authReq dto.AuthRequest) error {
+	ds.mylog.Action("validation_started").Info("Validating authentification request")
 
 	if err := validateName(authReq.Username); err != nil {
 		return fmt.Errorf("invalid username: %v", err)
 	}
 
-	if err := validatePassword(authReq.Password); err != nil {
+	if err := ds.validatePassword(authReq.Password); err != nil {
 		return fmt.Errorf("invalid password: %v", err)
 	}
 
-	as.mylog.Action("validation_completed").Info("Authentification successfully validated")
+	ds.mylog.Action("validation_completed").Info("Authentification successfully validated")
+	return nil
+}
+
+func (ds *DriverService) validateEmail(email string) error {
+	if email == "" {
+		return ErrFieldIsEmpty
+	}
+
+	emailLen := len(email)
+	if emailLen < MinEmailLen || emailLen > MaxEmailLen {
+		return fmt.Errorf("must be in range [%d, %d]", MinEmailLen, MaxEmailLen)
+	}
+
+	if strings.Count(email, "@") != 1 {
+		return fmt.Errorf("must contain only one @: %s", email)
+	}
+	return nil
+}
+
+func (ds *DriverService) validatePassword(password string) error {
+	if password == "" {
+		return ErrFieldIsEmpty
+	}
+
+	passwordLen := len(password)
+	if passwordLen < MinPasswordLen || passwordLen > MaxPasswordLen {
+		return fmt.Errorf("must be in range [%d, %d]", MinPasswordLen, MaxPasswordLen)
+	}
 	return nil
 }
 
 // ======================= Register =======================
 // access token, refresh token and error /////////////
-func (as *AuthService) Register(ctx context.Context, regReq dto.RegistrationRequest) (string, error) {
-	mylog := as.mylog.Action("Register")
+func (ds *DriverService) Register(ctx context.Context, regReq dto.RegistrationRequest) (string, error) {
+	mylog := ds.mylog.Action("Register")
 
 	hashedPassword, err := hashPassword(regReq.Password)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash password: %v", err)
 	}
-	user := models.User{
+	user := models.Driver{
 		Username:     regReq.Username,
 		Email:        regReq.Email,
 		PasswordHash: hashedPassword,
 		Role:         regReq.Role,
 	}
 	// add user to db
-	id, err := as.authRepo.Create(ctx, user)
+	id, err := ds.driverRepo.Create(ctx, user)
 	if err != nil {
 		if errors.Is(err, ErrUsernameTaken) {
 			mylog.Warn("Failed to register, username already taken")
@@ -110,7 +139,7 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.RegistrationRequ
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	})
 
-	accessTokenString, err := AccessToken.SignedString([]byte(as.cfg.App.PublicJwtSecret))
+	accessTokenString, err := AccessToken.SignedString([]byte(ds.cfg.App.PublicJwtSecret))
 	if err != nil {
 		mylog.Error("error to create jwt token", err)
 		return "", err
@@ -120,10 +149,10 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.RegistrationRequ
 	return accessTokenString, nil
 }
 
-func (as *AuthService) Login(ctx context.Context, authReq dto.AuthRequest) (string, error) {
-	mylog := as.mylog.Action("Login")
+func (ds *DriverService) Login(ctx context.Context, authReq dto.AuthRequest) (string, error) {
+	mylog := ds.mylog.Action("Login")
 
-	user, err := as.authRepo.GetByName(ctx, authReq.Username)
+	user, err := ds.driverRepo.GetByName(ctx, authReq.Username)
 	if err != nil {
 		if errors.Is(err, ErrUsernameUnknown) {
 			mylog.Warn("Failed to login, unknown username")
@@ -146,7 +175,7 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.AuthRequest) (stri
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	})
 
-	accesssTokenString, err := AccessTokenString.SignedString([]byte(as.cfg.App.PublicJwtSecret))
+	accesssTokenString, err := AccessTokenString.SignedString([]byte(ds.cfg.App.PublicJwtSecret))
 	if err != nil {
 		mylog.Error("error to create jwt token", err)
 		return "", err
@@ -156,10 +185,10 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.AuthRequest) (stri
 	return accesssTokenString, nil
 }
 
-func (as *AuthService) Logout(ctx context.Context, auth dto.AuthRequest) error {
+func (ds *DriverService) Logout(ctx context.Context, auth dto.AuthRequest) error {
 	return nil
 }
 
-func (as *AuthService) Protected(ctx context.Context, auth dto.AuthRequest) error {
+func (ds *DriverService) Protected(ctx context.Context, auth dto.AuthRequest) error {
 	return nil
 }
