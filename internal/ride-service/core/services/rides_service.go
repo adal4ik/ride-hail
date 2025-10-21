@@ -61,11 +61,14 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 
+	// estimate distance between pick up and destination points
 	distance, err := rs.RidesRepo.GetDistance(ctx, req)
 	if err != nil {
 		log.Error("cannot get distance between two points", err)
 		return dto.RidesResponseDto{}, err
 	}
+
+	// only for ride-number
 	numberOfRides, err := rs.RidesRepo.GetNumberRides(ctx)
 	if err != nil {
 		log.Error("cannot get number of rides", err)
@@ -73,7 +76,11 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	}
 
 	RideNumber := fmt.Sprintf("RIDE_%d%d%d_%0*d", time.Now().Year(), time.Now().Month(), time.Now().Day(), 3, numberOfRides)
-	var EstimatedFare float64
+
+	var (
+		EstimatedFare float64 = 0
+		Priority      int     = 1
+	)
 
 	switch req.RideType {
 	case ECONOMY:
@@ -86,14 +93,24 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		log.Warn("unkown ride type", "type", req.RideType)
 		return dto.RidesResponseDto{}, fmt.Errorf("unkown ride type")
 	}
+
+	if EstimatedFare >= 10000 {
+		Priority = 10
+	} else if EstimatedFare <= 1000 {
+		Priority = 1
+	} else {
+		Priority = int(EstimatedFare) / 1000
+	}
+
 	m = model.Rides{
 		RideNumber:    RideNumber,
 		PassengerId:   req.PassengerId,
 		Status:        "REQUESTED",
 		EstimatedFare: EstimatedFare,
 		FinalFare:     EstimatedFare,
-		Priority:      10,
+		Priority:      Priority,
 	}
+
 	m.PickupCoordinate = model.Coordinates{
 		EntityId:        req.PassengerId,
 		EntityType:      "PASSENGER",
@@ -105,7 +122,6 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		DurationMinutes: 0,
 		IsCurrent:       true,
 	}
-
 	m.DestinationCoordinate = model.Coordinates{
 		EntityId:        req.PassengerId,
 		EntityType:      "PASSENGER",
@@ -117,6 +133,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		DurationMinutes: 0,
 		IsCurrent:       true,
 	}
+	
 	log.Debug("creating a ride", "passenger-id", req.PassengerId, "estimated-fare", EstimatedFare)
 	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
