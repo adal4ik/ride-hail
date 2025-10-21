@@ -37,7 +37,6 @@ type RidesService struct {
 	RidesBroker    ports.IRidesBroker
 	RidesWebsocket ports.IRidesWebsocket
 	ctx            context.Context
-	mylog          mylogger.Logger
 }
 
 func NewRidesService(ctx context.Context,
@@ -59,7 +58,6 @@ func NewRidesService(ctx context.Context,
 func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDto, error) {
 	m := model.Rides{}
 	log := rs.mylog.Action("CreateRide")
-	// TODO: add log
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 
@@ -70,6 +68,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	}
 	numberOfRides, err := rs.RidesRepo.GetNumberRides(ctx)
 	if err != nil {
+		log.Error("cannot get number of rides", err)
 		return dto.RidesResponseDto{}, err
 	}
 
@@ -84,6 +83,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	case XL:
 		EstimatedFare = XL_BASE + (distance * XL_RATE_PER_KM) + (DEFUALT_RATE_PER_MIN * XL_RATE_PER_MIN)
 	default:
+		log.Warn("unkown ride type", "type", req.RideType)
 		return dto.RidesResponseDto{}, fmt.Errorf("unkown ride type")
 	}
 	m = model.Rides{
@@ -117,15 +117,27 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		DurationMinutes: 0,
 		IsCurrent:       true,
 	}
-
+	log.Debug("creating a ride", "passenger-id", req.PassengerId, "estimated-fare", EstimatedFare)
 	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
-	id, err := rs.RidesRepo.CreateRide(ctx, m)
+	ride_id, err := rs.RidesRepo.CreateRide(ctx, m)
 	if err != nil {
 		return dto.RidesResponseDto{}, err
 	}
+
+	// publish message to rabbitmq
+	log.Info("Inserting ride to BM")
+
+	rideMsg := messagebrokerdto.Ride{}
+
+	if err := rs.RidesBroker.PushMessageToDrivers(rs.ctx, rideMsg); err != nil {
+		log.Error("Failed to publish message", err)
+		return dto.RidesResponseDto{}, fmt.Errorf("cannot send message to broker: %w", err)
+	}
+
+	log.Info("successfully created a ride", "ride-id", ride_id)
 	res := dto.RidesResponseDto{
-		RideId:                   id,
+		RideId:                   ride_id,
 		RideNumber:               RideNumber,
 		Status:                   "REQUESTED",
 		EstimatedFare:            EstimatedFare,
