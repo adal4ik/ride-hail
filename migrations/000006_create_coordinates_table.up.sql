@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS coordinates (
-  coordinate_id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
+  coord_id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
   entity_id UUID NOT NULL, -- driver_id or passenger_id
