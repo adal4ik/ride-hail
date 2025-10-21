@@ -3,11 +3,12 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
-	"time"
 )
 
 const (
@@ -36,6 +37,7 @@ type RidesService struct {
 	RidesBroker    ports.IRidesBroker
 	RidesWebsocket ports.IRidesWebsocket
 	ctx            context.Context
+	mylog          mylogger.Logger
 }
 
 func NewRidesService(ctx context.Context,

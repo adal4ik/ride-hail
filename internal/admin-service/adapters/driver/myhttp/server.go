@@ -5,15 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
-	"time"
-
 	"ride-hail/internal/admin-service/adapters/driven/db"
 	"ride-hail/internal/admin-service/adapters/driver/myhttp/handle"
+	"ride-hail/internal/admin-service/adapters/driver/myhttp/middleware"
 	"ride-hail/internal/admin-service/core/ports"
 	"ride-hail/internal/admin-service/core/service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	"sync"
+	"time"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -132,9 +132,11 @@ func (s *Server) Configure() {
 	systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
 	activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
 
+	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
+
 	// Register routes
-	s.mux.Handle("GET /admin/overview", systemOverviewHandler.GetSystemOverview())
-	s.mux.Handle("GET /admin/rides/active", activeRidesHandler.GetActiveRides())
+	s.mux.Handle("GET /admin/overview", authMiddleware.Wrap(systemOverviewHandler.GetSystemOverview()))
+	s.mux.Handle("GET /admin/rides/active", authMiddleware.Wrap(activeRidesHandler.GetActiveRides()))
 }
 
 func (s *Server) initializeDatabase() error {

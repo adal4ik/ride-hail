@@ -1,7 +1,6 @@
 -- User roles enumeration
 CREATE TYPE roles AS ENUM (
   'PASSENGER', -- Passenger/Customer
-  'DRIVER', -- Driver
   'ADMIN' -- Administrator
 );
 
