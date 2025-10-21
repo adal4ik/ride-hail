@@ -105,7 +105,7 @@ func (sr *SystemOverviewRepo) GetHotspots(ctx context.Context) ([]dto.HotspotsPa
             0 as waiting_drivers
         FROM rides r
         JOIN coordinates c ON r.pickup_coord_id = c.coord_id
-        WHERE r.status IN ('REQUESTED', 'MATCHED', 'ARRIVED', 'STARTED')
+        WHERE r.status IN ('EN_ROUTE', 'ARRIVED', 'IN_PROGRESS')
           AND r.created_at >= CURRENT_DATE
         GROUP BY c.address, c.latitude, c.longitude
         
@@ -124,7 +124,7 @@ func (sr *SystemOverviewRepo) GetHotspots(ctx context.Context) ([]dto.HotspotsPa
           AND NOT EXISTS (
               SELECT 1 FROM rides r 
               WHERE r.driver_id = c.entity_id 
-              AND r.status IN ('MATCHED', 'ARRIVED', 'STARTED')
+              AND r.status IN ('REQUESTED', 'MATCHED')
           )
         GROUP BY c.address, c.latitude, c.longitude
     )
