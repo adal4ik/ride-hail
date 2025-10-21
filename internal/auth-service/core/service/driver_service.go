@@ -44,6 +44,10 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 		return "", err
 	}
 
+	if err := validateDriverRegistration(ctx, regReq.LicenseNumber, regReq.VehicleType, *regReq.VehicleAttrs); err != nil {
+		return "", err
+	}
+
 	hashedPassword, err := hashPassword(regReq.Password)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash password: %v", err)
