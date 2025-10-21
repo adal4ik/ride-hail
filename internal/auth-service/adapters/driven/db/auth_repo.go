@@ -4,29 +4,29 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"ride-hail/internal/auth-service/core/domain/models"
-	"ride-hail/internal/auth-service/core/ports"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type AuthRepo struct {
 	ctx context.Context
-	db  ports.IDB
+	db  *DB
 }
 
-func NewAuthRepo(ctx context.Context, db ports.IDB) *AuthRepo {
+func NewAuthRepo(ctx context.Context, db *DB) *AuthRepo {
 	return &AuthRepo{
 		ctx: ctx,
 		db:  db,
 	}
 }
 
-var ErrUsernameUnknown = errors.New("unknown username")
+var ErrUnknownEmail = errors.New("unknown email")
 
-func (ar *AuthRepo) Create(ctx context.Context, user models.User, refreshToken string) (string, error) {
+func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error) {
 	// Start a new transaction
-	tx, err := ar.db.GetConn().Begin(ctx)
+	tx, err := ar.db.conn.Begin(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to begin transaction: %v", err)
 	}
@@ -46,13 +46,6 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User, refreshToken s
 		return "", fmt.Errorf("failed to insert user: %v", err)
 	}
 
-	// Second query to insert the refresh token
-	q = `INSERT INTO jwt_tokens (user_id, refresh_token) VALUES ($1, $2)`
-	_, err = tx.Exec(ctx, q, id, refreshToken)
-	if err != nil {
-		return "", fmt.Errorf("failed to insert refresh token: %v", err)
-	}
-
 	// Commit the transaction
 	if err = tx.Commit(ctx); err != nil {
 		return "", fmt.Errorf("failed to commit transaction: %v", err)
@@ -61,7 +54,7 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User, refreshToken s
 	return id, nil
 }
 
-func (ar *AuthRepo) GetUserByUsername(ctx context.Context, username string) (models.User, string, error) {
+func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, error) {
 	q := `
 		SELECT 
 			u.user_id,
@@ -73,19 +66,14 @@ func (ar *AuthRepo) GetUserByUsername(ctx context.Context, username string) (mod
 			u.password_hash,
 			u.role,
 			u.attrs,
-			j.refresh_token
 		FROM 
 			users u
-		JOIN 
-			jwt_tokens j
-		ON u.user_id = j.user_id
 		WHERE
-			username = $1
+			u.email = $1
 	`
 
 	var u models.User
-	var refreshToken string
-	err := ar.db.GetConn().QueryRow(ctx, q, username).Scan(
+	err := ar.db.conn.QueryRow(ctx, q, name).Scan(
 		&u.UserId,
 		&u.CreatedAt,
 		&u.UpdatedAt,
@@ -95,14 +83,13 @@ func (ar *AuthRepo) GetUserByUsername(ctx context.Context, username string) (mod
 		&u.PasswordHash,
 		&u.Role,
 		&u.Attrs,
-		&refreshToken,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.User{}, "", ErrUsernameUnknown
+			return models.User{}, ErrUnknownEmail
 		}
-		return models.User{}, "", err
+		return models.User{}, err
 	}
 
-	return u, refreshToken, nil
+	return u, nil
 }

@@ -87,15 +87,15 @@ func New() (*Config, error) {
 		RabbitMq: &RabbitMqconfig{
 			Host:     getEnv("RABBITMQ_HOST", "localhost"),
 			Port:     getEnvInt("RABBITMQ_PORT", 5672),
-			User:     getEnv("RABBITMQ_USER", "guest"),
-			Password: getEnv("RABBITMQ_PASSWORD", "guest"),
+			User:     getEnv("RABBITMQ_USER", "admin"),
+			Password: getEnv("RABBITMQ_PASSWORD", "admin"),
 			VHost:    getEnv("RABBITMQ_VHOST", "fake-taxi"),
 		},
 		WS: &WebSocketconfig{
 			Port: getEnvInt("WS_PORT", 8080),
 		},
 		Srv: &Serviceconfig{
-			RideServicePort:           getEnv("RIDE_SERVICE_PORT", "3000"),
+			RideServicePort:           getEnv("RIDE_SERVICE_PORT", "3002"),
 			DriverLocationServicePort: getEnv("DRIVER_LOCATION_SERVICE_PORT", "3001"),
 			AdminServicePort:          getEnv("ADMIN_SERVICE_PORT", "3004"),
 			AuthServicePort:           getEnv("AUTH_SERVICE_PORT", "3010"),

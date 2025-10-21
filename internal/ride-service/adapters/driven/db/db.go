@@ -7,7 +7,6 @@ import (
 
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -22,7 +21,7 @@ type DB struct {
 }
 
 // Start initializes and returns a new DB instance with a single connection
-func New(ctx context.Context, dbCfg *config.DBconfig, mylog mylogger.Logger) (ports.IDB, error) {
+func New(ctx context.Context, dbCfg *config.DBconfig, mylog mylogger.Logger) (*DB, error) {
 	d := &DB{
 		cfg:          dbCfg,
 		ctx:          ctx,
@@ -36,10 +35,6 @@ func New(ctx context.Context, dbCfg *config.DBconfig, mylog mylogger.Logger) (po
 	}
 
 	return d, nil
-}
-
-func (d *DB) GetConn() *pgx.Conn {
-	return d.conn
 }
 
 // Close closes the connection

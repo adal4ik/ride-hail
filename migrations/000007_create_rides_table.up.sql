@@ -17,6 +17,6 @@ CREATE TABLE IF NOT EXISTS rides (
   cancellation_reason TEXT,
   estimated_fare DECIMAL(10, 2),
   final_fare DECIMAL(10, 2),
-  pickup_coord_id UUID REFERENCES coordinates (coordinate_id),
-  destination_coord_id UUID REFERENCES coordinates (coordinate_id)
+  pickup_coord_id UUID REFERENCES coordinates (coord_id),
+  destination_coord_id UUID REFERENCES coordinates (coord_id)
 );
