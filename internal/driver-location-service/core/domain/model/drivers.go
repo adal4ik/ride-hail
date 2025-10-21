@@ -19,3 +19,17 @@ type Summary struct {
 	Rides_completed int
 	Earnings        float64
 }
+
+// START RIDE
+
+type StartRide struct {
+	Ride_id         string
+	Driver_location DriverCoordinates
+}
+
+type StartRideResponse struct {
+	Ride_id    string
+	Status     string
+	Started_at string
+	Message    string
+}

@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"ride-hail/internal/driver-location-service/core/domain/model"
+	"time"
 )
 
 type DriverRepository struct {
@@ -91,7 +92,33 @@ func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (mo
 func (dr *DriverRepository) UpdateLocation() {
 }
 
-func (dr *DriverRepository) StartRide() {
+func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.StartRide) (model.StartRideResponse, error) {
+	UpdateRideStatusQuery :=
+		`
+		UPDATE rides
+		SET status = 'IN_PROGRESS'
+		WHERE ride_id = $1
+	`
+	_, err := dr.db.GetConn().Exec(ctx, UpdateRideStatusQuery, requestData.Ride_id)
+	if err != nil {
+		return model.StartRideResponse{}, err
+	}
+	UpdateDriverStatusQuery :=
+		`
+		UPDATE drivers
+		SET status = 'BUSY'
+		WHERE driver_id = $1
+	`
+	_, err = dr.db.GetConn().Exec(ctx, UpdateDriverStatusQuery, requestData.Driver_location.Driver_id)
+	if err != nil {
+		return model.StartRideResponse{}, err
+	}
+	// Created AT ??  WHERE to update it
+	var response model.StartRideResponse
+	response.Ride_id = requestData.Ride_id
+	response.Status = "BUSY"
+	response.Started_at = time.Now().String()
+	return response, nil
 }
 
 func (dr *DriverRepository) CompleteRide() {

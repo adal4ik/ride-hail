@@ -27,3 +27,16 @@ type Summary struct {
 	Rides_completed int     `json:"rides_completed"`
 	Earnings        float64 `json:"earnings"`
 }
+
+// START RIDE
+type StartRide struct {
+	Ride_id         string               `json:"ride_id"`
+	Driver_location DriverCoordinatesDTO `json:"driver_location"`
+}
+
+type StartRideResponse struct {
+	Ride_id    string `json:"ride_id"`
+	Status     string `json:"status"`
+	Started_at string `json:"started_at"`
+	Message    string `json:"message"`
+}

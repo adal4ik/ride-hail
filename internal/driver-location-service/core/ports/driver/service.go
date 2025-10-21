@@ -9,6 +9,6 @@ type IDriverService interface {
 	GoOnline(ctx context.Context, coord dto.DriverCoordinatesDTO) (dto.DriverOnlineResponse, error)
 	GoOffline(ctx context.Context, driver_id string) (dto.DriverOfflineRespones, error)
 	UpdateLocation()
-	StartRide()
+	StartRide(ctx context.Context, requestMessage dto.StartRide) (dto.StartRideResponse, error)
 	CompleteRide()
 }

@@ -54,7 +54,23 @@ func (ds *DriverService) GoOffline(ctx context.Context, driver_id string) (dto.D
 func (ds *DriverService) UpdateLocation() {
 }
 
-func (ds *DriverService) StartRide() {
+func (ds *DriverService) StartRide(ctx context.Context, requestMessage dto.StartRide) (dto.StartRideResponse, error) {
+	var requestedData model.StartRide
+	requestedData.Ride_id = requestMessage.Ride_id
+	requestedData.Driver_location.Driver_id = requestMessage.Driver_location.Driver_id
+	requestedData.Driver_location.Latitude = requestMessage.Driver_location.Latitude
+	requestedData.Driver_location.Longitude = requestMessage.Driver_location.Longitude
+	results, err := ds.repositories.StartRide(ctx, requestedData)
+	if err != nil {
+		return dto.StartRideResponse{}, err
+	}
+
+	var response dto.StartRideResponse
+	response.Message = "Ride started successfully"
+	response.Ride_id = results.Ride_id
+	response.Started_at = results.Started_at
+	response.Status = results.Status
+	return response, nil
 }
 
 func (ds *DriverService) CompleteRide() {

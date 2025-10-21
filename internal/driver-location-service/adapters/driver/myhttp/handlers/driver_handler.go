@@ -50,6 +50,7 @@ func (dh *DriverHandler) GoOffline(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusAccepted, res)
 }
 
+// IMPLEMENT!
 func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
 	req := dto.RidesRequestDto{}
 
@@ -68,14 +69,14 @@ func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) 
 }
 
 func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
-	req := dto.RidesRequestDto{}
+	req := dto.StartRide{}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	res, err := dh.driverService.StartRide(req)
+	ctx := context.Background()
+	res, err := dh.driverService.StartRide(ctx, req)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err)
 		return
