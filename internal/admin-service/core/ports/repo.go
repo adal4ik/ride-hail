@@ -21,5 +21,5 @@ type ISystemOverviewRepo interface {
 }
 
 type IActiveRidesRepo interface {
-	GetActiveRides(ctx context.Context) ([]dto.ActiveDrives, error)
+	GetActiveRides(ctx context.Context, page, pageSize int) (int, []dto.Ride, error)
 }

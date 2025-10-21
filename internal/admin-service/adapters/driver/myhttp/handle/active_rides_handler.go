@@ -60,10 +60,7 @@ func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 			return
 		}
 
-		// Calculate offset for SQL
-		offset := (page - 1) * pageSize
-
-		activeRides, err := dh.activeDrivesService.GetActiveRides(ctx, page, pageSize, offset)
+		activeRides, err := dh.activeDrivesService.GetActiveRides(ctx, page, pageSize)
 		if err != nil {
 			jsonError(w, http.StatusInternalServerError, fmt.Errorf("failed to get active rides: %v", err))
 			return
