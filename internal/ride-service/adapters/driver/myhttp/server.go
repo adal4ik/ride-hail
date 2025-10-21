@@ -14,6 +14,7 @@ import (
 	"ride-hail/internal/ride-service/adapters/driven/db"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/middleware"
+	"ride-hail/internal/ride-service/adapters/driver/myhttp/ws"
 	"ride-hail/internal/ride-service/core/ports"
 	"ride-hail/internal/ride-service/core/services"
 )
@@ -147,10 +148,11 @@ func (s *Server) Configure() {
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 	// Register routes
 
+	dispatcher := ws.NewDispathcer(s.mylog)
 	// TODO: add middleware
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 
 	// websocket routes
-	// s.mux.Handle("/ws/passengers/{passenger_id}", nil)
+	s.mux.Handle("/ws/passengers/{passenger_id}", dispatcher.WsHandler())
 }

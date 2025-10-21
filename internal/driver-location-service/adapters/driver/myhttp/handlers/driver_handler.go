@@ -59,13 +59,13 @@ func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	res, err := dh.driverService.UpdateLocation(req)
-	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err)
-		return
-	}
+	// res, err := dh.driverService.UpdateLocation(req)
+	// if err != nil {
+	// 	jsonError(w, http.StatusInternalServerError, err)
+	// 	return
+	// }
 
-	jsonResponse(w, http.StatusAccepted, res)
+	// jsonResponse(w, http.StatusAccepted, res)
 }
 
 func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
@@ -93,11 +93,11 @@ func (dh *DriverHandler) CompleteRide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := dh.driverService.CompleteRide(req)
-	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err)
-		return
-	}
+	// res, err := dh.driverService.CompleteRide(req)
+	// if err != nil {
+	// 	jsonError(w, http.StatusInternalServerError, err)
+	// 	return
+	// }
 
-	jsonResponse(w, http.StatusAccepted, res)
+	// jsonResponse(w, http.StatusAccepted, res)
 }
