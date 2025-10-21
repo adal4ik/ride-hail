@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"ride-hail/internal/config"
-	"ride-hail/internal/driver-location-service/core/ports"
+	ports "ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
 	"sync"
 	"time"
@@ -32,7 +32,7 @@ type RabbitMQ struct {
 }
 
 // create RabbitMQ adapter
-func New(ctx context.Context, rabbitmqCfg config.RabbitMqconfig, mylog mylogger.Logger) (ports.IRidesBroker, error) {
+func New(ctx context.Context, rabbitmqCfg config.RabbitMqconfig, mylog mylogger.Logger) (ports.IDriverBroker, error) {
 	r := &RabbitMQ{
 		ctx:          ctx,
 		cfg:          rabbitmqCfg,

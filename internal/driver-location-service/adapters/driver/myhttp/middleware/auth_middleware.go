@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt"
+	jwt "github.com/golang-jwt/jwt"
 )
 
 type AuthMiddleware struct {
@@ -17,7 +17,7 @@ func NewAuthMiddleware(accessSecret string) *AuthMiddleware {
 	}
 }
 
-func (am *AuthMiddleware) Wrap(next http.Handler) http.Handler {
+func (am *AuthMiddleware) SessionHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" {
