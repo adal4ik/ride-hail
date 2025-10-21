@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS drivers (
     driver_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    coord UUID FOREIGN KEY coordinates(coord_id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     license_number TEXT UNIQUE NOT NULL,
