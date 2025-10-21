@@ -23,7 +23,7 @@ var websocketUpgrader = websocket.Upgrader{
 }
 
 // ClientList is a map used to help manage a map of clients
-type ClientList map[*Client]bool
+type ClientList map[string]*Client
 
 type Dispatcher struct {
 	clients ClientList
@@ -38,7 +38,7 @@ func NewDispathcer(log mylogger.Logger) *Dispatcher {
 	}
 }
 
-func (d *Dispatcher) LoginHandler() http.HandlerFunc {
+func (d *Dispatcher) WsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := d.log.Action("loginHandler")
 		passengerId := r.PathValue("passenger_id")
@@ -54,29 +54,39 @@ func (d *Dispatcher) LoginHandler() http.HandlerFunc {
 			log.Error("cannot upgrade", err)
 			return
 		}
-		ctx := context.Background()
-		client := NewClient(ctx, conn, d, passengerId)
+		ctx, cancel := context.WithCancel(context.Background())
+		ctxAuth, cancelAuth := context.WithCancel(context.Background())
+
+		client := NewClient(ctx, conn, d, passengerId, cancelAuth)
 		d.AddClient(client)
 		go client.ReadMessage()
 		go client.WriteMessage()
-
-		select {
-		case <-time.After(time.Second * 5):
-			// close connection
-		case msg := <-client.egress:
-			if msg.Type != "auth" {
-			}
-
-		}
-
-
-
+		go d.StartTimerAuth(client, cancel, ctxAuth)
+		// select {
+		// case <-time.After(time.Second * 5):
+		// 	// close connection
+		// 	conn.Close()
+		// case msg := <-client.egress:
+		// 	if msg.Type != "auth" {
+		// 	}
+		// }
 	}
 }
+
+// TODO: write to client, via map, without any channel
 
 func (d *Dispatcher) AddClient(client *Client) {
 	d.Lock()
 	defer d.Unlock()
 
-	d.clients[client] = true
+	d.clients[client.passengerId] = client
+}
+
+func (d *Dispatcher) StartTimerAuth(client *Client, cancel context.CancelFunc, ctxAuth context.Context) {
+	select {
+	case <-time.After(time.Second * 5):
+		cancel()
+	case <-ctxAuth.Done():
+		return
+	}
 }

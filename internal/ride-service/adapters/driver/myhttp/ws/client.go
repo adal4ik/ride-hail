@@ -15,15 +15,17 @@ type Client struct {
 	dis         *Dispatcher
 	egress      chan websocketdto.Event
 	passengerId string
+	cancelAuth  context.CancelFunc
 }
 
-func NewClient(ctx context.Context, conn *websocket.Conn, dis *Dispatcher, passengerId string) *Client {
+func NewClient(ctx context.Context, conn *websocket.Conn, dis *Dispatcher, passengerId string, cancelAuth context.CancelFunc) *Client {
 	return &Client{
 		ctx:         ctx,
 		conn:        conn,
 		dis:         dis,
 		egress:      make(chan websocketdto.Event),
 		passengerId: passengerId,
+		cancelAuth:  cancelAuth,
 	}
 }
 
@@ -42,6 +44,10 @@ func (c *Client) ReadMessage() {
 
 		var req websocketdto.Event
 		if err := json.Unmarshal(payload, &req); err != nil {
+			continue
+		}
+		if req.Type == "auth"{
+			c.cancelAuth()
 		}
 	}
 }
@@ -52,13 +58,18 @@ func (c *Client) WriteMessage() {
 		case <-c.ctx.Done():
 			c.conn.Close()
 			return
-		case event, ok := <-c.egress:
+		case msg, ok := <-c.egress:
 			if !ok {
 				return
 			}
 
-			
-
+			data, err := json.Marshal(msg)
+			if err != nil {
+				return // closes the connection, should we really
+			}
+			// Write a Regular text message to the connection
+			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			}
 		}
 	}
 }
