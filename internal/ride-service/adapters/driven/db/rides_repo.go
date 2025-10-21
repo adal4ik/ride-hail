@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
@@ -10,10 +11,10 @@ import (
 )
 
 type RidesRepo struct {
-	db ports.IDB
+	db *DB
 }
 
-func NewRidesRepo(db ports.IDB) ports.IRidesRepo {
+func NewRidesRepo(db *DB) ports.IRidesRepo {
 	return &RidesRepo{
 		db: db,
 	}
@@ -22,7 +23,7 @@ func NewRidesRepo(db ports.IDB) ports.IRidesRepo {
 func (rr *RidesRepo) GetDistance(ctx context.Context, req dto.RidesRequestDto) (float64, error) {
 	q := `SELECT ST_Distance(ST_MakePoint($1, $2)::geography, ST_MakePoint($3, $4)::geography) / 1000 as distance_km`
 
-	db := rr.db.GetConn()
+	db := rr.db.conn
 	row := db.QueryRow(ctx, q, req.PickUpLongitude, req.PickUpLatitude, req.DestinationLongitude, req.DestinationLatitude)
 	distance := 0.0
 	err := row.Scan(&distance)
@@ -34,7 +35,7 @@ func (rr *RidesRepo) GetDistance(ctx context.Context, req dto.RidesRequestDto) (
 
 func (rr *RidesRepo) GetNumberRides(ctx context.Context) (int64, error) {
 	q := `SELECT COUNT(*) FROM rides`
-	db := rr.db.GetConn()
+	db := rr.db.conn
 	row := db.QueryRow(ctx, q)
 	var count int64 = 0
 	err := row.Scan(&count)
@@ -45,7 +46,7 @@ func (rr *RidesRepo) GetNumberRides(ctx context.Context) (int64, error) {
 }
 
 func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, error) {
-	conn := rr.db.GetConn()
+	conn := rr.db.conn
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return "", err
@@ -61,7 +62,7 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 			distance_km, 
 			duration_minutes, 
 			is_current
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING coordinate_id`
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING coord_id`
 
 	row := tx.QueryRow(ctx, q1,
 		m.PassengerId,
@@ -90,7 +91,7 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 			distance_km, 
 			duration_minutes, 
 			is_current
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING coordinate_id`
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING coord_id`
 
 	row = tx.QueryRow(ctx, q2,
 		m.PassengerId,
