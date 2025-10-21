@@ -11,7 +11,9 @@ import (
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/adapters/driven/db"
+	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/core/ports"
+	"ride-hail/internal/ride-service/core/services"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -30,7 +32,7 @@ type Server struct {
 	wg     sync.WaitGroup
 }
 
-func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) (*Server) {
+func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) *Server {
 	s := &Server{
 		ctx:    ctx,
 		appCtx: appCtx,
@@ -122,18 +124,19 @@ func (s *Server) startHTTPServer() error {
 
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
-	// Repositories and services
-	// systemOverviewRepo := db.NewSystemOverviewRepo(s.db)
-	// activeRidesRepo := db.NewActiveDrivesRepo(s.db)
+	// Repositories
+	rideRepo := db.NewRidesRepo(s.db)
 
-	// systemOverviewService := service.NewSystemOverviewService(s.ctx, s.mylog, systemOverviewRepo)
-	// activeRidesService := service.NewActiveDrivesService(s.ctx, s.mylog, activeRidesRepo)
+	// services
+	rideService := services.NewRidesService(s.appCtx, s.mylog, rideRepo, nil, nil)
 
-	// // systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
-	// // activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
+	// handlers
+	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
+	
+	// Register routes
 
-	// // Register routes
-	// s.mux.Handle("POST /rides", nil)
+	// TODO: add middleware
+	s.mux.Handle("POST /rides", rideHandler.CreateRide())
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 
 	// websocket routes

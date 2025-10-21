@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
 
@@ -18,11 +19,36 @@ func NewRidesRepo(db ports.IDB) ports.IRidesRepo {
 	}
 }
 
-func (rr RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, error) {
+func (rr *RidesRepo) GetDistance(ctx context.Context, req dto.RidesRequestDto) (float64, error) {
+	q := `SELECT ST_Distance(ST_MakePoint($1, $2)::geography, ST_MakePoint($3, $4)::geography) / 1000 as distance_km`
+
+	db := rr.db.GetConn()
+	row := db.QueryRow(ctx, q, req.PickUpLongitude, req.PickUpLatitude, req.DestinationLongitude, req.DestinationLatitude)
+	distance := 0.0
+	err := row.Scan(&distance)
+	if err != nil {
+		return 0.0, err
+	}
+	return distance, nil
+}
+
+func (rr *RidesRepo) GetNumberRides(ctx context.Context) (int64, error) {
+	q := `SELECT COUNT(*) FROM rides`
+	db := rr.db.GetConn()
+	row := db.QueryRow(ctx, q)
+	var count int64 = 0
+	err := row.Scan(&count)
+	if err != nil {
+		return 0.0, err
+	}
+	return count, nil
+}
+
+func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, error) {
 	conn := rr.db.GetConn()
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return "",err
+		return "", err
 	}
 	// pick up coordinates
 	q1 := `INSERT INTO coordinates(
@@ -35,11 +61,11 @@ func (rr RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, erro
 			distance_km, 
 			duration_minutes, 
 			is_current
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING coordinate_id`
 
 	row := tx.QueryRow(ctx, q1,
 		m.PassengerId,
-		"passenger",
+		m.PickupCoordinate.EntityType,
 		m.PickupCoordinate.Address,
 		m.PickupCoordinate.Latitude,
 		m.PickupCoordinate.Longitude,
@@ -64,11 +90,11 @@ func (rr RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, erro
 			distance_km, 
 			duration_minutes, 
 			is_current
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING coordinate_id`
 
 	row = tx.QueryRow(ctx, q2,
 		m.PassengerId,
-		"passenger",
+		m.DestinationCoordinate.EntityType,
 		m.DestinationCoordinate.Address,
 		m.DestinationCoordinate.Latitude,
 		m.DestinationCoordinate.Longitude,
@@ -90,10 +116,10 @@ func (rr RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, erro
 		priority, 
 		estimated_fare,
 		final_fare, 
-		pickup_coordinate_id, 
-		destination_coordinate_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
-	
-		row = tx.QueryRow(ctx, q3,
+		pickup_coord_id, 
+		destination_coord_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING ride_id`
+
+	row = tx.QueryRow(ctx, q3,
 		m.RideNumber,
 		m.PassengerId,
 		m.Status,
