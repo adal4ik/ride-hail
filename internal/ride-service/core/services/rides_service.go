@@ -3,10 +3,12 @@ package services
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
+	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
 )
@@ -133,8 +135,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		DurationMinutes: 0,
 		IsCurrent:       true,
 	}
-	
-	log.Debug("creating a ride", "passenger-id", req.PassengerId, "estimated-fare", EstimatedFare)
+	log.Info("creating a ride", "RideNumber", RideNumber, "passenger-id", req.PassengerId, "estimated-fare", EstimatedFare, "distance", distance)
 	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 	ride_id, err := rs.RidesRepo.CreateRide(ctx, m)
@@ -145,7 +146,29 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	// publish message to rabbitmq
 	log.Info("Inserting ride to BM")
 
-	rideMsg := messagebrokerdto.Ride{}
+	log.Debug("Debugging", "RideNumber", RideNumber)
+
+	rideMsg := messagebrokerdto.Ride{
+		RideID:         ride_id,
+		RideNumber:     RideNumber,
+		RideType:       req.RideType,
+		EstimatedFare:  EstimatedFare,
+		MaxDistanceKm:  distance,
+		TimeoutSeconds: 30,
+		CorrelationID:  generateCorrelationID(),
+	}
+
+	rideMsg.PickupLocation = messagebrokerdto.Location{
+		Lat:     req.PickUpLatitude,
+		Lng:     req.PickUpLongitude,
+		Address: req.PickUpAddress,
+	}
+
+	rideMsg.DestinationLocation = messagebrokerdto.Location{
+		Lat:     req.DestinationLatitude,
+		Lng:     req.DestinationLongitude,
+		Address: req.DestinationAddress,
+	}
 
 	if err := rs.RidesBroker.PushMessageToDrivers(rs.ctx, rideMsg); err != nil {
 		log.Error("Failed to publish message", err)
@@ -162,4 +185,25 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		EstimatedDurationMinutes: distance / DEFUALT_RATE_PER_MIN,
 	}
 	return res, nil
+}
+
+// Generate a new UUID as a correlation ID
+func generateCorrelationID() string {
+	// Define the character set (lowercase, uppercase, and digits)
+	charSet := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	// Seed the random number generator for true randomness
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// Generate a random length for the string, ensuring at least 3 characters
+	n := rand.Intn(3) + 3
+
+	// Pre-allocate the slice for the correlation ID
+	b := make([]rune, n)
+
+	// Create the random part of the ID
+	for i := range b {
+		b[i] = charSet[rand.Intn(len(charSet))]
+	}
+	return "req_" + string(b)
 }

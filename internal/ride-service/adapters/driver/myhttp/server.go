@@ -10,6 +10,7 @@ import (
 
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/adapters/driven/bm"
 	"ride-hail/internal/ride-service/adapters/driven/db"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/middleware"
@@ -26,7 +27,8 @@ type Server struct {
 	cfg    *config.Config
 	srv    *http.Server
 	mylog  mylogger.Logger
-	db     ports.IDB
+	db     *db.DB
+	mb     ports.IRidesBroker
 	ctx    context.Context
 	appCtx context.Context
 	mu     sync.Mutex
@@ -56,6 +58,14 @@ func (s *Server) Run() error {
 	}
 	s.db = db
 	mylog.Info("Successful database connection")
+
+	// Initialize RabbitMQ connection
+	mb, err := bm.New(s.appCtx, *s.cfg.RabbitMq, s.mylog)
+	if err != nil {
+		return fmt.Errorf("failed to connect to rabbitmq: %w", err)
+	}
+	s.mb = mb
+	mylog.Info("Successful message broker connection")
 
 	// Configure routes and handlers
 	s.Configure()
@@ -129,18 +139,18 @@ func (s *Server) Configure() {
 	rideRepo := db.NewRidesRepo(s.db)
 
 	// services
-	rideService := services.NewRidesService(s.appCtx, s.mylog, rideRepo, nil, nil)
+	rideService := services.NewRidesService(s.appCtx, s.mylog, rideRepo, s.mb, nil)
 
 	// handlers
 	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
 
-	// middleware
-	rideMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
-	
+	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 	// Register routes
-	s.mux.Handle("POST /rides", rideMiddleware.Wrap(rideHandler.CreateRide()))
+
+	// TODO: add middleware
+	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 
 	// websocket routes
-	s.mux.Handle("/ws/passengers/{passenger_id}", nil)
+	// s.mux.Handle("/ws/passengers/{passenger_id}", nil)
 }
