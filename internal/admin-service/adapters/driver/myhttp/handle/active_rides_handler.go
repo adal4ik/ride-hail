@@ -2,13 +2,13 @@ package handle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
-	"time"
-
 	"ride-hail/internal/admin-service/core/service"
 	"ride-hail/internal/mylogger"
+	"strconv"
+	"time"
 )
 
 type ActiveDrivesHandler struct {
@@ -25,6 +25,13 @@ func NewActiveDrivesHandler(mylog mylogger.Logger, activeDrivesService *service.
 
 func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		userRole := r.Header.Get("X-Role")
+
+		if userRole != "ADMIN" {
+			jsonError(w, http.StatusForbidden, errors.New("only admins allowed to use this service"))
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), WaitTime*time.Second)
 		defer cancel()
 

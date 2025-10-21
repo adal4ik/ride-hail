@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
+	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
-	"time"
 )
 
 const (
@@ -36,17 +38,18 @@ type RidesService struct {
 	RidesBroker    ports.IRidesBroker
 	RidesWebsocket ports.IRidesWebsocket
 	ctx            context.Context
+	mylog          mylogger.Logger
 }
 
 func NewRidesService(ctx context.Context,
-	log mylogger.Logger,
+	mylog mylogger.Logger,
 	RidesRepo ports.IRidesRepo,
 	RidesBroker ports.IRidesBroker,
 	RidesWebsocket ports.IRidesWebsocket,
 ) ports.IRidesService {
 	return &RidesService{
 		ctx:            ctx,
-		mylog:          log,
+		mylog:          mylog,
 		RidesRepo:      RidesRepo,
 		RidesBroker:    RidesBroker,
 		RidesWebsocket: RidesWebsocket,
@@ -122,14 +125,16 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	if err != nil {
 		return dto.RidesResponseDto{}, err
 	}
-	log.Info("successfully created a ride", "ride-id", ride_id)
-	res := dto.RidesResponseDto{
-		RideId:                   ride_id,
-		RideNumber:               RideNumber,
-		Status:                   "REQUESTED",
-		EstimatedFare:            EstimatedFare,
-		EstimatedDistanceKm:      distance,
-		EstimatedDurationMinutes: distance / DEFUALT_RATE_PER_MIN,
+
+	// publish message to rabbitmq
+	mylog.Info("Inserting ride to BM")
+
+	rideMsg := messagebrokerdto.Ride{}
+
+	if err := rs.RidesBroker.PushMessage(rs.ctx, rideMsg); err != nil {
+		mylog.Error("Failed to publish message", err)
+		return dto.RidesResponseDto{}, fmt.Errorf("cannot send message to broker: %w", err)
 	}
-	return res, nil
+
+	return dto.RidesResponseDto{}, nil
 }
