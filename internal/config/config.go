@@ -87,8 +87,8 @@ func New() (*Config, error) {
 		RabbitMq: &RabbitMqconfig{
 			Host:     getEnv("RABBITMQ_HOST", "localhost"),
 			Port:     getEnvInt("RABBITMQ_PORT", 5672),
-			User:     getEnv("RABBITMQ_USER", "guest"),
-			Password: getEnv("RABBITMQ_PASSWORD", "guest"),
+			User:     getEnv("RABBITMQ_USER", "admin"),
+			Password: getEnv("RABBITMQ_PASSWORD", "admin"),
 			VHost:    getEnv("RABBITMQ_VHOST", "fake-taxi"),
 		},
 		WS: &WebSocketconfig{
