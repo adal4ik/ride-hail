@@ -145,13 +145,21 @@ func (s *Server) Configure() {
 	// handlers
 	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
 
+<<<<<<< HEAD
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 	// Register routes
 
 	// TODO: add middleware
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
+=======
+	// middleware
+	rideMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
+	
+	// Register routes
+	s.mux.Handle("POST /rides", rideMiddleware.Wrap(rideHandler.CreateRide()))
+>>>>>>> e779f2890427f140a43139941bad92198861519e
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 
 	// websocket routes
-	//
+	s.mux.Handle("/ws/passengers/{passenger_id}", nil)
 }
