@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/domain/models"
 	"ride-hail/internal/auth-service/core/ports"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"time"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -35,48 +36,13 @@ func NewAuthService(
 	}
 }
 
-func (as *AuthService) ValidateRegistration(ctx context.Context, regReq dto.RegistrationRequest) error {
-	as.mylog.Action("validation_started").Info("Validating registration request")
-
-	if err := validateName(regReq.Username); err != nil {
-		return fmt.Errorf("invalid username: %v", err)
-	}
-
-	if err := validateEmail(regReq.Email); err != nil {
-		return fmt.Errorf("invalid email: %v", err)
-	}
-
-	if err := validatePassword(regReq.Password); err != nil {
-		return fmt.Errorf("invalid password: %v", err)
-	}
-
-	if !AllowedRoles[regReq.Role] {
-		return fmt.Errorf("invalid role: %v", regReq.Role)
-	}
-
-	as.mylog.Action("validation_completed").Info("Registration successfully validated")
-	return nil
-}
-
-func (as *AuthService) ValidateAuth(ctx context.Context, authReq dto.AuthRequest) error {
-	as.mylog.Action("validation_started").Info("Validating authentification request")
-
-	if err := validateName(authReq.Username); err != nil {
-		return fmt.Errorf("invalid username: %v", err)
-	}
-
-	if err := validatePassword(authReq.Password); err != nil {
-		return fmt.Errorf("invalid password: %v", err)
-	}
-
-	as.mylog.Action("validation_completed").Info("Authentification successfully validated")
-	return nil
-}
-
 // ======================= Register =======================
-// access token, refresh token and error /////////////
-func (as *AuthService) Register(ctx context.Context, regReq dto.RegistrationRequest) (string, error) {
+func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistrationRequest) (string, error) {
 	mylog := as.mylog.Action("Register")
+
+	if err := validateRegistration(ctx, regReq.Username, regReq.Email, regReq.Password); err != nil {
+		return "", err
+	}
 
 	hashedPassword, err := hashPassword(regReq.Password)
 	if err != nil {
@@ -104,10 +70,10 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.RegistrationRequ
 	}
 
 	AccessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id":  id,
-		"username": regReq.Username,
-		"role":     regReq.Role,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(),
+		"user_id": id,
+		"email":   regReq.Email,
+		"role":    regReq.Role,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	})
 
 	accessTokenString, err := AccessToken.SignedString([]byte(as.cfg.App.PublicJwtSecret))
@@ -120,12 +86,16 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.RegistrationRequ
 	return accessTokenString, nil
 }
 
-func (as *AuthService) Login(ctx context.Context, authReq dto.AuthRequest) (string, error) {
+func (as *AuthService) Login(ctx context.Context, authReq dto.UserAuthRequest) (string, error) {
 	mylog := as.mylog.Action("Login")
 
-	user, err := as.authRepo.GetByName(ctx, authReq.Username)
+	if err := validateLogin(ctx, authReq.Email, authReq.Password); err != nil {
+		return "", err
+	}
+
+	user, err := as.authRepo.GetByEmail(ctx, authReq.Email)
 	if err != nil {
-		if errors.Is(err, ErrUsernameUnknown) {
+		if errors.Is(err, ErrUnknownEmail) {
 			mylog.Warn("Failed to login, unknown username")
 			return "", err
 		}
@@ -140,10 +110,10 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.AuthRequest) (stri
 	}
 
 	AccessTokenString := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id":  user.UserId,
-		"username": authReq.Username,
-		"role":     user.Role,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(),
+		"user_id": user.UserId,
+		"email":   authReq.Email,
+		"role":    user.Role,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	})
 
 	accesssTokenString, err := AccessTokenString.SignedString([]byte(as.cfg.App.PublicJwtSecret))
@@ -156,10 +126,10 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.AuthRequest) (stri
 	return accesssTokenString, nil
 }
 
-func (as *AuthService) Logout(ctx context.Context, auth dto.AuthRequest) error {
+func (as *AuthService) Logout(ctx context.Context, auth dto.UserAuthRequest) error {
 	return nil
 }
 
-func (as *AuthService) Protected(ctx context.Context, auth dto.AuthRequest) error {
+func (as *AuthService) Protected(ctx context.Context, auth dto.UserAuthRequest) error {
 	return nil
 }

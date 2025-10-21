@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
+
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/mylogger"
-	"time"
 )
 
 type AuthHandler struct {
@@ -31,7 +32,7 @@ var (
 
 func (ah *AuthHandler) Register() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var regReq dto.RegistrationRequest
+		var regReq dto.UserRegistrationRequest
 
 		mylog := ah.mylog.Action("Register")
 
@@ -45,25 +46,19 @@ func (ah *AuthHandler) Register() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), WaitTime*time.Second)
 		defer cancel()
 
-		if err := ah.authService.ValidateRegistration(ctx, regReq); err != nil {
-			jsonError(w, http.StatusBadRequest, err)
-			return
-		}
-
-		accessToken, refreshToken, err := ah.authService.Register(ctx, regReq)
+		accessToken, err := ah.authService.Register(ctx, regReq)
 		if err != nil {
 			if errors.Is(err, ErrEmailRegistered) || errors.Is(err, ErrUsernameTaken) {
 				jsonError(w, http.StatusBadRequest, err)
 				return
 			}
-			jsonError(w, http.StatusInternalServerError, errors.New("failed to register"))
+			jsonError(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		jsonResponse(w, http.StatusOK, map[string]string{
-			"msg":         fmt.Sprintf("%s registered successfully!", regReq.Username),
-			"jwt_access":  accessToken,
-			"jwt_refresh": refreshToken,
+			"msg":        fmt.Sprintf("%s registered successfully!", regReq.Username),
+			"jwt_access": accessToken,
 		})
 		mylog.Info("Successfully registered!")
 	}
@@ -71,7 +66,7 @@ func (ah *AuthHandler) Register() http.HandlerFunc {
 
 func (ah *AuthHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var authReq dto.AuthRequest
+		var authReq dto.UserAuthRequest
 
 		mylog := ah.mylog.Action("Register")
 
@@ -85,21 +80,15 @@ func (ah *AuthHandler) Login() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), WaitTime*time.Second)
 		defer cancel()
 
-		if err := ah.authService.ValidateAuth(ctx, authReq); err != nil {
-			jsonError(w, http.StatusBadRequest, err)
-			return
-		}
-
-		accessToken, refreshToken, err := ah.authService.Login(ctx, authReq)
+		accessToken, err := ah.authService.Login(ctx, authReq)
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, errors.New("failed to login"))
+			jsonError(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		jsonResponse(w, http.StatusOK, map[string]string{
-			"msg":         fmt.Sprintf("%s login successfully!", authReq.Username),
-			"jwt_access":  accessToken,
-			"jwt_refresh": refreshToken,
+			"msg":        "Successfully login!",
+			"jwt_access": accessToken,
 		})
 		ah.mylog.Info("Successfully login!")
 	}

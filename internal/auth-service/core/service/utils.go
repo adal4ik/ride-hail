@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -31,11 +32,38 @@ var AllowedRoles = map[string]bool{
 
 var (
 	ErrFieldIsEmpty    = errors.New("field is empty")
-	ErrUsernameUnknown = errors.New("unknown username")
+	ErrUnknownEmail    = errors.New("unknown email")
 	ErrPasswordUnknown = errors.New("unknown password")
 	ErrUsernameTaken   = errors.New("username already taken")
 	ErrEmailRegistered = errors.New("email already registered")
 )
+
+func validateRegistration(ctx context.Context, username, email, password string) error {
+	if err := validateName(username); err != nil {
+		return fmt.Errorf("invalid name: %v", err)
+	}
+
+	if err := validateEmail(email); err != nil {
+		return fmt.Errorf("invalid email: %v", err)
+	}
+
+	if err := validatePassword(password); err != nil {
+		return fmt.Errorf("invalid password: %v", err)
+	}
+
+	return nil
+}
+
+func validateLogin(ctx context.Context, email, password string) error {
+	if err := validateEmail(email); err != nil {
+		return fmt.Errorf("invalid username: %v", err)
+	}
+
+	if err := validatePassword(password); err != nil {
+		return fmt.Errorf("invalid password: %v", err)
+	}
+	return nil
+}
 
 func validateName(username string) error {
 	if username == "" {
