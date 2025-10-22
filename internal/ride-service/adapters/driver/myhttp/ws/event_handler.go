@@ -62,6 +62,7 @@ func (eh *EventHandler) AuthHandler(client *Client, e websocketdto.Event) error 
 	if time.Now().Unix() > exp {
 		return fmt.Errorf("nigga time is up")
 	}
+	client.cancelAuth()
 
 	return nil
 }
