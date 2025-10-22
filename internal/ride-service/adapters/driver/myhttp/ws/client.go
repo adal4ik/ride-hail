@@ -89,7 +89,6 @@ func (c *Client) WriteMessage() {
 			data, err := json.Marshal(msg)
 			if err != nil {
 				log.Error("cannot marshal message", err)
-
 				return // closes the connection, should we really
 			}
 			// Write a Regular text message to the connection

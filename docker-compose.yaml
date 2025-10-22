@@ -55,7 +55,7 @@ services:
     env_file: .env
     volumes:
       - ./logs/:/app/logs/
-    restart: on-failure
+    # restart: on-failure
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,6 +65,24 @@ services:
         condition: service_completed_successfully
     ports:
       - "3000:${RIDE_HTTP_PORT:-3000}"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: docker/auth-service.Dockerfile
+    env_file: .env
+    volumes:
+      - ./logs/:/app/logs/
+    # restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3010:${AUTH_SERVICE_PORT:-3010}"
 
   # driver-location-service:
   #   build:

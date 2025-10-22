@@ -17,7 +17,7 @@ func NewPassengerRepo(db *DB) ports.IPassengerRepo {
 }
 
 func (pr *PassengerRepo) Find(ctx context.Context, passengerId string) (string, error) {
-	q := `SELECT roles FROM users WHERE user_id = $1`
+	q := `SELECT role FROM users WHERE user_id = $1`
 
 	conn := pr.db.conn
 

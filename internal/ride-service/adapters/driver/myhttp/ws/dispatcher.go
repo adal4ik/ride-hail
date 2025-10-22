@@ -43,6 +43,7 @@ type Dispatcher struct {
 func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader EventHandler) *Dispatcher {
 	return &Dispatcher{
 		clients:          make(ClientList),
+		hander: make(map[string]EventHandle),
 		PassengerService: passengerRepo,
 		log:              log,
 		eventHandler:     eventHader,
@@ -66,10 +67,12 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 
 		ok, err := d.PassengerService.FindPassenger(passengerId)
 		if err != nil {
+			log.Error("db problem", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if !ok {
+			log.Warn("user doesnt exist")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}

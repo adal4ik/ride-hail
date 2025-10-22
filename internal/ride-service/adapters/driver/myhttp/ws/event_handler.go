@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
@@ -42,26 +41,26 @@ func (eh *EventHandler) AuthHandler(client *Client, e websocketdto.Event) error 
 	}
 	claims, ok := tokenJWT.Claims.(jwt.MapClaims)
 	if !ok {
-		return fmt.Errorf("nigga go off")
+		return fmt.Errorf("cannot get claim")
 	}
 
 	userId, ok := claims["user_id"].(string)
 	if !ok {
-		return fmt.Errorf("nigga go off")
+		return fmt.Errorf("cannot get user_id")
 	}
 
 	if client.passengerId != userId {
-		return fmt.Errorf("nigga go off")
+		return fmt.Errorf("different id's")
 	}
 
-	exp, ok := claims["exp"].(int64)
-	if !ok {
-		return fmt.Errorf("nigga go off")
-	}
+	// exp, ok := claims["exp"].(int64)
+	// if !ok {
+	// 	return fmt.Errorf("no exp")
+	// }
 
-	if time.Now().Unix() > exp {
-		return fmt.Errorf("nigga time is up")
-	}
+	// if time.Now().Unix() > exp {
+	// 	return fmt.Errorf("nigga time is up")
+	// }
 	client.cancelAuth()
 
 	return nil
