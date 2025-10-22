@@ -72,7 +72,7 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistration
 		"user_id": id,
 		"email":   regReq.Email,
 		"role":    regReq.Role,
-		"exp":     time.Now().Add(time.Second * 5).Format(time.RFC3339),
+		"exp":     time.Now().Add(time.Hour * 27 * 7).Unix(),
 	})
 	mylog.Info(as.cfg.App.PublicJwtSecret)
 	accessTokenString, err := AccessToken.SignedString([]byte(as.cfg.App.PublicJwtSecret))
@@ -112,7 +112,7 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.UserAuthRequest) (
 		"user_id": user.UserId,
 		"email":   authReq.Email,
 		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 27 * 7).Format(time.RFC3339),
+		"exp":     time.Now().Add(time.Hour * 27 * 7).Unix(),
 	})
 
 	accesssTokenString, err := AccessTokenString.SignedString([]byte(as.cfg.App.PublicJwtSecret))

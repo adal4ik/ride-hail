@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -29,7 +30,7 @@ func (am *AuthMiddleware) Wrap(next http.Handler) http.Handler {
 			return []byte(am.accessSecret), nil
 		})
 		if err != nil {
-			http.Error(w, "Failed to parse JWT-Token", http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Failed to parse JWT-Token: %v", err), http.StatusBadRequest)
 			return
 		}
 
@@ -56,15 +57,8 @@ func (am *AuthMiddleware) Wrap(next http.Handler) http.Handler {
 			return
 		}
 
-		expirationDate, ok := claims["exp"].(string)
-		if !ok {
-			http.Error(w, "expiration date not found in token", http.StatusUnauthorized)
-			return
-		}
-
 		r.Header.Set("X-UserId", userId)
 		r.Header.Set("X-Role", role)
-		r.Header.Set("X-Exp", expirationDate)
 
 		next.ServeHTTP(w, r)
 	})

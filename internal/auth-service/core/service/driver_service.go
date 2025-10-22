@@ -78,7 +78,7 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 		"user_id":  id,
 		"username": regReq.Username,
 		"role":     "DRIVER",
-		"exp":      time.Now().Add(time.Hour * 27 * 7).Format(time.RFC3339),
+		"exp":      time.Now().Add(time.Hour * 27 * 7).Unix(),
 	})
 
 	accessTokenString, err := AccessToken.SignedString([]byte(ds.cfg.App.PublicJwtSecret))
@@ -118,7 +118,7 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverRegistrati
 		"user_id":  user.DriverId,
 		"username": authReq.Username,
 		"role":     "DRIVER",
-		"exp":      time.Now().Add(time.Hour * 27 * 7).Format(time.RFC3339),
+		"exp":      time.Now().Add(time.Hour * 27 * 7).Unix(),
 	})
 
 	accesssTokenString, err := AccessTokenString.SignedString([]byte(ds.cfg.App.PublicJwtSecret))
