@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
-	"time"
-
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/ports"
+	"sync"
+	"time"
 
 	messagebroker "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 
@@ -64,6 +63,7 @@ func (r *RabbitMQ) PushMessageToDrivers(ctx context.Context, message messagebrok
 	return r.ch.PublishWithContext(ctx, exchange, routingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
+		Priority:     uint8(message.Priority),
 		Body:         body,
 	})
 }

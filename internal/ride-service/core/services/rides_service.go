@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"time"
-
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
-	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
+	"time"
+
+	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 )
 
 const (
@@ -77,7 +77,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		return dto.RidesResponseDto{}, err
 	}
 
-	RideNumber := fmt.Sprintf("RIDE_%d%d%d_%0*d", time.Now().Year(), time.Now().Month(), time.Now().Day(), 3, numberOfRides)
+	RideNumber := fmt.Sprintf("RIDE_%d%d%d_%0*d", time.Now().Year(), time.Now().Month(), time.Now().Day(), 3, numberOfRides+1)
 
 	var (
 		EstimatedFare float64 = 0
@@ -96,6 +96,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		return dto.RidesResponseDto{}, fmt.Errorf("unkown ride type")
 	}
 
+	// PRIORITY estimate
 	if EstimatedFare >= 10000 {
 		Priority = 10
 	} else if EstimatedFare <= 1000 {
@@ -155,6 +156,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		EstimatedFare:  EstimatedFare,
 		MaxDistanceKm:  distance,
 		TimeoutSeconds: 30,
+		Priority:       Priority,
 		CorrelationID:  generateCorrelationID(),
 	}
 

@@ -3,11 +3,21 @@ package ws
 import (
 	"context"
 	"encoding/json"
-
 	"ride-hail/internal/mylogger"
+	"time"
+
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
 	"github.com/gorilla/websocket"
+)
+
+var (
+	// pongWait is how long we will await a pong response from client
+	pongWait = 10 * time.Second
+	// pingInterval has to be less than pongWait, We cant multiply by 0.9 to get 90% of time
+	// Because that can make decimals, so instead *9 / 10 to get 90%
+	// The reason why it has to be less than PingRequency is becuase otherwise it will send a new Ping before getting response
+	pingInterval = (pongWait * 9) / 10
 )
 
 // TODO: add logging, add main function to sent event for the client, ping pong
@@ -40,6 +50,8 @@ func (c *Client) ReadMessage() {
 	log := c.log.Action("ReadMessage").With("passenger-id", c.passengerId)
 	c.conn.SetReadLimit(1024)
 
+	c.conn.SetPongHandler(c.PingHandler)
+
 	// loop forever
 	for {
 		_, payload, err := c.conn.ReadMessage()
@@ -70,6 +82,8 @@ func (c *Client) WriteMessage() {
 	}()
 	log := c.log.Action("WriteMessage").With("passenger-id", c.passengerId)
 
+	ticker := time.NewTicker(pingInterval)
+
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -95,6 +109,19 @@ func (c *Client) WriteMessage() {
 			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
 				log.Error("cannot write message", err)
 			}
+		case <-ticker.C:
+			log.Info("ping")
+
+			if err := c.conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+				log.Error("write to ping", err)
+				return // return to break this goroutine triggeing cleanup
+			}
 		}
 	}
+}
+
+func (c *Client) PingHandler(pongMessage string) error {
+	log := c.log.Action("PingHandler").With("passenger-id", c.passengerId)
+	log.Info("pong")
+	return c.conn.SetReadDeadline(time.Now().Add(pongWait))
 }
