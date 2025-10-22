@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
@@ -53,14 +54,14 @@ func (eh *EventHandler) AuthHandler(client *Client, e websocketdto.Event) error 
 		return fmt.Errorf("different id's")
 	}
 
-	// exp, ok := claims["exp"].(int64)
-	// if !ok {
-	// 	return fmt.Errorf("no exp")
-	// }
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return fmt.Errorf("no exp")
+	}
 
-	// if time.Now().Unix() > exp {
-	// 	return fmt.Errorf("nigga time is up")
-	// }
+	if time.Now().Unix() > int64(exp) {
+		return fmt.Errorf("nigga time is up")
+	}
 	client.cancelAuth()
 
 	return nil

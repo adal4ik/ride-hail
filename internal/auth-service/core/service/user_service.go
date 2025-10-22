@@ -73,9 +73,9 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistration
 		"user_id": id,
 		"email":   regReq.Email,
 		"role":    regReq.Role,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"exp":     time.Now().Add(time.Hour * 100).Unix(),
 	})
-
+	mylog.Info(as.cfg.App.PublicJwtSecret)
 	accessTokenString, err := AccessToken.SignedString([]byte(as.cfg.App.PublicJwtSecret))
 	if err != nil {
 		mylog.Error("error to create jwt token", err)
