@@ -138,17 +138,22 @@ func (s *Server) startHTTPServer() error {
 func (s *Server) Configure() {
 	// Repositories
 	rideRepo := db.NewRidesRepo(s.db)
+	passengerRepo := db.NewPassengerRepo(s.db)
 
 	// services
 	rideService := services.NewRidesService(s.appCtx, s.mylog, rideRepo, s.mb, nil)
+	passengerService := services.NewPassengerService(s.appCtx, s.mylog, passengerRepo, nil)
 
 	// handlers
 	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
+	eventHander := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
 
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 	// Register routes
 
-	dispatcher := ws.NewDispathcer(s.mylog)
+	dispatcher := ws.NewDispathcer(s.mylog, passengerService, *eventHander)
+	dispatcher.InitHandler()
+
 	// TODO: add middleware
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)

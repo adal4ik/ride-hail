@@ -33,18 +33,24 @@ type ClientList map[string]*Client
 
 type Dispatcher struct {
 	PassengerService ports.IPassengerService
+	eventHandler     EventHandler
 	hander           map[string]EventHandle
 	clients          ClientList
 	sync.RWMutex
 	log mylogger.Logger
 }
 
-func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService) *Dispatcher {
+func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader EventHandler) *Dispatcher {
 	return &Dispatcher{
 		clients:          make(ClientList),
 		PassengerService: passengerRepo,
 		log:              log,
+		eventHandler:     eventHader,
 	}
+}
+
+func (d *Dispatcher) InitHandler() {
+	d.hander["auth"] = d.eventHandler.AuthHandler
 }
 
 func (d *Dispatcher) WsHandler() http.HandlerFunc {
@@ -75,7 +81,7 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 		ctx, cancel := context.WithCancel(context.Background())
 		ctxAuth, cancelAuth := context.WithCancel(context.Background())
 
-		client := NewClient(ctx, conn, d, passengerId, cancelAuth)
+		client := NewClient(ctx, d.log, conn, d, passengerId, cancelAuth)
 		d.AddClient(client)
 		go client.ReadMessage()
 		go client.WriteMessage()

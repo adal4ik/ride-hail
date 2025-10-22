@@ -4,25 +4,29 @@ import (
 	"context"
 	"encoding/json"
 
+	"ride-hail/internal/mylogger"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
 	"github.com/gorilla/websocket"
 )
-// TODO: add logging, add message accept, add main function to sent event for the client
+
+// TODO: add logging, add main function to sent event for the client, ping pong
 type Client struct {
+	log         mylogger.Logger
 	ctx         context.Context
 	conn        *websocket.Conn
-	dispatcher         *Dispatcher
+	dispatcher  *Dispatcher
 	egress      chan websocketdto.Event
 	passengerId string
 	cancelAuth  context.CancelFunc
 }
 
-func NewClient(ctx context.Context, conn *websocket.Conn, dis *Dispatcher, passengerId string, cancelAuth context.CancelFunc) *Client {
+func NewClient(ctx context.Context, log mylogger.Logger, conn *websocket.Conn, dis *Dispatcher, passengerId string, cancelAuth context.CancelFunc) *Client {
 	return &Client{
+		log:         log,
 		ctx:         ctx,
 		conn:        conn,
-		dispatcher:         dis,
+		dispatcher:  dis,
 		egress:      make(chan websocketdto.Event),
 		passengerId: passengerId,
 		cancelAuth:  cancelAuth,
@@ -50,7 +54,7 @@ func (c *Client) ReadMessage() {
 		if err := json.Unmarshal(payload, &req); err != nil {
 			continue
 		}
-		if req.Type == "auth"{
+		if req.Type == "auth" {
 			c.cancelAuth()
 		}
 	}
