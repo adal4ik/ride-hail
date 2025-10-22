@@ -8,7 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 )
-// TODO: add logging, add message approve, add main function to sent event for the client
+// TODO: add logging, add message accept, add main function to sent event for the client
 type Client struct {
 	ctx         context.Context
 	conn        *websocket.Conn
