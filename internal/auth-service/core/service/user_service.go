@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/domain/models"
 	"ride-hail/internal/auth-service/core/ports"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	"time"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -37,16 +36,16 @@ func NewAuthService(
 }
 
 // ======================= Register =======================
-func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistrationRequest) (string, error) {
+func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistrationRequest) (string, string, error) {
 	mylog := as.mylog.Action("Register")
 
 	if err := validateRegistration(ctx, regReq.Username, regReq.Email, regReq.Password); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	hashedPassword, err := hashPassword(regReq.Password)
 	if err != nil {
-		return "", fmt.Errorf("failed to hash password: %v", err)
+		return "", "", fmt.Errorf("failed to hash password: %v", err)
 	}
 	user := models.User{
 		Username:     regReq.Username,
@@ -59,31 +58,31 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistration
 	if err != nil {
 		if errors.Is(err, ErrUsernameTaken) {
 			mylog.Warn("Failed to register, username already taken")
-			return "", err
+			return "", "", err
 		}
 		if errors.Is(err, ErrEmailRegistered) {
 			mylog.Warn("Failed to register, email already registered")
-			return "", err
+			return "", "", err
 		}
 		mylog.Error("Failed to save user in db", err)
-		return "", fmt.Errorf("cannot save user in db: %w", err)
+		return "", "", fmt.Errorf("cannot save user in db: %w", err)
 	}
 
 	AccessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": id,
 		"email":   regReq.Email,
 		"role":    regReq.Role,
-		"exp":     time.Now().Add(time.Hour * 100).Unix(),
+		"exp":     time.Now().Add(time.Second * 5).Format(time.RFC3339),
 	})
 	mylog.Info(as.cfg.App.PublicJwtSecret)
 	accessTokenString, err := AccessToken.SignedString([]byte(as.cfg.App.PublicJwtSecret))
 	if err != nil {
 		mylog.Error("error to create jwt token", err)
-		return "", err
+		return "", "", err
 	}
 
 	mylog.Info("User registered successfully")
-	return accessTokenString, nil
+	return id, accessTokenString, nil
 }
 
 func (as *AuthService) Login(ctx context.Context, authReq dto.UserAuthRequest) (string, error) {
@@ -113,7 +112,7 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.UserAuthRequest) (
 		"user_id": user.UserId,
 		"email":   authReq.Email,
 		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"exp":     time.Now().Add(time.Hour * 27 * 7).Format(time.RFC3339),
 	})
 
 	accesssTokenString, err := AccessTokenString.SignedString([]byte(as.cfg.App.PublicJwtSecret))

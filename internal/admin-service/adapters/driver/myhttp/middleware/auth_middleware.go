@@ -56,8 +56,15 @@ func (am *AuthMiddleware) Wrap(next http.Handler) http.Handler {
 			return
 		}
 
+		expirationDate, ok := claims["exp"].(string)
+		if !ok {
+			http.Error(w, "expiration date not found in token", http.StatusUnauthorized)
+			return
+		}
+
 		r.Header.Set("X-UserId", userId)
 		r.Header.Set("X-Role", role)
+		r.Header.Set("X-Exp", expirationDate)
 
 		next.ServeHTTP(w, r)
 	})

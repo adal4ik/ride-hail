@@ -169,9 +169,9 @@ func validateVehicleType(vehicleType string) error {
 
 	// Validate against allowed vehicle types
 	allowedTypes := map[string]bool{
-		"CAR":     true,
-		"BIKE":    true,
-		"SCOOTER": true,
+		"ECONOMY": true,
+		"PREMIUM": true,
+		"XL":      true,
 		// Add other vehicle types as needed
 	}
 
@@ -208,7 +208,7 @@ func isValidLicenseFormat(licenseNumber string) bool {
 }
 
 func getAllowedVehicleTypes() []string {
-	return []string{"CAR", "BIKE", "SCOOTER"} // Add your actual enum values
+	return []string{"ECONOMY", "PREMIUM", "XL"} // Add your actual enum values
 }
 
 func validateVehicleAttrsStructure(vehicleAttrs json.RawMessage) error {
