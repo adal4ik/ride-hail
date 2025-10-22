@@ -3,15 +3,19 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
 
 	"ride-hail/internal/mylogger"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
+	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/gorilla/websocket"
 )
+
+var ErrEventNotSupported = errors.New("this event type is not supported")
 
 // ================================================================================================== //
 // websocketUpgrader is used to upgrade incomming HTTP requests into a persitent websocket connection //
@@ -28,15 +32,18 @@ var websocketUpgrader = websocket.Upgrader{
 type ClientList map[string]*Client
 
 type Dispatcher struct {
-	clients ClientList
+	PassengerService ports.IPassengerService
+	hander           map[string]EventHandle
+	clients          ClientList
 	sync.RWMutex
 	log mylogger.Logger
 }
 
-func NewDispathcer(log mylogger.Logger) *Dispatcher {
+func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService) *Dispatcher {
 	return &Dispatcher{
-		clients: make(ClientList),
-		log:     log,
+		clients:          make(ClientList),
+		PassengerService: passengerRepo,
+		log:              log,
 	}
 }
 
@@ -51,6 +58,15 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 			return
 		}
 
+		ok, err := d.PassengerService.FindPassenger(passengerId)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		conn, err := websocketUpgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Error("cannot upgrade", err)
@@ -64,6 +80,8 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 		go client.ReadMessage()
 		go client.WriteMessage()
 		go d.StartTimerAuth(client, cancel, ctxAuth)
+
+		// Code from temu
 		// select {
 		// case <-time.After(time.Second * 5):
 		// 	// close connection
@@ -75,7 +93,6 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 	}
 }
 
-// TODO: write to client, via map, without any channel
 func (d *Dispatcher) AddClient(client *Client) {
 	log := d.log.Action("AddClient")
 	d.Lock()
@@ -100,6 +117,9 @@ func (d *Dispatcher) RemoveClient(client *Client) {
 }
 
 func (d *Dispatcher) WriteToUser(passengerId string, event websocketdto.Event) {
+	d.Lock()
+	defer d.Unlock()
+
 	if client, ok := d.clients[passengerId]; ok {
 		client.egress <- event
 	}
@@ -133,5 +153,17 @@ func (d *Dispatcher) StartTimerAuth(client *Client, cancel context.CancelFunc, c
 		}
 		d.WriteToUser(client.passengerId, event)
 		return
+	}
+}
+
+func (d *Dispatcher) EventHandle(client *Client, event websocketdto.Event) error {
+	if handler, ok := d.hander[event.Type]; ok {
+		// Execute the handler and return any err
+		if err := handler(client, event); err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return ErrEventNotSupported
 	}
 }

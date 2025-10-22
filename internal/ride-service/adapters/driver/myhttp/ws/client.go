@@ -12,7 +12,7 @@ import (
 type Client struct {
 	ctx         context.Context
 	conn        *websocket.Conn
-	dis         *Dispatcher
+	dispatcher         *Dispatcher
 	egress      chan websocketdto.Event
 	passengerId string
 	cancelAuth  context.CancelFunc
@@ -22,7 +22,7 @@ func NewClient(ctx context.Context, conn *websocket.Conn, dis *Dispatcher, passe
 	return &Client{
 		ctx:         ctx,
 		conn:        conn,
-		dis:         dis,
+		dispatcher:         dis,
 		egress:      make(chan websocketdto.Event),
 		passengerId: passengerId,
 		cancelAuth:  cancelAuth,
@@ -30,6 +30,10 @@ func NewClient(ctx context.Context, conn *websocket.Conn, dis *Dispatcher, passe
 }
 
 func (c *Client) ReadMessage() {
+	defer func() {
+		c.dispatcher.RemoveClient(c)
+	}()
+
 	c.conn.SetReadLimit(1024)
 
 	// loop forever
@@ -53,6 +57,10 @@ func (c *Client) ReadMessage() {
 }
 
 func (c *Client) WriteMessage() {
+	defer func() {
+		c.dispatcher.RemoveClient(c)
+	}()
+
 	for {
 		select {
 		case <-c.ctx.Done():

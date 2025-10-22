@@ -53,6 +53,9 @@ services:
       context: .
       dockerfile: docker/ride-service.Dockerfile
     env_file: .env
+    volumes:
+      - ./logs/:/app/logs/
+    restart: on-failure
     depends_on:
       postgres:
         condition: service_healthy
