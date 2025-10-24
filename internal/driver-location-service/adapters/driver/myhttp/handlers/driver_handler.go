@@ -37,16 +37,16 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) 
 	}
 }
 
-func (h *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
-	h.log.Action("Handling driver WebSocket connection").Info("Starting WebSocket upgrade")
-	conn, err := h.upgrader.Upgrade(w, r, nil)
+func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
+	dh.log.Action("Handling driver WebSocket connection").Info("Starting WebSocket upgrade")
+	conn, err := dh.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Failed to upgrade connection: %v", err)
+		dh.log.Action("WebSocket connection establishing").Error("Failed to upgrade connection: %v", err)
 		return
 	}
 	defer conn.Close()
 
-	log.Println("WebSocket connection established")
+	dh.log.Action("WebSocket connection establishing").Info("WebSocket connection established successfully")
 
 	for {
 		messageType, message, err := conn.ReadMessage()
