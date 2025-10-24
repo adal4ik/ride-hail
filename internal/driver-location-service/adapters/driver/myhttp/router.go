@@ -10,13 +10,13 @@ import (
 
 func Router(handlers *handlers.Handlers, cfg *config.Config) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/drivers/{driver_id}/online", handlers.DriverHandler.GoOnline)
-	mux.HandleFunc("/drivers/{driver_id}/offline", handlers.DriverHandler.GoOffline)
-	mux.HandleFunc("/drivers/{driver_id}/location", handlers.DriverHandler.UpdateLocation)
-	mux.HandleFunc("/drivers/{driver_id}/start", handlers.DriverHandler.StartRide)
-	mux.HandleFunc("/drivers/{driver_id}/complete", handlers.DriverHandler.CompleteRide)
 	mdl := middleware.NewAuthMiddleware(cfg.App.PublicJwtSecret)
-	handler := mdl.SessionHandler(mux)
+	mux.HandleFunc("/ws/drivers/{driver_id}", handlers.DriverHandler.HandleDriverConnection)
+	mux.Handle("/drivers/{driver_id}/online", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.GoOnline }()))
+	mux.Handle("/drivers/{driver_id}/offline", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.GoOffline }()))
+	mux.Handle("/drivers/{driver_id}/location", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.UpdateLocation }()))
+	mux.Handle("/drivers/{driver_id}/start", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.StartRide }()))
+	mux.Handle("/drivers/{driver_id}/complete", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.CompleteRide }()))
 
-	return handler
+	return mux
 }
