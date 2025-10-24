@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/ports/driver"
 	"ride-hail/internal/mylogger"
@@ -50,16 +51,15 @@ func (dh *DriverHandler) GoOffline(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusAccepted, res)
 }
 
-// IMPLEMENT!
 func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
-	req := dto.RidesRequestDto{}
-
+	req := dto.NewLocation{}
+	driver_id := r.PathValue("driver_id")
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	res, err := dh.driverService.UpdateLocation(req)
+	ctx := context.Background()
+	res, err := dh.driverService.UpdateLocation(ctx, req, driver_id)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err)
 		return
@@ -86,14 +86,14 @@ func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
 }
 
 func (dh *DriverHandler) CompleteRide(w http.ResponseWriter, r *http.Request) {
-	req := dto.RidesRequestDto{}
+	req := dto.RideCompleteForm{}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, http.StatusBadRequest, err)
 		return
 	}
-
-	res, err := dh.driverService.CompleteRide(req)
+	ctx := context.Background()
+	res, err := dh.driverService.CompleteRide(ctx, req)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err)
 		return

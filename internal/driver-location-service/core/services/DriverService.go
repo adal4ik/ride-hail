@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
@@ -51,7 +52,21 @@ func (ds *DriverService) GoOffline(ctx context.Context, driver_id string) (dto.D
 	return response, nil
 }
 
-func (ds *DriverService) UpdateLocation() {
+func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLocation, driver_id string) (dto.NewLocationResponse, error) {
+	var requestDAO model.NewLocation
+	requestDAO.Accuracy_meters = request.Accuracy_meters
+	requestDAO.Heading_Degrees = request.Heading_Degrees
+	requestDAO.Latitude = request.Latitude
+	requestDAO.Longitude = request.Longitude
+	requestDAO.Speed_kmh = request.Speed_kmh
+	response, err := ds.repositories.UpdateLocation(ctx, driver_id, requestDAO)
+	if err != nil {
+		return dto.NewLocationResponse{}, err
+	}
+	var responseDTO dto.NewLocationResponse
+	responseDTO.Coordinate_id = response.Coordinate_id
+	responseDTO.Updated_at = response.Updated_at
+	return responseDTO, nil
 }
 
 func (ds *DriverService) StartRide(ctx context.Context, requestMessage dto.StartRide) (dto.StartRideResponse, error) {
@@ -73,5 +88,22 @@ func (ds *DriverService) StartRide(ctx context.Context, requestMessage dto.Start
 	return response, nil
 }
 
-func (ds *DriverService) CompleteRide() {
+func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompleteForm) (dto.RideCompleteResponse, error) {
+	var requestDAO model.RideCompleteForm
+	requestDAO.Ride_id = request.Ride_id
+	requestDAO.ActualDistancekm = request.ActualDistancekm
+	requestDAO.ActualDurationm = request.ActualDurationm
+	requestDAO.FinalLocation.Latitude = request.FinalLocation.Latitude
+	requestDAO.FinalLocation.Longitude = request.FinalLocation.Longitude
+	results, err := ds.repositories.CompleteRide(ctx, requestDAO)
+	if err != nil {
+		return dto.RideCompleteResponse{}, err
+	}
+	var response dto.RideCompleteResponse
+	response.Message = results.Message
+	response.Ride_id = results.Ride_id
+	response.Status = results.Status
+	response.DriverEarning = results.DriverEarning
+	response.CompletedAt = results.CompletedAt
+	return response, nil
 }
