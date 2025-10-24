@@ -94,5 +94,70 @@ func (sr *SystemOverviewRepo) GetDriverDistribution(ctx context.Context) (dto.Dr
 }
 
 func (sr *SystemOverviewRepo) GetHotspots(ctx context.Context) ([]dto.HotspotsParams, error) {
-	return nil, nil
+	q := `
+    WITH ride_coordinates AS (
+        -- Get pickup coordinates for active rides
+        SELECT 
+            c.address,
+            c.latitude,
+            c.longitude,
+            COUNT(*) as active_rides,
+            0 as waiting_drivers
+        FROM rides r
+        JOIN coordinates c ON r.pickup_coord_id = c.coord_id
+        WHERE r.status IN ('EN_ROUTE', 'ARRIVED', 'IN_PROGRESS')
+          AND r.created_at >= CURRENT_DATE
+        GROUP BY c.address, c.latitude, c.longitude
+        
+        UNION ALL
+        
+        -- Get driver locations (waiting drivers)
+        SELECT 
+            c.address,
+            c.latitude,
+            c.longitude,
+            0 as active_rides,
+            COUNT(*) as waiting_drivers
+        FROM coordinates c
+        WHERE c.entity_type = 'DRIVER' 
+          AND c.is_current = true
+          AND NOT EXISTS (
+              SELECT 1 FROM rides r 
+              WHERE r.driver_id = c.entity_id 
+              AND r.status IN ('REQUESTED', 'MATCHED')
+          )
+        GROUP BY c.address, c.latitude, c.longitude
+    )
+    SELECT 
+        address as location,
+        SUM(active_rides) as active_rides,
+        SUM(waiting_drivers) as waiting_drivers
+    FROM ride_coordinates
+    GROUP BY address
+    HAVING SUM(active_rides) > 0 OR SUM(waiting_drivers) > 0
+    ORDER BY (SUM(active_rides) + SUM(waiting_drivers)) DESC
+    LIMIT 10;  -- Top 10 hotspots
+    `
+
+	rows, err := sr.db.GetConn().Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query hotspots: %w", err)
+	}
+	defer rows.Close()
+
+	var hotspots []dto.HotspotsParams
+	for rows.Next() {
+		var hotspot dto.HotspotsParams
+		err := rows.Scan(
+			&hotspot.Location,
+			&hotspot.ActiveRides,
+			&hotspot.WaitingDrivers,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan hotspot: %w", err)
+		}
+		hotspots = append(hotspots, hotspot)
+	}
+
+	return hotspots, nil
 }

@@ -142,7 +142,7 @@ func (n *Notification) processOrderMsg(msg amqp.Delivery) (error, bool) {
 // }
 
 func (n *Notification) initializeRabbitMQ() error {
-	mb, err := bm.New(n.appCtx, *n.cfg, n.mylog)
+	mb, err := bm.New(n.appCtx, *n.cfg.RabbitMq, n.mylog)
 	if err != nil {
 		return fmt.Errorf("failed to connect to rabbitmq: %v", err)
 	}

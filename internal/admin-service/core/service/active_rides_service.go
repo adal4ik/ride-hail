@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"ride-hail/internal/admin-service/core/domain/dto"
 	"ride-hail/internal/admin-service/core/ports"
@@ -22,6 +23,18 @@ func NewActiveDrivesService(ctx context.Context, mylog mylogger.Logger, activeDr
 	}
 }
 
-func (as *ActiveDrivesService) GetActiveRides(ctx context.Context, page, pageSize, offset int) (dto.ActiveDrives, error) {
-	return dto.ActiveDrives{}, nil
+func (as *ActiveDrivesService) GetActiveRides(ctx context.Context, page, pageSize int) (dto.ActiveDrives, error) {
+	totalCount, rides, err := as.activeDrivesRepo.GetActiveRides(ctx, page, pageSize)
+	if err != nil {
+		return dto.ActiveDrives{}, fmt.Errorf("Failed to get active rides: %v", err)
+	}
+
+	activeDrives := dto.ActiveDrives{
+		Rides:      rides,
+		TotalCount: totalCount,
+		Page:       page,
+		PageSize:   pageSize,
+	}
+
+	return activeDrives, nil
 }

@@ -10,8 +10,13 @@ import (
 
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/adapters/driven/bm"
 	"ride-hail/internal/ride-service/adapters/driven/db"
+	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
+	"ride-hail/internal/ride-service/adapters/driver/myhttp/middleware"
+	"ride-hail/internal/ride-service/adapters/driver/myhttp/ws"
 	"ride-hail/internal/ride-service/core/ports"
+	"ride-hail/internal/ride-service/core/services"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -23,14 +28,15 @@ type Server struct {
 	cfg    *config.Config
 	srv    *http.Server
 	mylog  mylogger.Logger
-	db     ports.IDB
+	db     *db.DB
+	mb     ports.IRidesBroker
 	ctx    context.Context
 	appCtx context.Context
 	mu     sync.Mutex
 	wg     sync.WaitGroup
 }
 
-func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) (*Server) {
+func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) *Server {
 	s := &Server{
 		ctx:    ctx,
 		appCtx: appCtx,
@@ -53,6 +59,14 @@ func (s *Server) Run() error {
 	}
 	s.db = db
 	mylog.Info("Successful database connection")
+
+	// Initialize RabbitMQ connection
+	mb, err := bm.New(s.appCtx, *s.cfg.RabbitMq, s.mylog)
+	if err != nil {
+		return fmt.Errorf("failed to connect to rabbitmq: %w", err)
+	}
+	s.mb = mb
+	mylog.Info("Successful message broker connection")
 
 	// Configure routes and handlers
 	s.Configure()
@@ -122,20 +136,28 @@ func (s *Server) startHTTPServer() error {
 
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
-	// Repositories and services
-	// systemOverviewRepo := db.NewSystemOverviewRepo(s.db)
-	// activeRidesRepo := db.NewActiveDrivesRepo(s.db)
+	// Repositories
+	rideRepo := db.NewRidesRepo(s.db)
+	passengerRepo := db.NewPassengerRepo(s.db)
 
-	// systemOverviewService := service.NewSystemOverviewService(s.ctx, s.mylog, systemOverviewRepo)
-	// activeRidesService := service.NewActiveDrivesService(s.ctx, s.mylog, activeRidesRepo)
+	// services
+	rideService := services.NewRidesService(s.appCtx, s.mylog, rideRepo, s.mb, nil)
+	passengerService := services.NewPassengerService(s.appCtx, s.mylog, passengerRepo, nil)
 
-	// // systemOverviewHandler := handle.NewSystemOverviewHandler(s.mylog, systemOverviewService)
-	// // activeRidesHandler := handle.NewActiveDrivesHandler(s.mylog, activeRidesService)
+	// handlers
+	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
+	eventHander := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
 
-	// // Register routes
-	// s.mux.Handle("POST /rides", nil)
+	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
+	// Register routes
+
+	dispatcher := ws.NewDispathcer(s.mylog, passengerService, *eventHander)
+	dispatcher.InitHandler()
+
+	// TODO: add middleware
+	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 
 	// websocket routes
-	//
+	s.mux.Handle("/ws/passengers/{passenger_id}", dispatcher.WsHandler())
 }

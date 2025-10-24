@@ -2,20 +2,16 @@ package ports
 
 import (
 	"context"
-	"ride-hail/internal/auth-service/core/domain/models"
 
-	"github.com/jackc/pgx/v5"
+	"ride-hail/internal/auth-service/core/domain/models"
 )
 
-type IDB interface {
-	GetConn() *pgx.Conn
-	IsAlive() error
-	Close() error
+type IAuthRepo interface {
+	Create(ctx context.Context, user models.User) (string, error)
+	GetByEmail(ctx context.Context, email string) (models.User, error)
 }
 
-type IAuthRepo interface {
-	// user_id and error
-	Create(ctx context.Context, user models.User, refreshToken string) (string, error)
-	// user model, refresh token and error
-	GetUserByUsername(ctx context.Context, username string) (models.User, string, error)
+type IDriverRepo interface {
+	Create(ctx context.Context, user models.Driver) (string, error)
+	GetByEmail(ctx context.Context, email string) (models.Driver, error)
 }

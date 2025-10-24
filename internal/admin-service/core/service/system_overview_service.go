@@ -47,7 +47,3 @@ func (ds *SystemOverviewService) GetSystemOverview(ctx context.Context) (dto.Sys
 
 	return systemOverview, nil
 }
-
-func (ds *SystemOverviewService) GetActiveRides(ctx context.Context) (dto.SystemOverview, error) {
-	return dto.SystemOverview{}, nil
-}

@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
+
 	authservice "ride-hail/internal/auth-service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"strings"
 
 	adminservice "ride-hail/internal/admin-service"
 
@@ -83,11 +84,11 @@ func main() {
 		driverServiceLogger.Action("driver_location_service_completed").Info("Driver and Location service shut down successfully")
 	case "ride-service", "rs":
 		l := appLogger.With("service", "ride-service")
-		l.Info("Admin Service starting up")
+		l.Info("Ride Service starting up")
 		if err := rideservice.Execute(ctx, l, cfg); err != nil {
-			l.Error("Error in admin-service", err)
+			l.Error("Error in ride-service", err)
 		}
-		l.Info("Admin Service shut down successfully")
+		l.Info("Ride Service shut down successfully")
 	case "auth-service", "au":
 		l := appLogger.With("service", "auth-service")
 		l.Info("Auth Service starting up")

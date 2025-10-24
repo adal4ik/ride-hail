@@ -18,9 +18,9 @@ type Ride struct {
 	EstimatedFare       float64  `json:"estimated_fare"`
 	MaxDistanceKm       float64  `json:"max_distance_km"`
 	TimeoutSeconds      int      `json:"timeout_seconds"`
-	CorrelationID       string   `json:"correlation_id"`
+	Priority            int
+	CorrelationID       string `json:"correlation_id"`
 }
-
 
 // Status Update → ride_topic exchange → ride.status.{status}
 type RideStatus struct {

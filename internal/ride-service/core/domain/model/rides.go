@@ -11,7 +11,7 @@ type Rides struct {
 	DriverId              string // uuid
 	VehicleType           string
 	Status                string
-	Priority              string
+	Priority              int
 	RequestedAt           time.Time
 	MatchedAt             time.Time
 	ArrivedAt             time.Time

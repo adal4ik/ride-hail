@@ -17,10 +17,10 @@ type RidesRequestDto struct {
 }
 
 type RidesResponseDto struct {
-	RideId                   string `json:"ride_id"`
-	RideNumber               string `json:"ride_number"`
-	Status                   string `json:"status"`
-	EstimatedFare            float64`json:"estimated_fare"`
-	EstimatedDurationMinutes float64`json:"estimated_duration_minutes"`
-	EstimatedDistanceKm      float64`json:"estimated_distance_km"`
+	RideId                   string  `json:"ride_id"`
+	RideNumber               string  `json:"ride_number"`
+	Status                   string  `json:"status"`
+	EstimatedFare            float64 `json:"estimated_fare"`
+	EstimatedDurationMinutes float64 `json:"estimated_duration_minutes"`
+	EstimatedDistanceKm      float64 `json:"estimated_distance_km"`
 }
