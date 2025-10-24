@@ -10,7 +10,8 @@ vendor/
 .env
 .yaml
 
-
+# log
+*.log
 
 # IDE
 .idea/
