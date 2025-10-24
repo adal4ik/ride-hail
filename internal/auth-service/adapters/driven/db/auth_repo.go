@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"ride-hail/internal/auth-service/core/domain/models"
 
 	"github.com/jackc/pgx/v5"
@@ -65,7 +64,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 			u.status,
 			u.password_hash,
 			u.role,
-			u.attrs,
+			u.attrs
 		FROM 
 			users u
 		WHERE

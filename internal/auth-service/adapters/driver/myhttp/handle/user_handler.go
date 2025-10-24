@@ -6,11 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
-
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/mylogger"
+	"time"
 )
 
 type AuthHandler struct {
@@ -46,7 +45,7 @@ func (ah *AuthHandler) Register() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), WaitTime*time.Second)
 		defer cancel()
 
-		accessToken, err := ah.authService.Register(ctx, regReq)
+		userId, accessToken, err := ah.authService.Register(ctx, regReq)
 		if err != nil {
 			if errors.Is(err, ErrEmailRegistered) || errors.Is(err, ErrUsernameTaken) {
 				jsonError(w, http.StatusBadRequest, err)
@@ -59,6 +58,7 @@ func (ah *AuthHandler) Register() http.HandlerFunc {
 		jsonResponse(w, http.StatusOK, map[string]string{
 			"msg":        fmt.Sprintf("%s registered successfully!", regReq.Username),
 			"jwt_access": accessToken,
+			"userId":     userId,
 		})
 		mylog.Info("Successfully registered!")
 	}
