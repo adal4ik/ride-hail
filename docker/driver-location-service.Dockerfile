@@ -8,4 +8,4 @@ RUN go build -o main ./cmd/app/main.go
 
 EXPOSE 3000
 
-CMD ["./main", "--mode=rs"]
+CMD ["./main", "--mode=dls"]
