@@ -146,3 +146,32 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 
 	return RideId, tx.Commit(ctx)
 }
+
+func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID string) (string, string, error) {
+	conn := rr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", "", err
+	}
+
+	q := `UPDATE rides SET driver_id = $1 WHERE ride_id = $2`
+	_, err = tx.Exec(ctx, q, driverID, rideID)
+	if err != nil {
+		return "","", err
+	}
+
+	var (
+		passengerId string = ""
+		rideNumber  string = ""
+	)
+
+	q = `SELECT passenger_id, ride_number FROM rides WHERE ride_id = $1`
+	row := tx.QueryRow(ctx, q, rideID)
+
+	err = row.Scan(&passengerId, &rideNumber)
+	if err != nil {
+		return "","", err
+	}
+
+	return passengerId, rideNumber, nil
+}

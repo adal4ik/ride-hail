@@ -151,8 +151,14 @@ func (s *Server) Configure() {
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 	// Register routes
 
-	dispatcher := ws.NewDispathcer(s.mylog, passengerService, *eventHander)
+	dispatcher := ws.NewDispathcer(s.mylog, passengerService, eventHander)
 	dispatcher.InitHandler()
+
+	// consumers
+
+	// DriverResponse
+	// DriverStatus
+	// LocationUpdates
 
 	// TODO: add middleware
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
