@@ -84,7 +84,8 @@ func (n *Notification) work(
 			if err != nil {
 				continue
 			}
-
+		case <-ctx.Done():
+			return
 		}
 	}
 }
@@ -97,6 +98,9 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 		return err
 	}
 	passengerId, rideNumber, err := n.rideService.StatusMatch(m.RideID, m.DriverID)
+	if err != nil {
+		return err
+	}
 
 	m1 := websocketdto.RideStatusUpdateDto{
 		RideID:     m.RideID,
@@ -117,7 +121,7 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 	}
 
 	eventMsg := websocketdto.Event{
-		Type: "ride_status_update",
+		Type: rideStatusUpdate,
 		Data: payload,
 	}
 
@@ -163,7 +167,7 @@ func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 		return err
 	}
 	m := websocketdto.Event{
-		Type: locationUpdates,
+		Type: driverLocationUpdate,
 		Data: payload,
 	}
 
