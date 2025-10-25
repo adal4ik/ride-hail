@@ -146,20 +146,20 @@ func (s *Server) Configure() {
 
 	// handlers
 	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
-	eventHander := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
-
+	
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
-	// Register routes
-
-	dispatcher := ws.NewDispathcer(s.mylog, passengerService, eventHander)
+	
+	eventHandle := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
+	dispatcher := ws.NewDispathcer(s.mylog, passengerService, eventHandle)
 	dispatcher.InitHandler()
-
+	
 	// consumers
-
+	
 	// DriverResponse
 	// DriverStatus
 	// LocationUpdates
-
+	
+	// Register routes
 	// TODO: add middleware
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
