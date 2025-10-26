@@ -6,7 +6,6 @@ import (
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
-	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -26,15 +25,15 @@ type Notification struct {
 	ctx         context.Context
 	dispatcher  ports.INotifyWebsocket
 	consumer    ports.IBrokerConsumer
-	publisher   ports.IRidesBroker
 	rideService ports.IRidesService
+	passengerService ports.IPassengerService
 }
 
 func New(
 	ctx context.Context,
 	dispatcher ports.INotifyWebsocket,
 	consumer ports.IBrokerConsumer,
-	publisher ports.IRidesBroker,
+	passengerService ports.IPassengerService,
 	rideService ports.IRidesService,
 ) *Notification {
 	return &Notification{
@@ -42,7 +41,7 @@ func New(
 		dispatcher:  dispatcher,
 		consumer:    consumer,
 		rideService: rideService,
-		publisher:   publisher,
+		passengerService: passengerService,
 	}
 }
 
@@ -97,7 +96,7 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 	if err != nil {
 		return err
 	}
-	passengerId, rideNumber, err := n.rideService.StatusMatch(m.RideID, m.DriverID)
+	passengerId, rideNumber, err := n.rideService.SetStatusMatch(m.RideID, m.DriverID)
 	if err != nil {
 		return err
 	}
@@ -126,22 +125,6 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 	}
 
 	n.dispatcher.WriteToUser(passengerId, eventMsg)
-
-	m2 := messagebrokerdto.RideStatus{
-		RideId: m.RideID,
-		Status: "IN_PROGRESS",
-		// TODO: add nice format 2024-12-16T10:34:00Z
-		Timestamp:     time.Now().Format("2006-01-02T15:04:05"),
-		DriverID:      m.DriverID,
-		CorrelationID: msg.CorrelationId,
-	}
-	ctx, cancel := context.WithTimeout(n.ctx, time.Second*15)
-	defer cancel()
-
-	err = n.publisher.PushMessageToStatus(ctx, m2)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -161,7 +144,10 @@ func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 			Lng: m2.Location.Lng,
 		},
 	}
-
+	passengerId, err := n.rideService.FindPassengerByRideId(m2.RideID)
+	if err != nil {
+		return err
+	}
 	payload, err := json.Marshal(m1)
 	if err != nil {
 		return err
@@ -170,8 +156,7 @@ func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 		Type: driverLocationUpdate,
 		Data: payload,
 	}
-
 	// TODO: define passengerId
-	n.dispatcher.WriteToUser("", m)
+	n.dispatcher.WriteToUser(passengerId, m)
 	return nil
 }

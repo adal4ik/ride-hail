@@ -175,3 +175,17 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 
 	return passengerId, rideNumber, nil
 }
+
+func (pr *RidesRepo) FindByRideId(ctx context.Context, rideId string) (string, error) {
+	q := `SELECT passenger_id FROM rides WHERE ride_id = $1`
+
+	conn := pr.db.conn
+
+	row := conn.QueryRow(ctx, q, rideId)
+	var passengerId string = ""
+	if err := row.Scan(&passengerId); err != nil {
+		return "", err
+	}
+
+	return passengerId, nil
+}

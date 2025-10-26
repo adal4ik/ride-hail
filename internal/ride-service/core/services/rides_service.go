@@ -189,7 +189,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	return res, nil
 }
 
-func (rs *RidesService) StatusMatch(rideId, driverId string) (string, string, error) {
+func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 	passengerId, rideNumber, err := rs.RidesRepo.ChangeStatusMatch(ctx, rideId, driverId)
@@ -197,8 +197,39 @@ func (rs *RidesService) StatusMatch(rideId, driverId string) (string, string, er
 		// TODO: add handle error
 		return "", "", err
 	}
+	m2 := messagebrokerdto.RideStatus{
+		RideId: rideId,
+		Status: "IN_PROGRESS",
+		// TODO: add nice format 2024-12-16T10:34:00Z
+		Timestamp: time.Now().Format("2006-01-02T15:04:05"),
+		DriverID:  driverId,
+	}
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+
+	err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
+	if err != nil {
+		return "", "", err
+	}
+
 	return passengerId, rideNumber, nil
 }
+
+func (ps *RidesService) FindPassengerByRideId(rideId string) (string, error) {
+	log := ps.mylog.Action("FindPassenger")
+
+	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*5)
+	defer cancel()
+
+	passengerId, err := ps.RidesRepo.FindByRideId(ctx, rideId)
+	if err != nil {
+		log.Error("cannot get user", err)
+		return "", err
+	}
+
+	return passengerId, nil
+}
+
 
 // Generate a new UUID as a correlation ID
 func generateCorrelationID() string {
