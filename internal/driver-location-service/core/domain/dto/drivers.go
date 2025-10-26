@@ -141,8 +141,28 @@ type RideStatusUpdate struct {
 // Driver Info
 type DriverInfo struct {
 	DriverId  string
+	Name      string
 	Email     string
+	Vehicle   VehicleDetail `json:"vehicle"`
 	Rating    float64
 	Latitude  float64
 	Longitude float64
+}
+type VehicleDetail struct {
+	Make  string `json:"make"`
+	Model string `json:"model"`
+	Color string `json:"color"`
+	Plate string `json:"plate"`
+}
+
+// Driver Match Response
+
+type DriverMatchResponse struct {
+	Ride_id                   string     `json:"ride_id"`
+	Driver_id                 string     `json:"driver_id"`
+	Accepted                  bool       `json:"accepted"`
+	Estimated_arrival_minutes int        `json:"estimated_arrival_minutes"`
+	Driver_location           Location   `json:"driver_location"`
+	Driver_info               DriverInfo `json:"driver_info"`
+	Correlation_id            string     `json:"correlation_id"`
 }
