@@ -43,7 +43,7 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	messageDriver := make(map[string]chan dto.DriverRideOffer)
 
 	// Creating the distributor
-	distributor := services.NewDistributor(newCtx, messageDriver, &rideOffers, driverResponses)
+	distributor := services.NewDistributor(newCtx, messageDriver, &rideOffers, driverResponses, broker)
 
 	// Start the message distributor in a separate goroutine
 	go func() {

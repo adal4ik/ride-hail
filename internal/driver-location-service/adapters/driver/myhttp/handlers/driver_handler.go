@@ -51,20 +51,42 @@ func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.R
 	defer conn.Close()
 
 	dh.log.Action("WebSocket connection establishing").Info("WebSocket connection established successfully")
-
+	driver_id := r.PathValue("driver_id")
+	dh.inMessages[driver_id] = make(chan dto.DriverRideOffer, 100)
+	dh.outMessages[driver_id] = make(chan dto.DriverResponse, 100)
+	go func() {
+		for {
+			select {
+			case rideOffer := <-dh.inMessages[driver_id]:
+				offerBytes, err := json.Marshal(rideOffer)
+				if err != nil {
+					log.Printf("Error marshalling ride offer: %v", err)
+					break
+				}
+				err = conn.WriteMessage(websocket.TextMessage, offerBytes)
+				if err != nil {
+					log.Printf("Error writing ride offer message: %v", err)
+					break
+				}
+			default:
+				continue
+			}
+		}
+	}()
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Printf("Error reading message: %v", err)
 			break
 		}
-		log.Printf("Received message: %s", message)
-
-		err = conn.WriteMessage(messageType, message)
-		if err != nil {
-			log.Printf("Error writing message: %v", err)
-			break
+		// IMPLEMENT LOGIC TO PROCESS INCOMING DRIVER RESPONSES BY TYPES
+		var driverResponse dto.DriverResponse
+		if err := json.Unmarshal(message, &driverResponse); err != nil {
+			log.Printf("Error unmarshalling driver response: %v", err)
+			continue
 		}
+		dh.outMessages[driver_id] <- driverResponse
+		log.Printf("Received message type %v: %s", messageType, message)
 	}
 }
 

@@ -53,6 +53,7 @@ func (r *RabbitMQ) PublishJSON(ctx context.Context, exchange, routingKey string,
 		go r.reconnect(r.ctx)
 		return errors.New("amqp closed")
 	}
+	r.log.Action("publish").Info("publishing message to exchange %s with routing key %s", exchange, routingKey)
 	if err := r.ensureExchange(exchange); err != nil {
 		return fmt.Errorf("declare exchange: %w", err)
 	}
@@ -62,7 +63,7 @@ func (r *RabbitMQ) PublishJSON(ctx context.Context, exchange, routingKey string,
 	}
 	pubctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-
+	r.log.Action("publish").Info("message marshaled, publishing now")
 	return r.ch.PublishWithContext(pubctx, exchange, routingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
