@@ -72,7 +72,9 @@ type RideCompleteResponse struct {
 // DriverInfo
 type DriverInfo struct {
 	DriverId  string
+	Name      string
 	Email     string
+	Vehicle   string
 	Rating    float64
 	Latitude  float64
 	Longitude float64

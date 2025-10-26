@@ -72,7 +72,6 @@ func (d *Distributor) MessageDistributor() error {
 					filteredDrivers = append(filteredDrivers, driver)
 				}
 			}
-			resp := make(chan dto.DriverMatchResponse, 1)
 			d.AskDrivers(filteredDrivers, req, requestDelivery)
 
 		case st := <-d.rideStatuses:
@@ -147,7 +146,6 @@ func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideD
 				}
 			}
 
-			// Get information about Driver Vehicle
 			if accepted == 1 {
 				driverMatch = dto.DriverMatchResponse{
 					Ride_id:                   rideDetails.Ride_id,
@@ -178,6 +176,8 @@ func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideD
 				return
 			}
 			// Update Driver Status
+			d.driverService.UpdateDriverStatus(d.ctx, driverMatch.Driver_id, "BUSY")
+			// Acknowledge original message
 			requestDelivery.Ack(false)
 		}
 	}()

@@ -202,7 +202,7 @@ func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.
 
 func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]model.DriverInfo, error) {
 	Query := `
-	SELECT d.id, u.email, d.rating, c.latitude, c.longitude,
+	SELECT d.id, u.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
        ST_Distance(
          ST_MakePoint(c.longitude, c.latitude)::geography,
          ST_MakePoint($1, $2)::geography
@@ -229,7 +229,7 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 	var result []model.DriverInfo
 	for rows.Next() {
 		var dInfo model.DriverInfo
-		err := rows.Scan(&dInfo.DriverId, &dInfo.Email, &dInfo.Rating, &dInfo.Latitude, &dInfo.Longitude)
+		err := rows.Scan(&dInfo.DriverId, &dInfo.Email, &dInfo.Name, &dInfo.Vehicle, &dInfo.Rating, &dInfo.Latitude, &dInfo.Longitude)
 		if err != nil {
 			return []model.DriverInfo{}, err
 		}
@@ -249,4 +249,14 @@ func (dr *DriverRepository) CalculateRideDetails(ctx context.Context, driverLoca
 		return 0.0, err
 	}
 	return distance, nil
+}
+
+func (dr *DriverRepository) UpdateDriverStatus(ctx context.Context, driver_id string, status string) error {
+	UpdateDriverStatusQuery := `
+		UPDATE drivers
+		SET status = $1
+		WHERE driver_id = $2;
+	`
+	_, err := dr.db.GetConn().Exec(ctx, UpdateDriverStatusQuery, status, driver_id)
+	return err
 }

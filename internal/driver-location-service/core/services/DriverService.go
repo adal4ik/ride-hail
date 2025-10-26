@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
@@ -121,6 +122,10 @@ func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude,
 		result.Latitude = driver.Latitude
 		result.Longitude = driver.Longitude
 		result.Rating = driver.Rating
+		result.Name = driver.Name
+		if err := json.Unmarshal([]byte(driver.Vehicle), &result.Vehicle); err != nil {
+			return []dto.DriverInfo{}, err
+		}
 		results = append(results, result)
 	}
 	return results, nil
@@ -142,4 +147,8 @@ func (ds *DriverService) CalculateRideDetails(ctx context.Context, driverLocatio
 	}
 	minutes := int(distance / 45)
 	return distance, minutes, nil
+}
+
+func (d *DriverService) UpdateDriverStatus(ctx context.Context, driver_id string, status string) error {
+	return d.repositories.UpdateDriverStatus(ctx, driver_id, status)
 }
