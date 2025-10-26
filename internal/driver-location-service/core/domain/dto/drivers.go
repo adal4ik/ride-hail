@@ -108,9 +108,9 @@ type DriverResponse struct {
 // Driver Ride Offer
 type DriverRideOffer struct {
 	Type            string         `json:"type"`
+	Offer_id        string         `json:"offer_id"`
 	Ride_id         string         `json:"ride_id"`
-	Passenger_name  string         `json:"passenger_name"`
-	Passenger_phone string         `json:"passenger_phone"`
+	Ride_number     string         `json:"ride_number"`
 	Pickup_location LocationDetail `json:"pickup_location"`
 }
 
@@ -129,4 +129,13 @@ type RideStatusUpdate struct {
 	Reason        string    `json:"reason,omitempty"`         // причина отмены/нет водителя и т.п.
 	Timestamp     time.Time `json:"timestamp"`                // когда изменился статус
 	CorrelationID string    `json:"correlation_id,omitempty"` // если прокидываете трассировку
+}
+
+// Driver Info
+type DriverInfo struct {
+	DriverId  string
+	Email     string
+	Rating    float64
+	Latitude  float64
+	Longitude float64
 }

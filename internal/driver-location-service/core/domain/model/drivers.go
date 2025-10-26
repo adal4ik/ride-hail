@@ -68,3 +68,12 @@ type RideCompleteResponse struct {
 	DriverEarning float64
 	Message       string
 }
+
+// DriverInfo
+type DriverInfo struct {
+	DriverId  string
+	Email     string
+	Rating    float64
+	Latitude  float64
+	Longitude float64
+}

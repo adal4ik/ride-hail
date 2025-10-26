@@ -199,3 +199,41 @@ func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.
 	response.CompletedAt = time.Now().String()
 	return response, nil
 }
+
+func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]model.DriverInfo, error) {
+	Query := `
+	SELECT d.id, u.email, d.rating, c.latitude, c.longitude,
+       ST_Distance(
+         ST_MakePoint(c.longitude, c.latitude)::geography,
+         ST_MakePoint($1, $2)::geography
+       ) / 1000 as distance_km
+	FROM drivers d
+	JOIN users u ON d.id = u.id
+	JOIN coordinates c ON c.entity_id = d.id
+  		AND c.entity_type = 'driver'
+  		AND c.is_current = true
+	WHERE d.status = 'AVAILABLE'
+ 		AND d.vehicle_type = $3
+  		AND ST_DWithin(
+        	ST_MakePoint(c.longitude, c.latitude)::geography,
+        	ST_MakePoint($1, $2)::geography,
+        	5000  -- 5km radius
+      	)
+	ORDER BY distance_km, d.rating DESC
+	LIMIT 10;
+	`
+	rows, err := dr.db.GetConn().Query(ctx, Query, longtitude, latitude, vehicleType)
+	if err != nil {
+		return []model.DriverInfo{}, err
+	}
+	var result []model.DriverInfo
+	for rows.Next() {
+		var dInfo model.DriverInfo
+		err := rows.Scan(&dInfo.DriverId, &dInfo.Email, &dInfo.Rating, &dInfo.Latitude, &dInfo.Longitude)
+		if err != nil {
+			return []model.DriverInfo{}, err
+		}
+		result = append(result, dInfo)
+	}
+	return result, nil
+}

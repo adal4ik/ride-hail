@@ -21,7 +21,6 @@ func NewDriverService(repositories driven.IDriverRepository, log mylogger.Logger
 }
 
 func (ds *DriverService) GoOnline(ctx context.Context, coordDTO dto.DriverCoordinatesDTO) (dto.DriverOnlineResponse, error) {
-
 	var response dto.DriverOnlineResponse
 	var coord model.DriverCoordinates
 	coord.Driver_id = coordDTO.Driver_id
@@ -107,4 +106,22 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 	response.DriverEarning = results.DriverEarning
 	response.CompletedAt = results.CompletedAt
 	return response, nil
+}
+
+func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]dto.DriverInfo, error) {
+	drivers, err := ds.repositories.FindDrivers(ctx, longtitude, latitude, vehicleType)
+	if err != nil {
+		return []dto.DriverInfo{}, err
+	}
+	var results []dto.DriverInfo
+	for _, driver := range drivers {
+		var result dto.DriverInfo
+		result.DriverId = driver.DriverId
+		result.Email = driver.Email
+		result.Latitude = driver.Latitude
+		result.Longitude = driver.Longitude
+		result.Rating = driver.Rating
+		results = append(results, result)
+	}
+	return results, nil
 }
