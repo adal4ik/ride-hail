@@ -4,6 +4,7 @@ import "ride-hail/internal/ride-service/core/domain/dto"
 
 type IRidesService interface {
 	CreateRide(dto.RidesRequestDto) (dto.RidesResponseDto, error)
+	CancelRide(dto.RidesCancelRequestDto, string) (dto.RideCancelResponseDto, error)
 
 	// input: rideId, driverId, output: passengerId, rideNumber, error
 	// set to status match, and also send to the exchange

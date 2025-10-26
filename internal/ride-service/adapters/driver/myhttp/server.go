@@ -5,9 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
-	"time"
-
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/adapters/driven/bm"
@@ -18,6 +15,8 @@ import (
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/ws"
 	"ride-hail/internal/ride-service/core/ports"
 	"ride-hail/internal/ride-service/core/services"
+	"sync"
+	"time"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -97,7 +96,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 	s.mylog.Info("Shutting down HTTP server...")
 
-	s.wg.Wait()
+	// s.wg.Wait()
 
 	if s.srv != nil {
 		shutdownCtx, cancel := context.WithTimeout(ctx, WaitTime*time.Second)
@@ -160,12 +159,12 @@ func (s *Server) Configure() {
 	dispatcher.InitHandler()
 
 	// consumers
-	notify := consumer.New(s.appCtx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)
+	notify := consumer.New(s.ctx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)
 	s.notify = notify
 
 	// Register routes
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
-	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
+	s.mux.Handle("POST /rides/{ride_id}/cancel", authMiddleware.Wrap(rideHandler.CancelRide()))
 
 	// websocket routes
 	s.mux.Handle("/ws/passengers/{passenger_id}", dispatcher.WsHandler())

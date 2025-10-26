@@ -190,6 +190,48 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	return res, nil
 }
 
+func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string) (dto.RideCancelResponseDto, error) {
+	log := rs.mylog.Action("CreateRide")
+
+	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+
+	log.Info("params", "rideId", rideId, "reason", req.Reason)
+
+	driverId, err := rs.RidesRepo.CancelRide(ctx, rideId, req.Reason)
+	if err != nil {
+		log.Error("Failed to cancel ride", err)
+		return dto.RideCancelResponseDto{}, err
+	}
+	log.Info("Ride cancelled successfully")
+
+	cancelledAt := time.Now().Format(time.RFC3339)
+
+	res := dto.RideCancelResponseDto{
+		RideId:      rideId,
+		Status:      "CANCELLED",
+		CancelledAt: cancelledAt,
+		Message:     "Ride cancelled successfully",
+	}
+
+	m2 := messagebrokerdto.RideStatus{
+		RideId:    rideId,
+		Status:    "CANCELLED",
+		Timestamp: cancelledAt,
+		DriverID:  driverId,
+	}
+
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+
+	err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
+	if err != nil {
+		return dto.RideCancelResponseDto{}, err
+	}
+
+	return res, nil
+}
+
 func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
@@ -199,8 +241,8 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 		return "", "", err
 	}
 	m2 := messagebrokerdto.RideStatus{
-		RideId: rideId,
-		Status: "IN_PROGRESS",
+		RideId:    rideId,
+		Status:    "IN_PROGRESS",
 		Timestamp: time.Now().Format(time.RFC3339),
 		DriverID:  driverId,
 	}

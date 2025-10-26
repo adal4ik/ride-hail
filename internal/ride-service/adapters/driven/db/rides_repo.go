@@ -2,7 +2,8 @@ package db
 
 import (
 	"context"
-
+	"database/sql"
+	"fmt"
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
@@ -158,6 +159,7 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 	q := `UPDATE rides SET driver_id = $1 WHERE ride_id = $2`
 	_, err = tx.Exec(ctx, q, driverID, rideID)
 	if err != nil {
+		tx.Rollback(ctx)
 		return "", "", err
 	}
 
@@ -197,4 +199,65 @@ func (pr *RidesRepo) FindDistanceAndPassengerId(ctx context.Context, longitude, 
 	}
 
 	return distance, passengerId, nil
+}
+
+func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (string, error) {
+	q1 := `
+    SELECT  
+        driver_id, 
+        status
+    FROM 
+        rides
+    WHERE 
+        ride_id = $1`
+
+	q2 := `
+    UPDATE rides
+    SET 
+        status = 'CANCELLED', 
+        cancelled_at = NOW(),
+        cancellation_reason = $2
+    WHERE ride_id = $1`
+
+	conn := rr.db.conn
+
+	// Use sql.NullString or pointers to handle NULL values
+	var (
+		driverId sql.NullString
+		status   string
+	)
+
+	// Start transaction first to maintain consistency
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
+	// Perform SELECT within the same transaction
+	row := tx.QueryRow(ctx, q1, rideId)
+	if err := row.Scan(&driverId, &status); err != nil {
+		return "", fmt.Errorf("failed to fetch ride details: %w", err)
+	}
+
+	// Validate business rules
+	if status == "CANCELLED" {
+		return "", fmt.Errorf("ride already cancelled")
+	}
+
+	// Perform the update
+	if _, err := tx.Exec(ctx, q2, rideId, reason); err != nil {
+		return "", fmt.Errorf("failed to cancel ride: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("failed to commit cancellation: %w", err)
+	}
+
+	// Return driverId only if it's valid
+	if driverId.Valid {
+		return driverId.String, nil
+	}
+	return "", nil // or handle as appropriate for your business logic
 }
