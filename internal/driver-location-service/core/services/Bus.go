@@ -9,21 +9,31 @@ import (
 
 type Distributor struct {
 	rideOffers      *chan dto.RideDetails
+	rideStatuses    *chan dto.RideStatusUpdate
 	driverResponses map[string]chan dto.DriverResponse
 	messageDriver   map[string]chan dto.DriverRideOffer
 	ctx             context.Context
 	broker          driven.IDriverBroker
 }
 
-func NewDistributor(ctx context.Context, messageDriver map[string]chan dto.DriverRideOffer, rideOffers *chan dto.RideDetails, driverResponses map[string]chan dto.DriverResponse, broker driven.IDriverBroker) *Distributor {
+func NewDistributor(
+	ctx context.Context,
+	messageDriver map[string]chan dto.DriverRideOffer,
+	rideOffers *chan dto.RideDetails,
+	rideStatuses *chan dto.RideStatusUpdate,
+	driverResponses map[string]chan dto.DriverResponse,
+	broker driven.IDriverBroker,
+) *Distributor {
 	return &Distributor{
 		rideOffers:      rideOffers,
+		rideStatuses:    rideStatuses,
 		driverResponses: driverResponses,
 		messageDriver:   messageDriver,
 		ctx:             ctx,
 		broker:          broker,
 	}
 }
+
 func (d *Distributor) MessageDistributor() error {
 	for {
 		select {
@@ -52,6 +62,9 @@ func (d *Distributor) MessageDistributor() error {
 			if err != nil {
 				fmt.Println("Failed to publish driver response: ", err)
 			}
+		case st := <-*d.rideStatuses:
+			fmt.Println("Ride status received (ignored by logic): ", st)
+
 		case <-d.ctx.Done():
 			// Log shutdown message
 			return nil

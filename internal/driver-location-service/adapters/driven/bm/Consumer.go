@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
@@ -87,7 +86,7 @@ func (c *Consumer) listenRequests(msgs <-chan amqp.Delivery) {
 			c.RideRequests <- req
 			_ = msg.Ack(false)
 			c.log.Action("consume.request").Info("received ride request",
-				"ride_id", req.RideID, "type", req.RideType)
+				"ride_id", req.Ride_id, "type", req.Ride_type)
 		}
 	}
 }

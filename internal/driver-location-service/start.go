@@ -39,11 +39,12 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 
 	// Declaring channels for ride offers and driver responses
 	rideOffers := make(chan dto.RideDetails, 100)
+	rideStatuses := make(chan dto.RideStatusUpdate, 100)
 	driverResponses := make(map[string]chan dto.DriverResponse)
 	messageDriver := make(map[string]chan dto.DriverRideOffer)
 
 	// Creating the distributor
-	distributor := services.NewDistributor(newCtx, messageDriver, &rideOffers, driverResponses, broker)
+	distributor := services.NewDistributor(newCtx, messageDriver, &rideOffers, &rideStatuses, driverResponses, broker)
 
 	// Start the message distributor in a separate goroutine
 	go func() {
@@ -65,11 +66,12 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	mylog.Action("HTTP server configured").Info("HTTP server is configured and ready to start")
 
 	// RabbitMq consumer setup
-	consumer := bm.NewConsumer(newCtx, broker, mylog, rideOffers)
-	if err := consumer.SubscribeForMessages(); err != nil {
+	consumer := bm.NewConsumer(newCtx, broker, mylog)
+	if err := consumer.ListenAll(); err != nil {
 		mylog.Error("Failed to subscribe for messages", err)
 		return err
 	}
+
 	// Running server
 	mylog.Action("Starting server").Info("Starting HTTP server")
 	runErrCh := make(chan error, 1)
