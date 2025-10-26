@@ -237,3 +237,16 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 	}
 	return result, nil
 }
+
+func (dr *DriverRepository) CalculateRideDetails(ctx context.Context, driverLocation model.Location, passagerLocation model.Location) (float64, error) {
+	q := `SELECT ST_Distance(ST_MakePoint($1, $2)::geography, ST_MakePoint($3, $4)::geography) / 1000 as distance_km`
+
+	db := dr.db.conn
+	row := db.QueryRow(ctx, q, driverLocation.Longitude, driverLocation.Latitude, passagerLocation.Longitude, passagerLocation.Latitude)
+	distance := 0.0
+	err := row.Scan(&distance)
+	if err != nil {
+		return 0.0, err
+	}
+	return distance, nil
+}

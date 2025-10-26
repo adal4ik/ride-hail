@@ -125,3 +125,21 @@ func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude,
 	}
 	return results, nil
 }
+
+func (ds *DriverService) CalculateRideDetails(ctx context.Context, driverLocation dto.Location, passagerLocation dto.Location) (float64, int, error) {
+	distance, err := ds.repositories.CalculateRideDetails(ctx,
+		model.Location{
+			Latitude:  driverLocation.Latitude,
+			Longitude: driverLocation.Longitude,
+		},
+		model.Location{
+			Latitude:  passagerLocation.Latitude,
+			Longitude: passagerLocation.Longitude,
+		},
+	)
+	if err != nil {
+		return 0, 0, err
+	}
+	minutes := int(distance / 45)
+	return distance, minutes, nil
+}

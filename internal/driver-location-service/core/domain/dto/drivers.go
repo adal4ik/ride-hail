@@ -107,11 +107,17 @@ type DriverResponse struct {
 
 // Driver Ride Offer
 type DriverRideOffer struct {
-	Type            string         `json:"type"`
-	Offer_id        string         `json:"offer_id"`
-	Ride_id         string         `json:"ride_id"`
-	Ride_number     string         `json:"ride_number"`
-	Pickup_location LocationDetail `json:"pickup_location"`
+	Type                 string         `json:"type"`
+	Offer_id             string         `json:"offer_id"`
+	Ride_id              string         `json:"ride_id"`
+	Ride_number          string         `json:"ride_number"`
+	Pickup_location      LocationDetail `json:"pickup_location"`
+	Destination_location LocationDetail `json:"destination_location"`
+	Estimated_fare       float64        `json:"estimated_fare"`
+	Driver_earnings      float64        `json:"driver_earnings"`
+	DistanceToPickUp     float64        `json:"distance_to_pickup_km"`
+	EstimatedDuration    int            `json:"estimated_ride_duration_minutes"`
+	ExpiredAt            string         `json:"expires_at"`
 }
 
 type LocationDetailsForOffer struct {
@@ -121,6 +127,7 @@ type LocationDetailsForOffer struct {
 	Notes   string  `json:"notes"`
 }
 
+// Ride Status Update
 type RideStatusUpdate struct {
 	RideID        string    `json:"ride_id"`                  // обязательный
 	RideNumber    string    `json:"ride_number,omitempty"`    // опционально

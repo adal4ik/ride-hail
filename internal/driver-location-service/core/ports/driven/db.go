@@ -13,4 +13,5 @@ type IDriverRepository interface {
 	StartRide(ctx context.Context, requestData model.StartRide) (model.StartRideResponse, error)
 	CompleteRide(ctx context.Context, requestData model.RideCompleteForm) (model.RideCompleteResponse, error)
 	FindDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]model.DriverInfo, error)
+	CalculateRideDetails(ctx context.Context, driverLocation model.Location, passagerLocation model.Location) (float64, error)
 }

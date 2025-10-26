@@ -72,7 +72,6 @@ func (d *Distributor) MessageDistributor() error {
 					filteredDrivers = append(filteredDrivers, driver)
 				}
 			}
-
 		case st := <-d.rideStatuses:
 			fmt.Println("Ride status received (ignored by logic): ", st)
 
@@ -83,15 +82,43 @@ func (d *Distributor) MessageDistributor() error {
 	}
 }
 
-func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideDetails){
-	go func(){
-		for _, driver := range drivers{
-			var driverOffer dto.DriverRideOffer
-			driverOffer.Type = "ride_offer"
-			driverOffer.Offer_id = "offer_" + time.Now().String()
-			driverOffer.Ride_id = rideDetails.Ride_id
-			driverOffer.Ride_number = rideDetails.Ride_number
-
+func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideDetails) {
+	go func() {
+		for _, driver := range drivers {
+			ctx := context.Background()
+			distanceToPickUp, minutes, err := d.driverService.CalculateRideDetails(
+				ctx,
+				dto.Location{
+					Latitude:  driver.Latitude,
+					Longitude: driver.Longitude,
+				},
+				dto.Location{
+					Latitude:  rideDetails.Pickup_location.Lat,
+					Longitude: rideDetails.Pickup_location.Lng,
+				},
+			)
+			driverOffer := dto.DriverRideOffer{
+				Type:        "ride_offer",
+				Offer_id:    "offer_" + time.Now().String(),
+				Ride_id:     rideDetails.Ride_id,
+				Ride_number: rideDetails.Ride_number,
+				Pickup_location: dto.LocationDetail{
+					Lat:     rideDetails.Pickup_location.Lat,
+					Lng:     rideDetails.Pickup_location.Lng,
+					Address: rideDetails.Pickup_location.Address,
+				},
+				Destination_location: dto.LocationDetail{
+					Lat:     rideDetails.Destination_location.Lat,
+					Lng:     rideDetails.Destination_location.Lng,
+					Address: rideDetails.Destination_location.Address,
+				},
+				Estimated_fare:    rideDetails.Estimated_fare,
+				Driver_earnings:   rideDetails.Estimated_fare * 0.8,
+				DistanceToPickUp:  distanceToPickUp,
+				EstimatedDuration: minutes,
+				ExpiredAt:         time.Now() + time.Duration(minutes)*time.Minute,
+			}
+			_ = driver
 		}
-	}
+	}()
 }
