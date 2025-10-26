@@ -11,6 +11,7 @@ import (
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/adapters/driven/bm"
+	"ride-hail/internal/ride-service/adapters/driven/consumer"
 	"ride-hail/internal/ride-service/adapters/driven/db"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/middleware"
@@ -27,6 +28,7 @@ type Server struct {
 	mux    *http.ServeMux
 	cfg    *config.Config
 	srv    *http.Server
+	notify *consumer.Notification
 	mylog  mylogger.Logger
 	db     *db.DB
 	mb     ports.IRidesBroker
@@ -43,6 +45,7 @@ func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.C
 		cfg:    cfg,
 		mylog:  mylog,
 		mux:    http.NewServeMux(),
+		wg:     sync.WaitGroup{},
 	}
 
 	return s
@@ -50,7 +53,7 @@ func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.C
 
 // Run initializes routes and starts listening. It returns when the server stops.
 func (s *Server) Run() error {
-	mylog := s.mylog.Action("server_started")
+	mylog := s.mylog.Action("server_started").With("port", s.cfg.Srv.RideServicePort)
 
 	// Initialize database connection
 	db, err := db.New(s.ctx, s.cfg.DB, mylog)
@@ -78,7 +81,10 @@ func (s *Server) Run() error {
 	}
 	s.mu.Unlock()
 
-	mylog = mylog.WithGroup("details").With("port", s.cfg.Srv.RideServicePort)
+	err = s.notify.Run()
+	if err != nil {
+		return err
+	}
 
 	mylog.Info("server is running")
 	return s.startHTTPServer()
@@ -146,15 +152,18 @@ func (s *Server) Configure() {
 
 	// handlers
 	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
-	eventHander := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
 
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
-	// Register routes
 
-	dispatcher := ws.NewDispathcer(s.mylog, passengerService, *eventHander)
+	eventHandle := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
+	dispatcher := ws.NewDispathcer(s.mylog, passengerService, eventHandle)
 	dispatcher.InitHandler()
 
-	// TODO: add middleware
+	// consumers
+	notify := consumer.New(s.appCtx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)
+	s.notify = notify
+
+	// Register routes
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
 	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
 

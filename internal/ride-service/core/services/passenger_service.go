@@ -15,14 +15,14 @@ import (
 type PassengerService struct {
 	mylog          mylogger.Logger
 	PassengerRepo  ports.IPassengerRepo
-	RidesWebsocket ports.IRidesWebsocket
+	RidesWebsocket ports.INotifyWebsocket
 	ctx            context.Context
 }
 
 func NewPassengerService(ctx context.Context,
 	log mylogger.Logger,
 	PassengerRepo ports.IPassengerRepo,
-	RidesWebsocket ports.IRidesWebsocket,
+	RidesWebsocket ports.INotifyWebsocket,
 ) ports.IPassengerService {
 	return &PassengerService{
 		ctx:            ctx,
@@ -33,12 +33,12 @@ func NewPassengerService(ctx context.Context,
 }
 
 // find to exist this user or not
-func (ps *PassengerService) FindPassenger(passengerId string) (bool, error) {
+func (ps *PassengerService) IsPassengerExists(passengerId string) (bool, error) {
 	log := ps.mylog.Action("FindPassenger")
 
 	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*5)
 	defer cancel()
-	roles, err := ps.PassengerRepo.Find(ctx, passengerId)
+	roles, err := ps.PassengerRepo.Exist(ctx, passengerId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil

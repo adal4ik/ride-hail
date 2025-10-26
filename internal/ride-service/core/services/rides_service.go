@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	DEFUALT_RATE_PER_MIN = 60
+	DEFUALT_RATE_PER_MIN = 40
 
 	ECONOMY = "ECONOMY"
 	PREMIUM = "PREMIUM"
@@ -37,7 +38,7 @@ type RidesService struct {
 	mylog          mylogger.Logger
 	RidesRepo      ports.IRidesRepo
 	RidesBroker    ports.IRidesBroker
-	RidesWebsocket ports.IRidesWebsocket
+	RidesWebsocket ports.INotifyWebsocket
 	ctx            context.Context
 }
 
@@ -45,7 +46,7 @@ func NewRidesService(ctx context.Context,
 	log mylogger.Logger,
 	RidesRepo ports.IRidesRepo,
 	RidesBroker ports.IRidesBroker,
-	RidesWebsocket ports.IRidesWebsocket,
+	RidesWebsocket ports.INotifyWebsocket,
 ) ports.IRidesService {
 	return &RidesService{
 		ctx:            ctx,
@@ -172,7 +173,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		Address: req.DestinationAddress,
 	}
 
-	if err := rs.RidesBroker.PushMessageToDrivers(rs.ctx, rideMsg); err != nil {
+	if err := rs.RidesBroker.PushMessageToRequest(rs.ctx, rideMsg); err != nil {
 		log.Error("Failed to publish message", err)
 		return dto.RidesResponseDto{}, fmt.Errorf("cannot send message to broker: %w", err)
 	}
@@ -184,9 +185,54 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		Status:                   "REQUESTED",
 		EstimatedFare:            EstimatedFare,
 		EstimatedDistanceKm:      distance,
-		EstimatedDurationMinutes: distance / DEFUALT_RATE_PER_MIN,
+		EstimatedDurationMinutes: distance * 1000 / DEFUALT_RATE_PER_MIN,
 	}
 	return res, nil
+}
+
+func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string, error) {
+	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+	passengerId, rideNumber, err := rs.RidesRepo.ChangeStatusMatch(ctx, rideId, driverId)
+	if err != nil {
+		// TODO: add handle error
+		return "", "", err
+	}
+	m2 := messagebrokerdto.RideStatus{
+		RideId: rideId,
+		Status: "IN_PROGRESS",
+		Timestamp: time.Now().Format(time.RFC3339),
+		DriverID:  driverId,
+	}
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+
+	err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
+	if err != nil {
+		return "", "", err
+	}
+
+	return passengerId, rideNumber, nil
+}
+
+func (ps *RidesService) EstimateDistance(rideId string, longitude, latitude, speed float64) (string, string, float64, error) {
+	log := ps.mylog.Action("FindPassenger")
+
+	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*5)
+	defer cancel()
+
+	distance, passengerId, err := ps.RidesRepo.FindDistanceAndPassengerId(ctx, longitude, latitude, rideId)
+	if err != nil {
+		log.Error("cannot get user", err)
+		return "", "", 0.0, err
+	}
+	if IsCloseToZero(speed) {
+		speed = DEFUALT_RATE_PER_MIN
+	}
+
+	t := time.Now().Add(time.Duration(distance / speed)).Format(time.RFC3339)
+
+	return passengerId, t, distance, nil
 }
 
 // Generate a new UUID as a correlation ID
@@ -208,4 +254,10 @@ func generateCorrelationID() string {
 		b[i] = charSet[rand.Intn(len(charSet))]
 	}
 	return "req_" + string(b)
+}
+
+const Epsilon = 1e-9
+
+func IsCloseToZero(f float64) bool {
+	return math.Abs(f) < Epsilon
 }

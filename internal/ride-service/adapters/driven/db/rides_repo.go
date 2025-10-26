@@ -58,6 +58,7 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 	if err != nil {
 		return "", err
 	}
+
 	// pick up coordinates
 	q1 := `INSERT INTO coordinates(
 			entity_id, 
@@ -145,4 +146,55 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 	}
 
 	return RideId, tx.Commit(ctx)
+}
+
+func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID string) (string, string, error) {
+	conn := rr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", "", err
+	}
+
+	q := `UPDATE rides SET driver_id = $1 WHERE ride_id = $2`
+	_, err = tx.Exec(ctx, q, driverID, rideID)
+	if err != nil {
+		return "", "", err
+	}
+
+	var (
+		passengerId string = ""
+		rideNumber  string = ""
+	)
+
+	q = `SELECT passenger_id, ride_number FROM rides WHERE ride_id = $1`
+	row := tx.QueryRow(ctx, q, rideID)
+
+	err = row.Scan(&passengerId, &rideNumber)
+	if err != nil {
+		tx.Rollback(ctx)
+		return "", "", err
+	}
+	return passengerId, rideNumber, tx.Commit(ctx)
+}
+
+func (pr *RidesRepo) FindDistanceAndPassengerId(ctx context.Context, longitude, latitude float64, rideId string) (float64, string, error) {
+	q := `SELECT
+			ST_Distance(ST_MakePoint(c.longitude, c.latitude)::geography, ST_MakePoint($1, $2)::geography),
+			r.passenger_id, 
+		FROM rides r 
+		JOIN coordinates c ON r.pickup_coord_id = c.coord_id 
+		WHERE r.ride_id = $3`
+
+	conn := pr.db.conn
+
+	row := conn.QueryRow(ctx, q, longitude, latitude, rideId)
+	var (
+		distance    float64
+		passengerId string
+	)
+	if err := row.Scan(&distance, &passengerId); err != nil {
+		return 0.0, "", err
+	}
+
+	return distance, passengerId, nil
 }

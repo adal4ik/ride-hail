@@ -18,8 +18,10 @@ type IRidesRepo interface {
 	CreateRide(context.Context, model.Rides) (string, error)
 	GetDistance(context.Context, dto.RidesRequestDto) (float64, error)
 	GetNumberRides(context.Context) (int64, error)
+	ChangeStatusMatch(context.Context, string, string) (string, string, error)
+	FindDistanceAndPassengerId(ctx context.Context, longitude, latitude float64, rideId string) (distance float64, passengerId string, err error)
 }
 
 type IPassengerRepo interface {
-	Find(ctx context.Context, passengerId string) (string, error) 
+	Exist(ctx context.Context, passengerId string) (string, error)
 }

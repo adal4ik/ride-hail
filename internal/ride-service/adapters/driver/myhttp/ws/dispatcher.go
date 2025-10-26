@@ -33,17 +33,17 @@ type ClientList map[string]*Client
 
 type Dispatcher struct {
 	PassengerService ports.IPassengerService
-	eventHandler     EventHandler
+	eventHandler     *EventHandler
 	hander           map[string]EventHandle
 	clients          ClientList
 	sync.RWMutex
 	log mylogger.Logger
 }
 
-func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader EventHandler) *Dispatcher {
+func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader *EventHandler) *Dispatcher {
 	return &Dispatcher{
 		clients:          make(ClientList),
-		hander: make(map[string]EventHandle),
+		hander:           make(map[string]EventHandle),
 		PassengerService: passengerRepo,
 		log:              log,
 		eventHandler:     eventHader,
@@ -65,7 +65,7 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 			return
 		}
 
-		ok, err := d.PassengerService.FindPassenger(passengerId)
+		ok, err := d.PassengerService.IsPassengerExists(passengerId)
 		if err != nil {
 			log.Error("db problem", err)
 			w.WriteHeader(http.StatusInternalServerError)

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	messagebroker "ride-hail/internal/ride-service/core/domain/message_broker_dto"
+	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -46,7 +46,7 @@ func New(ctx context.Context, rabbitmqCfg config.RabbitMqconfig, mylog mylogger.
 	return r, nil
 }
 
-func (r *RabbitMQ) PushMessageToDrivers(ctx context.Context, message messagebroker.Ride) error {
+func (r *RabbitMQ) PushMessageToRequest(ctx context.Context, message messagebrokerdto.Ride) error {
 	mylog := r.mylog.Action("pushMessage")
 
 	if r.conn.IsClosed() {
@@ -67,10 +67,31 @@ func (r *RabbitMQ) PushMessageToDrivers(ctx context.Context, message messagebrok
 		Body:         body,
 	})
 }
+func (r *RabbitMQ) PushMessageToStatus(ctx context.Context, msg messagebrokerdto.RideStatus) error {
+	mylog := r.mylog.Action("pushMessage")
+
+	if r.conn.IsClosed() {
+		mylog.Error("connection between rabbitmq is closed", fmt.Errorf("closed conn"))
+		go r.reconnect(r.ctx)
+		return errors.New("connection is closed")
+	}
+
+	routingKey := fmt.Sprintf("ride.status.%s", msg.Status)
+	body, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	return r.ch.PublishWithContext(ctx, exchange, routingKey, false, false, amqp.Publishing{
+		ContentType:  "application/json",
+		DeliveryMode: amqp.Persistent,
+		Body:         body,
+	})
+}
 
 func (r *RabbitMQ) ConsumeMessageFromDrivers(ctx context.Context, queue, driverName string) (<-chan amqp.Delivery, error) {
 	return r.ch.ConsumeWithContext(ctx, queue, driverName, false, false, false, false, nil)
 }
+
 
 func (r *RabbitMQ) IsAlive() bool {
 	r.mu.Lock()

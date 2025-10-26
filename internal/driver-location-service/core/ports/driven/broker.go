@@ -21,7 +21,6 @@ type IDriverBroker interface {
 	// Consume подписывается на очередь с указанным биндингом.
 	// Возвращает канал Deliveries (amqp.Delivery), из которого читает consumer.
 	Consume(ctx context.Context, queueName, bindingKey string, opts ConsumeOptions) (<-chan amqp.Delivery, error)
-
 	// IsAlive проверяет состояние соединения.
 	IsAlive() bool
 
