@@ -110,7 +110,7 @@ func (c *Client) WriteMessage() {
 				log.Error("cannot write message", err)
 			}
 		case <-ticker.C:
-			log.Info("ping")
+			log.Debug("ping")
 
 			if err := c.conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				log.Error("write to ping", err)
@@ -122,6 +122,6 @@ func (c *Client) WriteMessage() {
 
 func (c *Client) PingHandler(pongMessage string) error {
 	log := c.log.Action("PingHandler").With("passenger-id", c.passengerId)
-	log.Info("pong")
+	log.Debug("pong")
 	return c.conn.SetReadDeadline(time.Now().Add(pongWait))
 }
