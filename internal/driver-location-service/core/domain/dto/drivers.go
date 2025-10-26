@@ -75,3 +75,46 @@ type RideCompleteResponse struct {
 	DriverEarning float64 `json:"driver_earnings"`
 	Message       string  `json:"message"`
 }
+
+// Ride Details
+type RideDetails struct {
+	Ride_id              string         `json:"ride_id"`
+	Ride_number          string         `json:"ride_number"`
+	Pickup_location      LocationDetail `json:"pickup_location"`
+	Destination_location LocationDetail `json:"destination_location"`
+	Ride_type            string         `json:"ride_type"`
+	Estimated_fare       float64        `json:"estimated_fare"`
+	Max_distance_km      float64        `json:"max_distance_km"`
+	Timeout_seconds      int            `json:"timeout_seconds"`
+	Correlation_id       string         `json:"correlation_id"`
+}
+type LocationDetail struct {
+	Lat     float64 `json:"lat"`
+	Lng     float64 `json:"lng"`
+	Address string  `json:"address"`
+}
+
+// Driver Response
+type DriverResponse struct {
+	Type             string               `json:"type"`
+	Offer_id         string               `json:"offer_id"`
+	Ride_id          string               `json:"ride_id"`
+	Accepted         bool                 `json:"accepted"`
+	Current_location DriverCoordinatesDTO `json:"current_location"`
+}
+
+// Driver Ride Offer
+type DriverRideOffer struct {
+	Type            string         `json:"type"`
+	Ride_id         string         `json:"ride_id"`
+	Passenger_name  string         `json:"passenger_name"`
+	Passenger_phone string         `json:"passenger_phone"`
+	Pickup_location LocationDetail `json:"pickup_location"`
+}
+
+type LocationDetailsForOffer struct {
+	Lat     float64 `json:"latitude"`
+	Lng     float64 `json:"longitude"`
+	Address string  `json:"address"`
+	Notes   string  `json:"notes"`
+}

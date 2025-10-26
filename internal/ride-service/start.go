@@ -5,10 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"os/signal"
-	"ride-hail/internal/ride-service/adapters/driver/myhttp"
+	"syscall"
+
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"syscall"
+	"ride-hail/internal/ride-service/adapters/driver/myhttp"
 )
 
 type RideService struct{}
@@ -39,3 +40,7 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 		return nil
 	}
 }
+
+// TODO:
+// 1) Websocket
+// 2) Logs and Error
