@@ -2,12 +2,14 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
+	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
 	"time"
 
@@ -304,4 +306,54 @@ const Epsilon = 1e-9
 
 func IsCloseToZero(f float64) bool {
 	return math.Abs(f) < Epsilon
+}
+
+// type DriverInfo struct {
+// 	DriverID string  `json:"driver_id"`
+// 	Name     string  `json:"name"`
+// 	Rating   float64 `json:"rating"`
+// 	Vehicle  Vehicle `json:"vehicle"`
+// }
+
+// // To Passenger - Match Notification:
+// type RideStatusUpdateDto struct {
+// 	RideID        string     `json:"ride_id"`
+// 	RideNumber    string     `json:"ride_number"`
+// 	Status        string     `json:"status"`
+// 	DriverInfo    DriverInfo `json:"driver_info"`
+// 	CorrelationID string     `json:"correlation_id"`
+// }
+
+func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate) (string, websocketdto.Event, error) {
+	log := ps.mylog.Action("UpdateRideStatus")
+
+	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*15)
+	defer cancel()
+
+	passengerId, rideNumber, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg.RideId, msg.Status)
+	if err != nil {
+		log.Error("Failed to cancel ride", err)
+		return "", websocketdto.Event{}, err
+	}
+
+	data := websocketdto.RideStatusUpdateDto{
+		RideID:        msg.RideId,
+		Status:        msg.Status,
+		CorrelationID: generateCorrelationID(),
+		DriverInfo:    driverInfo,
+		RideNumber:    rideNumber,
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("Error marshalling JSON:", err)
+		return "", websocketdto.Event{}, err
+	}
+
+	res := websocketdto.Event{
+		Type: "ride_status_update",
+		Data: jsonData,
+	}
+
+	return passengerId, res, nil
 }

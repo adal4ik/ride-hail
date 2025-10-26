@@ -25,3 +25,10 @@ type RideAcceptance struct {
 	DriverInfo              DriverInfo `json:"driver_info"`
 	EstimatedArrival        time.Time  `json:"estimated_arrival"`
 }
+
+type DriverStatusUpdate struct {
+	DriverId  string `json:"driver_id"`
+	Status    string `json:"status"`
+	RideId    string `json:"ride_id"`
+	Timestamp string `json:"timestamp"`
+}

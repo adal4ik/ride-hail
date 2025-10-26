@@ -14,9 +14,9 @@ type DriverLocationUpdate struct {
 }
 
 // To Passenger - Status Updates:
-type RideStatusUpdate struct {
-	Type    string `json:"type"`
-	RideID  string `json:"ride_id"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
-}
+// type RideStatusUpdate struct {
+// 	Type    string `json:"type"`
+// 	RideID  string `json:"ride_id"`
+// 	Status  string `json:"status"`
+// 	Message string `json:"message"`
+// }

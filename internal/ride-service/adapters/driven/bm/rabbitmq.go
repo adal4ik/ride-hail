@@ -67,6 +67,7 @@ func (r *RabbitMQ) PushMessageToRequest(ctx context.Context, message messagebrok
 		Body:         body,
 	})
 }
+
 func (r *RabbitMQ) PushMessageToStatus(ctx context.Context, msg messagebrokerdto.RideStatus) error {
 	mylog := r.mylog.Action("pushMessage")
 
@@ -91,7 +92,6 @@ func (r *RabbitMQ) PushMessageToStatus(ctx context.Context, msg messagebrokerdto
 func (r *RabbitMQ) ConsumeMessageFromDrivers(ctx context.Context, queue, driverName string) (<-chan amqp.Delivery, error) {
 	return r.ch.ConsumeWithContext(ctx, queue, driverName, false, false, false, false, nil)
 }
-
 
 func (r *RabbitMQ) IsAlive() bool {
 	r.mu.Lock()
