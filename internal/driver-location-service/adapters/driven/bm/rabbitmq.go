@@ -28,6 +28,7 @@ type RabbitMQ struct {
 	ch           *amqp.Channel
 	reconnecting bool
 	mu           *sync.Mutex
+	Messages    chan amqp.Delivery
 }
 
 var _ ports.IDriverBroker = (*RabbitMQ)(nil)

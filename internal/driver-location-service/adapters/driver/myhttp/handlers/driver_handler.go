@@ -23,9 +23,11 @@ type DriverHandler struct {
 	driverService driver.IDriverService
 	log           mylogger.Logger
 	upgrader      websocket.Upgrader
+	inMessages    map[string]chan dto.DriverRideOffer
+	outMessages   map[string]chan dto.DriverResponse
 }
 
-func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) *DriverHandler {
+func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger, inMessages map[string]chan dto.DriverRideOffer, outMessages map[string]chan dto.DriverResponse) *DriverHandler {
 	return &DriverHandler{
 		driverService: driverService,
 		log:           log,
@@ -34,6 +36,8 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) 
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
+		inMessages:  inMessages,
+		outMessages: outMessages,
 	}
 }
 

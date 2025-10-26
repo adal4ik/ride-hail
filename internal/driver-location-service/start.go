@@ -13,6 +13,7 @@ import (
 	"ride-hail/internal/driver-location-service/adapters/driven/db"
 	"ride-hail/internal/driver-location-service/adapters/driver/myhttp"
 	"ride-hail/internal/driver-location-service/adapters/driver/myhttp/handlers"
+	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/services"
 	"ride-hail/internal/mylogger"
 )
@@ -29,16 +30,38 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	}
 	mylog.Action("Database connected").Info("Database connection established")
 	defer database.Close()
-	fmt.Println(cfg.RabbitMq)
 	mylog.Action("Setting up components").Info("Setting up repository, broker, service, and handlers")
 	repository := db.New(database)
 	broker, err := bm.New(ctx, *cfg.RabbitMq, mylog)
 	if err != nil {
 		return err
 	}
+
+	// Declaring channels for ride offers and driver responses
+	rideOffers := make(chan dto.RideDetails, 100)
+	driverResponses := make(map[string]chan dto.DriverResponse)
+	messageDriver := make(map[string]chan dto.DriverRideOffer)
+
+	// Creating the distributor
+	distributor := services.NewDistributor(newCtx, messageDriver, &rideOffers, driverResponses)
+
+	// RabbitMq consumer setup
+	consumer := bm.NewConsumer(newCtx, broker, mylog, &rideOffers)
+	if err := consumer.SubscribeForMessages(); err != nil {
+		mylog.Error("Failed to subscribe for messages", err)
+		return err
+	}
+
+	// Start the message distributor in a separate goroutine
+	go func() {
+		if err := distributor.MessageDistributor(); err != nil {
+			mylog.Error("Message distributor encountered an error", err)
+		}
+	}()
+
 	mylog.Action("Broker connected").Info("Message broker connection established")
-	service := services.New(repository, &mylog, broker)
-	handler := handlers.New(service, mylog)
+	service := services.New(repository, mylog, broker)
+	handler := handlers.New(service, mylog, messageDriver, driverResponses)
 	mux := myhttp.Router(handler, cfg)
 	mylog.Action("Components set up").Info("All components are set up successfully")
 	httpServer := &http.Server{

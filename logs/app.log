@@ -493,3 +493,248 @@
 {"timestamp":"2025-10-24T11:33:11Z","level":"INFO","message":"Database closed","hostname":"abbafa181f82","request_id":"startup-035","service":"auth-service","action":"db_closed"}
 {"timestamp":"2025-10-24T11:33:11Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"abbafa181f82","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
 {"timestamp":"2025-10-24T11:33:11Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"abbafa181f82","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-25T12:19:57Z","level":"INFO","message":"Ride Hail System starting up","hostname":"1bf9f0637672","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-25T12:19:57Z","level":"INFO","message":"Admin Service starting up","hostname":"1bf9f0637672","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-25T12:19:57Z","level":"INFO","message":"Successful database connection","hostname":"1bf9f0637672","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-25T12:19:57Z","level":"INFO","message":"server is running","hostname":"1bf9f0637672","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"Ride Hail System starting up","hostname":"b2f34ddae357","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"Ride Service starting up","hostname":"b2f34ddae357","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"Successful database connection","hostname":"b2f34ddae357","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"Ride Hail System starting up","hostname":"2de9b40d4c8e","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"Successful message broker connection","hostname":"b2f34ddae357","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"Auth Service starting up","hostname":"2de9b40d4c8e","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"server is running","hostname":"b2f34ddae357","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"Successful database connection","hostname":"2de9b40d4c8e","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-25T12:20:10Z","level":"INFO","message":"server is running","hostname":"2de9b40d4c8e","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-25T12:25:13Z","level":"INFO","message":"User registered successfully","hostname":"2de9b40d4c8e","request_id":"startup-035","service":"auth-service","action":"Register"}
+{"timestamp":"2025-10-25T12:25:13Z","level":"INFO","message":"Successfully registered!","hostname":"2de9b40d4c8e","request_id":"startup-035","service":"auth-service","action":"Register"}
+{"timestamp":"2025-10-26T04:53:39Z","level":"INFO","message":"Ride Hail System starting up","hostname":"b2f34ddae357","request_id":"startup-036","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T04:53:39Z","level":"INFO","message":"Ride Service starting up","hostname":"b2f34ddae357","request_id":"startup-036","service":"ride-service"}
+{"timestamp":"2025-10-26T04:53:47Z","level":"ERROR","message":"Server failed unexpectedly","hostname":"b2f34ddae357","request_id":"startup-036","service":"ride-service","error":{"message":"failed to connect to database: failed to connect to database: failed to connect to `user=ridehail_user database=ridehail_db`: hostname resolving error: lookup postgres on 127.0.0.11:53: server misbehaving","stack":[{"func":"runtime.main","source":"runtime/proc.go","line":283},{"func":"runtime.goexit","source":"runtime/asm_amd64.s","line":1700}]}}
+{"timestamp":"2025-10-26T04:53:47Z","level":"ERROR","message":"Error in ride-service","hostname":"b2f34ddae357","request_id":"startup-036","service":"ride-service","error":{"message":"failed to connect to database: failed to connect to database: failed to connect to `user=ridehail_user database=ridehail_db`: hostname resolving error: lookup postgres on 127.0.0.11:53: server misbehaving","stack":[{"func":"runtime.goexit","source":"runtime/asm_amd64.s","line":1700}]}}
+{"timestamp":"2025-10-26T04:53:47Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"b2f34ddae357","request_id":"startup-036","service":"ride-service"}
+{"timestamp":"2025-10-26T04:55:27Z","level":"INFO","message":"Ride Hail System starting up","hostname":"19fe14e18f80","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T04:55:27Z","level":"INFO","message":"Admin Service starting up","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T04:55:27Z","level":"INFO","message":"Successful database connection","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T04:55:27Z","level":"INFO","message":"server is running","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"Ride Hail System starting up","hostname":"2769efcf807a","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"Auth Service starting up","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"Successful database connection","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"server is running","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"Ride Hail System starting up","hostname":"24ca7786fb4d","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"Ride Service starting up","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"Successful database connection","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"Successful message broker connection","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T04:55:48Z","level":"INFO","message":"server is running","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Shutdown signal received","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Shutdown signal received","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Database closed","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Shutdown signal received","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"shutdown_signal_received"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"24ca7786fb4d","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Database closed","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Database closed","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"2769efcf807a","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:02:30Z","level":"INFO","message":"Admin Service shut down successfully","hostname":"19fe14e18f80","request_id":"startup-035","service":"admin-service","action":"admin_service_completed"}
+{"timestamp":"2025-10-26T05:05:08Z","level":"INFO","message":"Ride Hail System starting up","hostname":"521f322e120f","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:05:08Z","level":"INFO","message":"Admin Service starting up","hostname":"521f322e120f","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:05:08Z","level":"INFO","message":"Successful database connection","hostname":"521f322e120f","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:05:08Z","level":"INFO","message":"server is running","hostname":"521f322e120f","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"Ride Hail System starting up","hostname":"d8977541c24a","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"Ride Service starting up","hostname":"d8977541c24a","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"Successful database connection","hostname":"d8977541c24a","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"Successful message broker connection","hostname":"d8977541c24a","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"server is running","hostname":"d8977541c24a","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"Ride Hail System starting up","hostname":"05b41f82ab62","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"Auth Service starting up","hostname":"05b41f82ab62","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"Successful database connection","hostname":"05b41f82ab62","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:05:36Z","level":"INFO","message":"server is running","hostname":"05b41f82ab62","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:08:43Z","level":"INFO","message":"Ride Hail System starting up","hostname":"1b7472f7e6c7","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:08:43Z","level":"INFO","message":"Admin Service starting up","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:08:43Z","level":"INFO","message":"Successful database connection","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:08:43Z","level":"INFO","message":"server is running","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"Ride Hail System starting up","hostname":"396e97818687","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"Auth Service starting up","hostname":"396e97818687","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"Successful database connection","hostname":"396e97818687","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"server is running","hostname":"396e97818687","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"Ride Hail System starting up","hostname":"dc4c83e37126","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"Ride Service starting up","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"Successful database connection","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"Successful message broker connection","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:09:04Z","level":"INFO","message":"server is running","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Shutdown signal received","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"shutdown_signal_received"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Shutdown signal received","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Shutdown signal received","hostname":"396e97818687","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"396e97818687","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Database closed","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Database closed","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Database closed","hostname":"396e97818687","request_id":"startup-035","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"dc4c83e37126","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"396e97818687","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Admin Service shut down successfully","hostname":"1b7472f7e6c7","request_id":"startup-035","service":"admin-service","action":"admin_service_completed"}
+{"timestamp":"2025-10-26T05:15:13Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"396e97818687","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:16:22Z","level":"INFO","message":"Ride Hail System starting up","hostname":"c28c4e20be51","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:16:22Z","level":"INFO","message":"Admin Service starting up","hostname":"c28c4e20be51","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:16:22Z","level":"INFO","message":"Successful database connection","hostname":"c28c4e20be51","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:16:22Z","level":"INFO","message":"server is running","hostname":"c28c4e20be51","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:16:37Z","level":"INFO","message":"Ride Hail System starting up","hostname":"f34dcdeab482","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:16:37Z","level":"INFO","message":"Auth Service starting up","hostname":"f34dcdeab482","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:16:37Z","level":"INFO","message":"Successful database connection","hostname":"f34dcdeab482","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:16:37Z","level":"INFO","message":"server is running","hostname":"f34dcdeab482","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:16:37Z","level":"INFO","message":"Ride Hail System starting up","hostname":"adb2e3ce2d40","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:16:37Z","level":"INFO","message":"Ride Service starting up","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:16:38Z","level":"INFO","message":"Successful database connection","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:16:38Z","level":"INFO","message":"Successful message broker connection","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:16:38Z","level":"INFO","message":"server is running","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:17:32Z","level":"INFO","message":"Shutdown signal received","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:17:32Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:17:32Z","level":"INFO","message":"Database closed","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:17:32Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:17:32Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"adb2e3ce2d40","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:18:47Z","level":"INFO","message":"Ride Hail System starting up","hostname":"f1f7fe02e321","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:18:47Z","level":"INFO","message":"Admin Service starting up","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:18:47Z","level":"INFO","message":"Successful database connection","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:18:47Z","level":"INFO","message":"server is running","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"Ride Hail System starting up","hostname":"a37b70085615","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"Ride Service starting up","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"Successful database connection","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"Successful message broker connection","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"server is running","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"Ride Hail System starting up","hostname":"780e6b680b74","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"Auth Service starting up","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"Successful database connection","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:19:00Z","level":"INFO","message":"server is running","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Shutdown signal received","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"shutdown_signal_received"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Shutdown signal received","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Database closed","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Admin Service shut down successfully","hostname":"f1f7fe02e321","request_id":"startup-035","service":"admin-service","action":"admin_service_completed"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Database closed","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Shutdown signal received","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"780e6b680b74","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Database closed","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:21:22Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"a37b70085615","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:23:07Z","level":"INFO","message":"Ride Hail System starting up","hostname":"b30fd0042e29","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:23:07Z","level":"INFO","message":"Admin Service starting up","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:23:07Z","level":"INFO","message":"Successful database connection","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:23:07Z","level":"INFO","message":"server is running","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"Ride Hail System starting up","hostname":"0b9517dc18c3","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"Ride Service starting up","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"Successful database connection","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"Successful message broker connection","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"server is running","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"Ride Hail System starting up","hostname":"d25dafc08cfa","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"Auth Service starting up","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"Successful database connection","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:23:20Z","level":"INFO","message":"server is running","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Shutdown signal received","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Database closed","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"d25dafc08cfa","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Shutdown signal received","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Shutdown signal received","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"shutdown_signal_received"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Database closed","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Database closed","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Admin Service shut down successfully","hostname":"b30fd0042e29","request_id":"startup-035","service":"admin-service","action":"admin_service_completed"}
+{"timestamp":"2025-10-26T05:24:40Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"0b9517dc18c3","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:25:47Z","level":"INFO","message":"Ride Hail System starting up","hostname":"70b91a0ff65f","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:25:47Z","level":"INFO","message":"Admin Service starting up","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:25:47Z","level":"INFO","message":"Successful database connection","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:25:47Z","level":"INFO","message":"server is running","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"Ride Hail System starting up","hostname":"2e7ae41dcb7b","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"Ride Service starting up","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"Successful database connection","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"Successful message broker connection","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"server is running","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"Ride Hail System starting up","hostname":"87e167846597","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"Auth Service starting up","hostname":"87e167846597","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"Successful database connection","hostname":"87e167846597","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:26:00Z","level":"INFO","message":"server is running","hostname":"87e167846597","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Shutdown signal received","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"shutdown_signal_received"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Shutdown signal received","hostname":"87e167846597","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"87e167846597","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Database closed","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Database closed","hostname":"87e167846597","request_id":"startup-035","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"87e167846597","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Shutdown signal received","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Admin Service shut down successfully","hostname":"70b91a0ff65f","request_id":"startup-035","service":"admin-service","action":"admin_service_completed"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Database closed","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"87e167846597","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:26:50Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"2e7ae41dcb7b","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:27:55Z","level":"INFO","message":"Ride Hail System starting up","hostname":"074da532eaa8","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:27:55Z","level":"INFO","message":"Admin Service starting up","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:27:55Z","level":"INFO","message":"Successful database connection","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:27:55Z","level":"INFO","message":"server is running","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"Ride Hail System starting up","hostname":"01ed7dc4d493","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"Ride Service starting up","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"Successful database connection","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"Successful message broker connection","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"server is running","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"Ride Hail System starting up","hostname":"653de0603403","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"Auth Service starting up","hostname":"653de0603403","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"Successful database connection","hostname":"653de0603403","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:28:09Z","level":"INFO","message":"server is running","hostname":"653de0603403","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Shutdown signal received","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"shutdown_signal_received"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Database closed","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Admin Service shut down successfully","hostname":"074da532eaa8","request_id":"startup-035","service":"admin-service","action":"admin_service_completed"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Shutdown signal received","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Database closed","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"01ed7dc4d493","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Shutdown signal received","hostname":"653de0603403","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"653de0603403","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Database closed","hostname":"653de0603403","request_id":"startup-035","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"653de0603403","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T05:56:26Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"653de0603403","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:57:32Z","level":"INFO","message":"Ride Hail System starting up","hostname":"255fe4dad113","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:57:32Z","level":"INFO","message":"Admin Service starting up","hostname":"255fe4dad113","request_id":"startup-035","service":"admin-service","action":"admin_service_started"}
+{"timestamp":"2025-10-26T05:57:33Z","level":"INFO","message":"Successful database connection","hostname":"255fe4dad113","request_id":"startup-035","service":"admin-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:57:33Z","level":"INFO","message":"server is running","hostname":"255fe4dad113","request_id":"startup-035","service":"admin-service","action":"server_started","details":{"port":"3004"}}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"Ride Hail System starting up","hostname":"8ffd6fcd5d75","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"Ride Service starting up","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"Successful database connection","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"Successful message broker connection","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service","action":"server_started"}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"server is running","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service","action":"server_started","details":{"port":"3000"}}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"Ride Hail System starting up","hostname":"97c8f5f3c719","request_id":"startup-035","action":"ride_hail_system_started"}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"Auth Service starting up","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"Successful database connection","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"server_started","action":"db_connected"}
+{"timestamp":"2025-10-26T05:57:45Z","level":"INFO","message":"server is running","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"server_started","details":{"port":"3010"}}
+{"timestamp":"2025-10-26T05:59:25Z","level":"INFO","message":"GoldenFoxy_KeepOut!_!_xo","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"Register"}
+{"timestamp":"2025-10-26T05:59:25Z","level":"INFO","message":"User registered successfully","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"Register"}
+{"timestamp":"2025-10-26T05:59:25Z","level":"INFO","message":"Successfully registered!","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"Register"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Shutdown signal received","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Shutdown signal received","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Shutting down HTTP server...","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_started"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Database closed","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Database closed","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"db_closed"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"HTTP server shut down gracefully","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service","action":"graceful_shutdown_completed"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Auth Service shut down successfully","hostname":"97c8f5f3c719","request_id":"startup-035","service":"auth-service"}
+{"timestamp":"2025-10-26T06:01:44Z","level":"INFO","message":"Ride Service shut down successfully","hostname":"8ffd6fcd5d75","request_id":"startup-035","service":"ride-service"}

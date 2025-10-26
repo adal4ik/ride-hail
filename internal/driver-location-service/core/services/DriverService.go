@@ -12,15 +12,16 @@ import (
 
 type DriverService struct {
 	repositories driven.IDriverRepository
-	log          *mylogger.Logger
+	log          mylogger.Logger
 	broker       ports.IDriverBroker
 }
 
-func NewDriverService(repositories driven.IDriverRepository, log *mylogger.Logger, broker ports.IDriverBroker) *DriverService {
+func NewDriverService(repositories driven.IDriverRepository, log mylogger.Logger, broker ports.IDriverBroker) *DriverService {
 	return &DriverService{repositories: repositories, log: log, broker: broker}
 }
 
 func (ds *DriverService) GoOnline(ctx context.Context, coordDTO dto.DriverCoordinatesDTO) (dto.DriverOnlineResponse, error) {
+
 	var response dto.DriverOnlineResponse
 	var coord model.DriverCoordinates
 	coord.Driver_id = coordDTO.Driver_id
