@@ -235,6 +235,8 @@ func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string)
 func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
+	log := rs.mylog.Action("SetStatusMatch")
+	log.Info("sex", "rideId", rideId, "driverId", driverId)
 	passengerId, rideNumber, err := rs.RidesRepo.ChangeStatusMatch(ctx, rideId, driverId)
 	if err != nil {
 		// TODO: add handle error

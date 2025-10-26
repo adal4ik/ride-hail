@@ -54,10 +54,10 @@ func New(
 }
 
 func (n *Notification) Run() error {
-	chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
-	if err != nil {
-		return err
-	}
+	// chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
+	// if err != nil {
+	// 	return err
+	// }
 
 	// chDriverStatus, err := n.consumer.Consume(n.ctx, driverStatus)
 	// if err != nil {
@@ -68,8 +68,8 @@ func (n *Notification) Run() error {
 	if err != nil {
 		return err
 	}
-	n.wg.Add(2)
-	go n.work(n.ctx, chDriverResponse, n.DriverResponse)
+	n.wg.Add(1)
+	// go n.work(n.ctx, chDriverResponse, n.DriverResponse)
 	go n.work(n.ctx, chLocation, n.LocationUpdate)
 
 	return nil
@@ -115,7 +115,7 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 		log.Error("cannot set status to match", err)
 		return err
 	}
-	log.Debug("ride status set to match", "ride-id", m.RideID)
+	log.Info("ride status set to match", "ride-id", m.RideID, "driver-id", m.DriverID)
 	m1 := websocketdto.RideStatusUpdateDto{
 		RideID:     m.RideID,
 		RideNumber: rideNumber,
@@ -141,7 +141,8 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 	}
 
 	n.dispatcher.WriteToUser(passengerId, eventMsg)
-	return nil
+
+	return msg.Ack(false)
 }
 
 func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
@@ -179,5 +180,11 @@ func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 	}
 	log.Debug("get locationUpdate")
 	n.dispatcher.WriteToUser(passengerId, m)
+
+	msg.Ack(false)
 	return nil
 }
+
+// func (n *Notification) driverStatus(msg amqp091.Delivery) error {
+
+// }
