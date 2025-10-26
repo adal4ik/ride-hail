@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 // ONLINE MODE
 type DriverCoordinatesDTO struct {
 	Driver_id string  `json:"driver_id"`
@@ -117,4 +119,14 @@ type LocationDetailsForOffer struct {
 	Lng     float64 `json:"longitude"`
 	Address string  `json:"address"`
 	Notes   string  `json:"notes"`
+}
+
+type RideStatusUpdate struct {
+	RideID        string    `json:"ride_id"`                  // обязательный
+	RideNumber    string    `json:"ride_number,omitempty"`    // опционально
+	Status        string    `json:"status"`                   // см. константы выше
+	DriverID      string    `json:"driver_id,omitempty"`      // если статус связан с водителем
+	Reason        string    `json:"reason,omitempty"`         // причина отмены/нет водителя и т.п.
+	Timestamp     time.Time `json:"timestamp"`                // когда изменился статус
+	CorrelationID string    `json:"correlation_id,omitempty"` // если прокидываете трассировку
 }
