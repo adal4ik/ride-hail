@@ -23,9 +23,11 @@ type DriverHandler struct {
 	driverService driver.IDriverService
 	log           mylogger.Logger
 	upgrader      websocket.Upgrader
+	inMessages    map[string]chan dto.DriverRideOffer
+	outMessages   map[string]chan dto.DriverResponse
 }
 
-func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) *DriverHandler {
+func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger, inMessages map[string]chan dto.DriverRideOffer, outMessages map[string]chan dto.DriverResponse) *DriverHandler {
 	return &DriverHandler{
 		driverService: driverService,
 		log:           log,
@@ -34,33 +36,57 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) 
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
+		inMessages:  inMessages,
+		outMessages: outMessages,
 	}
 }
 
-func (h *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
-	h.log.Action("Handling driver WebSocket connection").Info("Starting WebSocket upgrade")
-	conn, err := h.upgrader.Upgrade(w, r, nil)
+func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
+	dh.log.Action("Handling driver WebSocket connection").Info("Starting WebSocket upgrade")
+	conn, err := dh.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Failed to upgrade connection: %v", err)
+		dh.log.Action("WebSocket connection establishing").Error("Failed to upgrade connection: %v", err)
 		return
 	}
 	defer conn.Close()
 
-	log.Println("WebSocket connection established")
-
+	dh.log.Action("WebSocket connection establishing").Info("WebSocket connection established successfully")
+	driver_id := r.PathValue("driver_id")
+	dh.inMessages[driver_id] = make(chan dto.DriverRideOffer, 100)
+	dh.outMessages[driver_id] = make(chan dto.DriverResponse, 100)
+	go func() {
+		for {
+			select {
+			case rideOffer := <-dh.inMessages[driver_id]:
+				offerBytes, err := json.Marshal(rideOffer)
+				if err != nil {
+					log.Printf("Error marshalling ride offer: %v", err)
+					break
+				}
+				err = conn.WriteMessage(websocket.TextMessage, offerBytes)
+				if err != nil {
+					log.Printf("Error writing ride offer message: %v", err)
+					break
+				}
+			default:
+				continue
+			}
+		}
+	}()
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
 			log.Printf("Error reading message: %v", err)
 			break
 		}
-		log.Printf("Received message: %s", message)
-
-		err = conn.WriteMessage(messageType, message)
-		if err != nil {
-			log.Printf("Error writing message: %v", err)
-			break
+		// IMPLEMENT LOGIC TO PROCESS INCOMING DRIVER RESPONSES BY TYPES
+		var driverResponse dto.DriverResponse
+		if err := json.Unmarshal(message, &driverResponse); err != nil {
+			log.Printf("Error unmarshalling driver response: %v", err)
+			continue
 		}
+		dh.outMessages[driver_id] <- driverResponse
+		log.Printf("Received message type %v: %s", messageType, message)
 	}
 }
 
