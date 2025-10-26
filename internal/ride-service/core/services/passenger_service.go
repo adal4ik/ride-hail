@@ -52,4 +52,3 @@ func (ps *PassengerService) IsPassengerExists(passengerId string) (bool, error) 
 	}
 	return true, nil
 }
-

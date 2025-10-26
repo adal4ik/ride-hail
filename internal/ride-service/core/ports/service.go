@@ -7,8 +7,8 @@ type IRidesService interface {
 
 	// input: rideId, driverId, output: passengerId, rideNumber, error
 	// set to status match, and also send to the exchange
-	SetStatusMatch(string, string) (string, string, error)
-	FindPassengerByRideId(rideId string) (passengerId string, err error)
+	SetStatusMatch(string, string) (passengerId string, rideNumber string, err error)
+	EstimateDistance(rideId string, longitude, latitude, speed float64) (passengerId, estimatedTime string, distance float64, err error)
 }
 
 type IPassengerService interface {

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	messagebroker "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -47,7 +46,7 @@ func New(ctx context.Context, rabbitmqCfg config.RabbitMqconfig, mylog mylogger.
 	return r, nil
 }
 
-func (r *RabbitMQ) PushMessageToRequest(ctx context.Context, message messagebroker.Ride) error {
+func (r *RabbitMQ) PushMessageToRequest(ctx context.Context, message messagebrokerdto.Ride) error {
 	mylog := r.mylog.Action("pushMessage")
 
 	if r.conn.IsClosed() {
@@ -92,6 +91,7 @@ func (r *RabbitMQ) PushMessageToStatus(ctx context.Context, msg messagebrokerdto
 func (r *RabbitMQ) ConsumeMessageFromDrivers(ctx context.Context, queue, driverName string) (<-chan amqp.Delivery, error) {
 	return r.ch.ConsumeWithContext(ctx, queue, driverName, false, false, false, false, nil)
 }
+
 
 func (r *RabbitMQ) IsAlive() bool {
 	r.mu.Lock()

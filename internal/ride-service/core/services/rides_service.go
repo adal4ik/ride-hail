@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	DEFUALT_RATE_PER_MIN = 60
+	DEFUALT_RATE_PER_MIN = 40
 
 	ECONOMY = "ECONOMY"
 	PREMIUM = "PREMIUM"
@@ -184,7 +185,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		Status:                   "REQUESTED",
 		EstimatedFare:            EstimatedFare,
 		EstimatedDistanceKm:      distance,
-		EstimatedDurationMinutes: distance / DEFUALT_RATE_PER_MIN,
+		EstimatedDurationMinutes: distance * 1000 / DEFUALT_RATE_PER_MIN,
 	}
 	return res, nil
 }
@@ -200,8 +201,7 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 	m2 := messagebrokerdto.RideStatus{
 		RideId: rideId,
 		Status: "IN_PROGRESS",
-		// TODO: add nice format 2024-12-16T10:34:00Z
-		Timestamp: time.Now().Format("2006-01-02T15:04:05"),
+		Timestamp: time.Now().Format(time.RFC3339),
 		DriverID:  driverId,
 	}
 	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
@@ -215,21 +215,25 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 	return passengerId, rideNumber, nil
 }
 
-func (ps *RidesService) FindPassengerByRideId(rideId string) (string, error) {
+func (ps *RidesService) EstimateDistance(rideId string, longitude, latitude, speed float64) (string, string, float64, error) {
 	log := ps.mylog.Action("FindPassenger")
 
 	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*5)
 	defer cancel()
 
-	passengerId, err := ps.RidesRepo.FindByRideId(ctx, rideId)
+	distance, passengerId, err := ps.RidesRepo.FindDistanceAndPassengerId(ctx, longitude, latitude, rideId)
 	if err != nil {
 		log.Error("cannot get user", err)
-		return "", err
+		return "", "", 0.0, err
+	}
+	if IsCloseToZero(speed) {
+		speed = DEFUALT_RATE_PER_MIN
 	}
 
-	return passengerId, nil
-}
+	t := time.Now().Add(time.Duration(distance / speed)).Format(time.RFC3339)
 
+	return passengerId, t, distance, nil
+}
 
 // Generate a new UUID as a correlation ID
 func generateCorrelationID() string {
@@ -250,4 +254,10 @@ func generateCorrelationID() string {
 		b[i] = charSet[rand.Intn(len(charSet))]
 	}
 	return "req_" + string(b)
+}
+
+const Epsilon = 1e-9
+
+func IsCloseToZero(f float64) bool {
+	return math.Abs(f) < Epsilon
 }

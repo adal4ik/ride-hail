@@ -3,9 +3,11 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"ride-hail/internal/mylogger"
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
+	"sync"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -22,31 +24,37 @@ const (
 )
 
 type Notification struct {
-	ctx         context.Context
-	dispatcher  ports.INotifyWebsocket
-	consumer    ports.IBrokerConsumer
-	rideService ports.IRidesService
+	ctx              context.Context
+	wg               *sync.WaitGroup
+	log              mylogger.Logger
+	dispatcher       ports.INotifyWebsocket
+	consumer         ports.IRidesBroker
+	rideService      ports.IRidesService
 	passengerService ports.IPassengerService
 }
 
 func New(
 	ctx context.Context,
+	wg *sync.WaitGroup,
+	log mylogger.Logger,
 	dispatcher ports.INotifyWebsocket,
-	consumer ports.IBrokerConsumer,
+	consumer ports.IRidesBroker,
 	passengerService ports.IPassengerService,
 	rideService ports.IRidesService,
 ) *Notification {
 	return &Notification{
-		ctx:         ctx,
-		dispatcher:  dispatcher,
-		consumer:    consumer,
-		rideService: rideService,
+		ctx:              ctx,
+		wg:               wg,
+		log:              log,
+		dispatcher:       dispatcher,
+		consumer:         consumer,
+		rideService:      rideService,
 		passengerService: passengerService,
 	}
 }
 
 func (n *Notification) Run() error {
-	chDriverResponse, err := n.consumer.Consume(n.ctx, driverResponse)
+	chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
 	if err != nil {
 		return err
 	}
@@ -56,11 +64,11 @@ func (n *Notification) Run() error {
 	// 	return err
 	// }
 
-	chLocation, err := n.consumer.Consume(n.ctx, locationUpdates)
+	chLocation, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, locationUpdates, "")
 	if err != nil {
 		return err
 	}
-
+	n.wg.Add(2)
 	go n.work(n.ctx, chDriverResponse, n.DriverResponse)
 	go n.work(n.ctx, chLocation, n.LocationUpdate)
 
@@ -72,6 +80,11 @@ func (n *Notification) work(
 	ch <-chan amqp091.Delivery,
 	Do func(msg amqp091.Delivery) error,
 ) {
+	log := n.log.Action("work")
+	defer func() {
+		log.Info("one worker is done")
+		n.wg.Done()
+	}()
 	for {
 		select {
 		case msg, ok := <-ch:
@@ -90,17 +103,19 @@ func (n *Notification) work(
 }
 
 func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
+	log := n.log.Action("DriverReponse")
 	m := messagebrokerdto.RideAcceptance{}
-
 	err := json.Unmarshal(msg.Body, &m)
 	if err != nil {
+		log.Error("cannot unmarshal", err)
 		return err
 	}
 	passengerId, rideNumber, err := n.rideService.SetStatusMatch(m.RideID, m.DriverID)
 	if err != nil {
+		log.Error("cannot set status to match", err)
 		return err
 	}
-
+	log.Debug("ride status set to match", "ride-id", m.RideID)
 	m1 := websocketdto.RideStatusUpdateDto{
 		RideID:     m.RideID,
 		RideNumber: rideNumber,
@@ -116,6 +131,7 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 
 	payload, err := json.Marshal(m1)
 	if err != nil {
+		log.Error("cannot marshal", err)
 		return err
 	}
 
@@ -129,34 +145,39 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 }
 
 func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
-
+	log := n.log.Action("LocationUpdate")
 	m2 := messagebrokerdto.LocationUpdate{}
 
 	err := json.Unmarshal(msg.Body, &m2)
 	if err != nil {
+		log.Error("cannot unmarshal", err)
 		return err
 	}
-	// TODO: add calculation with time and distance calculation
+	passengerId, estimatedTime, distance, err := n.rideService.EstimateDistance(m2.RideID, m2.Location.Lng, m2.Location.Lat, m2.SpeedKmh)
+	if err != nil {
+		log.Error("cannot estimate distance", err)
+		return err
+	}
 	m1 := websocketdto.DriverLocationUpdate{
 		RideID: m2.RideID,
 		DriverLocation: websocketdto.Location{
 			Lat: m2.Location.Lat,
 			Lng: m2.Location.Lng,
 		},
+		EstimatedArrival:   estimatedTime,
+		DistanceToPickupKm: distance,
 	}
-	passengerId, err := n.rideService.FindPassengerByRideId(m2.RideID)
-	if err != nil {
-		return err
-	}
+
 	payload, err := json.Marshal(m1)
 	if err != nil {
+		log.Error("cannot marshal", err)
 		return err
 	}
 	m := websocketdto.Event{
 		Type: driverLocationUpdate,
 		Data: payload,
 	}
-	// TODO: define passengerId
+	log.Debug("get locationUpdate")
 	n.dispatcher.WriteToUser(passengerId, m)
 	return nil
 }
