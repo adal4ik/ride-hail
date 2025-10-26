@@ -66,7 +66,7 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	mylog.Action("HTTP server configured").Info("HTTP server is configured and ready to start")
 
 	// RabbitMq consumer setup
-	consumer := bm.NewConsumer(newCtx, broker, mylog)
+	consumer := bm.NewConsumer(newCtx, broker, mylog, rideOffers, rideStatuses)
 	if err := consumer.ListenAll(); err != nil {
 		mylog.Error("Failed to subscribe for messages", err)
 		return err

@@ -26,20 +26,20 @@ type Consumer struct {
 	RideStatuses chan dto.RideStatusUpdate
 }
 
-func NewConsumer(ctx context.Context, broker driven.IDriverBroker, log mylogger.Logger) *Consumer {
+func NewConsumer(ctx context.Context, broker driven.IDriverBroker, log mylogger.Logger, RideRequests chan dto.RideDetails, RideStatuses chan dto.RideStatusUpdate) *Consumer {
 	return &Consumer{
 		ctx:          ctx,
 		broker:       broker,
 		log:          log,
-		RideRequests: make(chan dto.RideDetails, 64),
-		RideStatuses: make(chan dto.RideStatusUpdate, 64),
+		RideRequests: RideRequests,
+		RideStatuses: RideStatuses,
 	}
 }
 
 func (c *Consumer) ListenAll() error {
 	reqMsgs, err := c.broker.Consume(
 		c.ctx,
-		"ride_request_queue",
+		"ride_requests",
 		bindRideRequest,
 		driven.ConsumeOptions{Prefetch: 20, AutoAck: false, QueueDurable: true},
 	)
@@ -49,7 +49,7 @@ func (c *Consumer) ListenAll() error {
 
 	statusMsgs, err := c.broker.Consume(
 		c.ctx,
-		"ride_status_queue",
+		"ride_status",
 		bindRideStatus,
 		driven.ConsumeOptions{Prefetch: 20, AutoAck: false, QueueDurable: true},
 	)
