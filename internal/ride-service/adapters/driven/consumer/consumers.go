@@ -14,9 +14,9 @@ import (
 
 const (
 	// routing key
-	driverResponse  = "driver.response.*"
-	driverStatus    = "driver.status.*"
-	locationUpdates = "location"
+	driverResponse  = "driver_responses"
+	driverStatus    = "driver_status"
+	locationUpdates = "location_updates"
 
 	// websocket type
 	rideStatusUpdate     = "ride_status_update"
