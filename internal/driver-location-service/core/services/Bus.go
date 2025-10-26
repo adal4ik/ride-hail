@@ -3,10 +3,12 @@ package services
 import (
 	"context"
 	"fmt"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	driven "ride-hail/internal/driver-location-service/core/ports/driven"
 )
 
+// ADD LOGGER
 type Distributor struct {
 	rideOffers      *chan dto.RideDetails
 	driverResponses map[string]chan dto.DriverResponse
@@ -24,16 +26,34 @@ func NewDistributor(ctx context.Context, messageDriver map[string]chan dto.Drive
 		broker:          broker,
 	}
 }
+
 func (d *Distributor) MessageDistributor() error {
 	for {
 		select {
 		case msg := <-*d.rideOffers:
 			fmt.Println("Distributing ride offer to driver: ", msg)
 			var onlineDrivers []string
-			for key, _ := range d.messageDriver {
+			for key := range d.messageDriver {
 				onlineDrivers = append(onlineDrivers, key)
 			}
-			// Logic
+
+			// Logic Might Be Better
+			if len(onlineDrivers) == 0 {
+				err := d.broker.PublishJSON(d.ctx, "driver_topic", fmt.Sprintf("driver.response.%s", msg.Ride_id),
+					struct {
+						Ride_id string `json:"ride_id"`
+						Status  string `json:"status"`
+					}{
+						Ride_id: msg.Ride_id,
+						Status:  "Not Found",
+					},
+				)
+				if err != nil {
+					// Log the err
+					fmt.Println(err.Error())
+				}
+				continue
+			}
 			condidateDriver := onlineDrivers[0]
 			d.messageDriver[condidateDriver] <- dto.DriverRideOffer{
 				Type:            "ride_offer",

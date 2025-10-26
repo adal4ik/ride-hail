@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	ports "ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
-	"time"
 )
 
 type IConsumer interface {
