@@ -11,11 +11,3 @@ type LocationUpdate struct {
 	HeadingDegrees float64   `json:"heading_degrees"`
 	Timestamp      time.Time `json:"timestamp"`
 }
-
-type DriverLocationUpdate struct {
-	Type                string    `json:"type"`
-	RideID              string    `json:"ride_id"`
-	DriverLocation      Location  `json:"driver_location"`
-	EstimatedArrival    time.Time `json:"estimated_arrival"`
-	DistanceToPickupKm  float64   `json:"distance_to_pickup_km"`
-}

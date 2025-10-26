@@ -37,7 +37,7 @@ type RidesService struct {
 	mylog          mylogger.Logger
 	RidesRepo      ports.IRidesRepo
 	RidesBroker    ports.IRidesBroker
-	RidesWebsocket ports.IRidesWebsocket
+	RidesWebsocket ports.INotifyWebsocket
 	ctx            context.Context
 }
 
@@ -45,7 +45,7 @@ func NewRidesService(ctx context.Context,
 	log mylogger.Logger,
 	RidesRepo ports.IRidesRepo,
 	RidesBroker ports.IRidesBroker,
-	RidesWebsocket ports.IRidesWebsocket,
+	RidesWebsocket ports.INotifyWebsocket,
 ) ports.IRidesService {
 	return &RidesService{
 		ctx:            ctx,
@@ -172,7 +172,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		Address: req.DestinationAddress,
 	}
 
-	if err := rs.RidesBroker.PushMessageToDrivers(rs.ctx, rideMsg); err != nil {
+	if err := rs.RidesBroker.PushMessageToRequest(rs.ctx, rideMsg); err != nil {
 		log.Error("Failed to publish message", err)
 		return dto.RidesResponseDto{}, fmt.Errorf("cannot send message to broker: %w", err)
 	}
@@ -187,6 +187,17 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		EstimatedDurationMinutes: distance / DEFUALT_RATE_PER_MIN,
 	}
 	return res, nil
+}
+
+func (rs *RidesService) StatusMatch(rideId, driverId string) (string, string, error) {
+	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+	passengerId, rideNumber, err := rs.RidesRepo.ChangeStatusMatch(ctx, rideId, driverId)
+	if err != nil {
+		// TODO: add handle error
+		return "", "", err
+	}
+	return passengerId, rideNumber, nil
 }
 
 // Generate a new UUID as a correlation ID

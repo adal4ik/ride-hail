@@ -15,14 +15,14 @@ import (
 type PassengerService struct {
 	mylog          mylogger.Logger
 	PassengerRepo  ports.IPassengerRepo
-	RidesWebsocket ports.IRidesWebsocket
+	RidesWebsocket ports.INotifyWebsocket
 	ctx            context.Context
 }
 
 func NewPassengerService(ctx context.Context,
 	log mylogger.Logger,
 	PassengerRepo ports.IPassengerRepo,
-	RidesWebsocket ports.IRidesWebsocket,
+	RidesWebsocket ports.INotifyWebsocket,
 ) ports.IPassengerService {
 	return &PassengerService{
 		ctx:            ctx,

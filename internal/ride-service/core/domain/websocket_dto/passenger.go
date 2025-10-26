@@ -8,7 +8,6 @@ type Location struct {
 }
 // To Passenger - Location Update:
 type DriverLocationUpdate struct {
-	Type               string    `json:"type"`
 	RideID             string    `json:"ride_id"`
 	DriverLocation     Location  `json:"driver_location"`
 	EstimatedArrival   time.Time `json:"estimated_arrival"`
