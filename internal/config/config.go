@@ -65,12 +65,12 @@ func New() (*Config, error) {
 	getEnvInt := func(key string, def int) int {
 		valStr := os.Getenv(key)
 		if valStr == "" {
-			fmt.Printf("using default key %v\n", def)
+			fmt.Printf("using default key: %v: %v\n", key, def)
 			return def
 		}
 		val, err := strconv.Atoi(valStr)
 		if err != nil {
-			fmt.Printf("using default key %v\n", def)
+			fmt.Printf("using default key: %v: %v", key, def)
 			return def
 		}
 		return val

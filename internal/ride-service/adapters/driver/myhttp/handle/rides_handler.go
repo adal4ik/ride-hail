@@ -36,6 +36,6 @@ func (rh *RidesHandler) CreateRide() http.HandlerFunc {
 			return
 		}
 
-		jsonResponse(w, http.StatusAccepted, res)
+		jsonResponse(w, http.StatusCreated, res)
 	}
 }

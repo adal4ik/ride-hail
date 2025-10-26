@@ -20,7 +20,3 @@ type IRidesBroker interface {
 
 	ConsumeMessageFromDrivers(ctx context.Context, queue, driverName string) (<-chan amqp.Delivery, error)
 }
-
-type IBrokerConsumer interface {
-	Consume(ctx context.Context, queue string) (<-chan amqp.Delivery, error)
-}
