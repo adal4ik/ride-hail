@@ -48,7 +48,7 @@ func (d *Distributor) MessageDistributor() error {
 			}
 			driverResponse := <-d.driverResponses[condidateDriver]
 			fmt.Println("Received driver response: ", driverResponse)
-			err := d.broker.PublishJSON(d.ctx, "driver_responses", "driver.response", driverResponse)
+			err := d.broker.PublishJSON(d.ctx, "driver_topic", fmt.Sprintf("driver.response.%s", driverResponse.Ride_id), driverResponse)
 			if err != nil {
 				fmt.Println("Failed to publish driver response: ", err)
 			}
