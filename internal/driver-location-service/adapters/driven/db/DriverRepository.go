@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ride-hail/internal/driver-location-service/core/domain/model"
@@ -202,14 +203,13 @@ func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.
 
 func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]model.DriverInfo, error) {
 	Query := `
-	SELECT d.id, u.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
+	SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
        ST_Distance(
          ST_MakePoint(c.longitude, c.latitude)::geography,
          ST_MakePoint($1, $2)::geography
        ) / 1000 as distance_km
 	FROM drivers d
-	JOIN users u ON d.id = u.id
-	JOIN coordinates c ON c.entity_id = d.id
+	JOIN coordinates c ON c.entity_id = d.driver_id
   		AND c.entity_type = 'driver'
   		AND c.is_current = true
 	WHERE d.status = 'AVAILABLE'
@@ -224,6 +224,7 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 	`
 	rows, err := dr.db.GetConn().Query(ctx, Query, longtitude, latitude, vehicleType)
 	if err != nil {
+		fmt.Println("Repository Error Arrived ", err)
 		return []model.DriverInfo{}, err
 	}
 	var result []model.DriverInfo
@@ -231,10 +232,13 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 		var dInfo model.DriverInfo
 		err := rows.Scan(&dInfo.DriverId, &dInfo.Email, &dInfo.Name, &dInfo.Vehicle, &dInfo.Rating, &dInfo.Latitude, &dInfo.Longitude)
 		if err != nil {
+			fmt.Println("Repository Error Arrived ", err)
 			return []model.DriverInfo{}, err
 		}
+		fmt.Println("Reading rows", dInfo)
 		result = append(result, dInfo)
 	}
+	fmt.Println("Found drivers from DB:", len(result))
 	return result, nil
 }
 

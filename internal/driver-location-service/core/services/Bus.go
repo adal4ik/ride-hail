@@ -48,6 +48,8 @@ func (d *Distributor) MessageDistributor() error {
 		select {
 		case requestDelivery := <-d.rideOffers:
 			// If No Drivers
+			fmt.Println("New ride request received", string(requestDelivery.Body))
+			fmt.Println("Available drivers: ", len(d.messageDriver))
 			if len(d.messageDriver) == 0 {
 				requestDelivery.Nack(false, true)
 				time.Sleep(7 * time.Second)
@@ -57,12 +59,14 @@ func (d *Distributor) MessageDistributor() error {
 			var req dto.RideDetails
 			if err := json.Unmarshal(requestDelivery.Body, &req); err != nil {
 				fmt.Println(err.Error())
+				requestDelivery.Nack(false, true)
 				continue
 			}
 			ctx := context.Background()
 			allDrivers, err := d.driverService.FindAppropriateDrivers(ctx, req.Pickup_location.Lng, req.Destination_location.Lat, req.Ride_type)
 			if err != nil {
 				fmt.Println(err.Error())
+				requestDelivery.Nack(false, true)
 				continue
 			}
 			// Got filtered Drivers
@@ -72,6 +76,12 @@ func (d *Distributor) MessageDistributor() error {
 					filteredDrivers = append(filteredDrivers, driver)
 				}
 			}
+			if len(filteredDrivers) == 0 {
+				requestDelivery.Nack(false, true)
+				time.Sleep(7 * time.Second)
+				continue
+			}
+			// Ask Drivers
 			d.AskDrivers(filteredDrivers, req, requestDelivery)
 
 		case st := <-d.rideStatuses:
@@ -86,6 +96,7 @@ func (d *Distributor) MessageDistributor() error {
 
 func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideDetails, requestDelivery amqp.Delivery) {
 	go func() {
+		fmt.Println("Finding a driver")
 		var driverMatch dto.DriverMatchResponse
 		for _, driver := range drivers {
 			ctx := context.Background()
@@ -165,6 +176,7 @@ func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideD
 		if !driverMatch.Accepted {
 			requestDelivery.Nack(false, true)
 		} else {
+			fmt.Println("Found a driver")
 			responseBody, err := json.Marshal(driverMatch)
 			if err != nil {
 				fmt.Println("Error marshalling driver match response:", err)
