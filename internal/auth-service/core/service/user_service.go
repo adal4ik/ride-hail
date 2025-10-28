@@ -124,11 +124,3 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.UserAuthRequest) (
 	mylog.Info("User login successfully")
 	return accesssTokenString, nil
 }
-
-func (as *AuthService) Logout(ctx context.Context, auth dto.UserAuthRequest) error {
-	return nil
-}
-
-func (as *AuthService) Protected(ctx context.Context, auth dto.UserAuthRequest) error {
-	return nil
-}

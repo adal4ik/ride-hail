@@ -21,7 +21,7 @@ func (am *AuthMiddleware) Middle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" {
-			http.Error(w, "Пошел нахуй", http.StatusBadRequest)
+			http.Error(w, "Empty JWT-Token", http.StatusBadRequest)
 			return
 		}
 		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
@@ -29,12 +29,12 @@ func (am *AuthMiddleware) Middle(next http.Handler) http.Handler {
 			return []byte(am.accessSecret), nil
 		})
 		if err != nil {
-			http.Error(w, "Пошел нахуй", http.StatusBadRequest)
+			http.Error(w, "Failed to parse JWT-Token", http.StatusBadRequest)
 			return
 		}
 
 		if !token.Valid {
-			http.Error(w, "Пошел нахуй", http.StatusBadRequest)
+			http.Error(w, "Invalid JWT-Token", http.StatusBadRequest)
 			return
 		}
 

@@ -1,14 +1,14 @@
-package consumer
+package notification
 
 import (
 	"context"
 	"encoding/json"
+	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/core/ports"
 	"sync"
 
-	"ride-hail/internal/mylogger"
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
-	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/rabbitmq/amqp091-go"
 )

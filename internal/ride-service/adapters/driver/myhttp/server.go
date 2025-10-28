@@ -8,8 +8,8 @@ import (
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/adapters/driven/bm"
-	"ride-hail/internal/ride-service/adapters/driven/consumer"
 	"ride-hail/internal/ride-service/adapters/driven/db"
+	"ride-hail/internal/ride-service/adapters/driven/notification"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/middleware"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/ws"
@@ -27,7 +27,7 @@ type Server struct {
 	mux    *http.ServeMux
 	cfg    *config.Config
 	srv    *http.Server
-	notify *consumer.Notification
+	notify *notification.Notification
 	mylog  mylogger.Logger
 	db     *db.DB
 	mb     ports.IRidesBroker
@@ -159,7 +159,7 @@ func (s *Server) Configure() {
 	dispatcher.InitHandler()
 
 	// consumers
-	notify := consumer.New(s.ctx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)
+	notify := notification.New(s.ctx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)
 	s.notify = notify
 
 	// Register routes

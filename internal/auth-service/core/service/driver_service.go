@@ -130,11 +130,3 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverRegistrati
 	mylog.Info("User login successfully")
 	return accesssTokenString, nil
 }
-
-func (ds *DriverService) Logout(ctx context.Context, auth dto.DriverAuthRequest) error {
-	return nil
-}
-
-func (ds *DriverService) Protected(ctx context.Context, auth dto.DriverAuthRequest) error {
-	return nil
-}

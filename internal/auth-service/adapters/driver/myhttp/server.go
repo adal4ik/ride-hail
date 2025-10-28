@@ -5,15 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
-	"time"
-
 	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/auth-service/adapters/driver/myhttp/middleware"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
+	"sync"
+	"time"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -131,17 +130,13 @@ func (s *Server) Configure() {
 
 	s.mux.Handle("POST /user/register", authHandler.Register())
 	s.mux.Handle("POST /user/login", authHandler.Login())
-	s.mux.Handle("POST /user/logout", authHandler.Logout())
-	s.mux.Handle("POST /user/protected", authMiddle.Middle(authHandler.Protected()))
 
 	driverRepo := db.NewDriverRepo(s.ctx, s.db)
 	driverService := service.NewDriverService(s.ctx, s.cfg, driverRepo, s.mylog)
 	driverHandler := handle.NewDriverHandler(driverService, s.mylog)
 
-	s.mux.Handle("POST /driver/register", driverHandler.Register())
-	s.mux.Handle("POST /driver/login", driverHandler.Login())
-	s.mux.Handle("POST /driver/logout", driverHandler.Logout())
-	s.mux.Handle("POST /driver/protected", authMiddle.Middle(driverHandler.Protected()))
+	s.mux.Handle("POST /driver/register", authMiddle.Middle(driverHandler.Register()))
+	s.mux.Handle("POST /driver/login", authMiddle.Middle(driverHandler.Login()))
 }
 
 func (s *Server) initializeDatabase() error {
