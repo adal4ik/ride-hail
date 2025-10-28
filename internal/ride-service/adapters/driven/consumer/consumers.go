@@ -3,11 +3,12 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"sync"
+
 	"ride-hail/internal/mylogger"
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
-	"sync"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -54,10 +55,10 @@ func New(
 }
 
 func (n *Notification) Run() error {
-	// chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
-	// if err != nil {
-	// 	return err
-	// }
+	chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
+	if err != nil {
+		return err
+	}
 
 	// chDriverStatus, err := n.consumer.Consume(n.ctx, driverStatus)
 	// if err != nil {
@@ -69,7 +70,7 @@ func (n *Notification) Run() error {
 		return err
 	}
 	n.wg.Add(1)
-	// go n.work(n.ctx, chDriverResponse, n.DriverResponse)
+	go n.work(n.ctx, chDriverResponse, n.DriverResponse)
 	go n.work(n.ctx, chLocation, n.LocationUpdate)
 
 	return nil

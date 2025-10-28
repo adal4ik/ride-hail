@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 // ONLINE MODE
 type DriverCoordinatesDTO struct {
 	Driver_id string  `json:"driver_id"`
@@ -105,11 +107,17 @@ type DriverResponse struct {
 
 // Driver Ride Offer
 type DriverRideOffer struct {
-	Type            string         `json:"type"`
-	Ride_id         string         `json:"ride_id"`
-	Passenger_name  string         `json:"passenger_name"`
-	Passenger_phone string         `json:"passenger_phone"`
-	Pickup_location LocationDetail `json:"pickup_location"`
+	Type                 string         `json:"type"`
+	Offer_id             string         `json:"offer_id"`
+	Ride_id              string         `json:"ride_id"`
+	Ride_number          string         `json:"ride_number"`
+	Pickup_location      LocationDetail `json:"pickup_location"`
+	Destination_location LocationDetail `json:"destination_location"`
+	Estimated_fare       float64        `json:"estimated_fare"`
+	Driver_earnings      float64        `json:"driver_earnings"`
+	DistanceToPickUp     float64        `json:"distance_to_pickup_km"`
+	EstimatedDuration    int            `json:"estimated_ride_duration_minutes"`
+	ExpiredAt            string         `json:"expires_at"`
 }
 
 type LocationDetailsForOffer struct {
@@ -117,4 +125,44 @@ type LocationDetailsForOffer struct {
 	Lng     float64 `json:"longitude"`
 	Address string  `json:"address"`
 	Notes   string  `json:"notes"`
+}
+
+// Ride Status Update
+type RideStatusUpdate struct {
+	RideID        string    `json:"ride_id"`                  // обязательный
+	RideNumber    string    `json:"ride_number,omitempty"`    // опционально
+	Status        string    `json:"status"`                   // см. константы выше
+	DriverID      string    `json:"driver_id,omitempty"`      // если статус связан с водителем
+	Reason        string    `json:"reason,omitempty"`         // причина отмены/нет водителя и т.п.
+	Timestamp     time.Time `json:"timestamp"`                // когда изменился статус
+	CorrelationID string    `json:"correlation_id,omitempty"` // если прокидываете трассировку
+}
+
+// Driver Info
+type DriverInfo struct {
+	DriverId  string
+	Name      string `json:"name"`
+	Email     string
+	Vehicle   VehicleDetail `json:"vehicle"`
+	Rating    float64       `json:"rating"`
+	Latitude  float64
+	Longitude float64
+	Distance  float64
+}
+type VehicleDetail struct {
+	Make  string `json:"make"`
+	Model string `json:"model"`
+	Color string `json:"color"`
+	Plate string `json:"plate"`
+}
+
+// Driver Match Response
+
+type DriverMatchResponse struct {
+	Ride_id                   string     `json:"ride_id"`
+	Driver_id                 string     `json:"driver_id"`
+	Accepted                  bool       `json:"accepted"`
+	Estimated_arrival_minutes int        `json:"estimated_arrival_minutes"`
+	Driver_location           Location   `json:"driver_location"`
+	Driver_info               DriverInfo `json:"driver_info"`
 }

@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
@@ -21,7 +23,6 @@ func NewDriverService(repositories driven.IDriverRepository, log mylogger.Logger
 }
 
 func (ds *DriverService) GoOnline(ctx context.Context, coordDTO dto.DriverCoordinatesDTO) (dto.DriverOnlineResponse, error) {
-
 	var response dto.DriverOnlineResponse
 	var coord model.DriverCoordinates
 	coord.Driver_id = coordDTO.Driver_id
@@ -107,4 +108,55 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 	response.DriverEarning = results.DriverEarning
 	response.CompletedAt = results.CompletedAt
 	return response, nil
+}
+
+func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]dto.DriverInfo, error) {
+	drivers, err := ds.repositories.FindDrivers(ctx, longtitude, latitude, vehicleType)
+	if err != nil {
+		fmt.Println("Service Error Arrived ", err)
+		return []dto.DriverInfo{}, err
+	}
+	var results []dto.DriverInfo
+	for _, driver := range drivers {
+		var result dto.DriverInfo
+		result.DriverId = driver.DriverId
+		result.Email = driver.Email
+		result.Latitude = driver.Latitude
+		result.Longitude = driver.Longitude
+		result.Rating = driver.Rating
+		result.Name = driver.Name
+		result.Distance = driver.Distance
+		if err := json.Unmarshal(driver.Vehicle, &result.Vehicle); err != nil {
+			fmt.Println("Service Error Arrived ", err)
+			return []dto.DriverInfo{}, err
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
+func (ds *DriverService) CalculateRideDetails(ctx context.Context, driverLocation dto.Location, passagerLocation dto.Location) (float64, int, error) {
+	distance, err := ds.repositories.CalculateRideDetails(ctx,
+		model.Location{
+			Latitude:  driverLocation.Latitude,
+			Longitude: driverLocation.Longitude,
+		},
+		model.Location{
+			Latitude:  passagerLocation.Latitude,
+			Longitude: passagerLocation.Longitude,
+		},
+	)
+	if err != nil {
+		return 0, 0, err
+	}
+	minutes := int(distance / 45)
+	return distance, minutes, nil
+}
+
+func (d *DriverService) UpdateDriverStatus(ctx context.Context, driver_id string, status string) error {
+	return d.repositories.UpdateDriverStatus(ctx, driver_id, status)
+}
+
+func (d *DriverService) CheckDriverById(ctx context.Context, driver_id string) (bool, error) {
+	return d.repositories.CheckDriverById(ctx, driver_id)
 }
