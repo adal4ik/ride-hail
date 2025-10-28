@@ -55,10 +55,10 @@ func New(
 }
 
 func (n *Notification) Run() error {
-	// chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
-	// if err != nil {
-	// 	return err
-	// }
+	chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
+	if err != nil {
+		return err
+	}
 
 	// chDriverStatus, err := n.consumer.Consume(n.ctx, driverStatus)
 	// if err != nil {
@@ -70,7 +70,7 @@ func (n *Notification) Run() error {
 		return err
 	}
 	n.wg.Add(1)
-	// go n.work(n.ctx, chDriverResponse, n.DriverResponse)
+	go n.work(n.ctx, chDriverResponse, n.DriverResponse)
 	go n.work(n.ctx, chLocation, n.LocationUpdate)
 
 	return nil
