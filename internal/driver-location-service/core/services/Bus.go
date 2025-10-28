@@ -14,13 +14,19 @@ import (
 
 // ADD LOGGER
 type Distributor struct {
-	rideOffers      <-chan amqp.Delivery
-	rideStatuses    <-chan amqp.Delivery
-	driverResponses map[string]chan dto.DriverResponse
-	messageDriver   map[string]chan dto.DriverRideOffer
-	ctx             context.Context
-	broker          driven.IDriverBroker
-	driverService   *DriverService
+	// RabbitMQ Channels
+	rideOffers   <-chan amqp.Delivery
+	rideStatuses <-chan amqp.Delivery
+	// Websocket Channels
+	wsManager driven.WSConnectionMeneger
+
+	// Sevices
+	broker        driven.IDriverBroker
+	driverService *DriverService
+
+	// Inner Channels
+	driverMessage chan DriverMessage
+	ctx           context.Context
 }
 
 func NewDistributor(
@@ -31,6 +37,7 @@ func NewDistributor(
 	driverResponses map[string]chan dto.DriverResponse,
 	broker driven.IDriverBroker,
 	driverService *DriverService,
+	wsManager driven.WSConnectionMeneger,
 ) *Distributor {
 	return &Distributor{
 		rideOffers:      rideOffers,
@@ -40,6 +47,7 @@ func NewDistributor(
 		ctx:             ctx,
 		broker:          broker,
 		driverService:   driverService,
+		wsManager:       wsManager,
 	}
 }
 
@@ -84,9 +92,10 @@ func (d *Distributor) MessageDistributor() error {
 			// Ask Drivers
 			go d.AskDrivers(filteredDrivers, req, requestDelivery)
 
-		case st := <-d.rideStatuses:
+		case statusDelivery := <-d.rideStatuses:
 			fmt.Println("Ride status received (ignored by logic): ", st)
-
+		case driverMsg := <-d.driverMessage:
+			// Send message to driver via WebSocket
 		case <-d.ctx.Done():
 			// Log shutdown message
 			return nil
@@ -94,7 +103,40 @@ func (d *Distributor) MessageDistributor() error {
 	}
 }
 
-func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideDetails, requestDelivery amqp.Delivery) {
+func (d *Distributor) RegisterDriverChannel(driverID string, incoming <-chan []byte, outgoing chan<- []byte) {
+	go d.handlerDriverConnection(driverID, incoming, outgoing)
+}
+
+func (d *Distributor) handlerDriverConnection(driverID string, incoming <-chan []byte, outgoing chan<- []byte) {
+	for {
+		select {
+		case msg, ok := <-incoming:
+			if !ok {
+				return
+			}
+			d.driverMessage <- DriverMessage{
+				DriverID: driverID,
+				Message:  msg,
+			}
+		case <-d.ctx.Done():
+			// Log shutdown message
+			return
+		}
+	}
+}
+
+func (d *Distributor) handleDriverMessages(msg DriverMessage) {
+	var driverResponse dto.DriverResponse
+	if err := json.Unmarshal(msg.Message, &driverResponse); err != nil {
+		fmt.Println("Error unmarshalling driver response:", err)
+		return
+	}
+	switch driverResponse.Type {
+	case "ride_response":
+	}
+}
+
+func (d *Bus) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideDetails, requestDelivery amqp.Delivery) {
 	fmt.Println("Finding a driver")
 	var driverMatch dto.DriverMatchResponse
 	for _, driver := range drivers {
