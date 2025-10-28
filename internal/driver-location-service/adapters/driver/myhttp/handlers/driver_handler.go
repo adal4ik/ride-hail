@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/ports/driver"
 	"ride-hail/internal/mylogger"
@@ -53,12 +52,12 @@ func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.R
 			case rideOffer := <-dh.inMessages[driver_id]:
 				offerBytes, err := json.Marshal(rideOffer)
 				if err != nil {
-					log.Printf("Error marshalling ride offer: %v", err)
+					log.Error("Error marshalling ride offer: %v", err)
 					break
 				}
 				err = conn.WriteMessage(websocket.TextMessage, offerBytes)
 				if err != nil {
-					log.Printf("Error writing ride offer message: %v", err)
+					log.Error("Error writing ride offer message: %v", err)
 					break
 				}
 			default:
@@ -69,17 +68,17 @@ func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.R
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("Error reading message: %v", err)
+			log.Error("Error reading message: %v", err)
 			break
 		}
 		// IMPLEMENT LOGIC TO PROCESS INCOMING DRIVER RESPONSES BY TYPES
 		var driverResponse dto.DriverResponse
 		if err := json.Unmarshal(message, &driverResponse); err != nil {
-			log.Printf("Error unmarshalling driver response: %v", err)
+			log.Error("Error unmarshalling driver response: %v", err)
 			continue
 		}
 		dh.outMessages[driver_id] <- driverResponse
-		log.Printf("Received message type %v: %s", messageType, message)
+		log.Info("Received message type", "message-type", messageType, "message", message)
 	}
 }
 
