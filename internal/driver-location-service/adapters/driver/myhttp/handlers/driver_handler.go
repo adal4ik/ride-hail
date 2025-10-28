@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
@@ -36,7 +35,7 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger, 
 }
 
 func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
-	dh.log.Action("Handling driver WebSocket connection").Info("Starting WebSocket upgrade")
+	log := dh.log.Action("Handling driver WebSocket connection")
 	conn, err := dh.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		dh.log.Action("WebSocket connection establishing").Error("Failed to upgrade connection: %v", err)
