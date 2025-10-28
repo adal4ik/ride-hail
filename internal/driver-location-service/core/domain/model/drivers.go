@@ -74,8 +74,9 @@ type DriverInfo struct {
 	DriverId  string
 	Name      string
 	Email     string
-	Vehicle   string
+	Vehicle   []byte
 	Rating    float64
 	Latitude  float64
 	Longitude float64
+	Distance  float64
 }

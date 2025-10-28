@@ -17,13 +17,11 @@ func NewDriverRepository(db *DataBase) *DriverRepository {
 }
 
 func (dr *DriverRepository) GoOnline(ctx context.Context, coord model.DriverCoordinates) (string, error) {
-	UpdateQuery := `
-		UPDATE 	coordinates coord
-		SET latitude = $1, longitude = $2
-		FROM drivers
-		WHERE coord.entity_id = drivers.driver_id AND drivers.driver_id = $3;
+	InsertCoordQuery := `
+		INSERT INTO coordinates(entity_id, entity_type, address, latitude, longitude)
+		VALUES ($1, 'DRIVER', 'Car', $2, $3);
 	`
-	_, err := dr.db.GetConn().Exec(ctx, UpdateQuery, coord.Latitude, coord.Longitude, coord.Driver_id)
+	_, err := dr.db.GetConn().Exec(ctx, InsertCoordQuery, coord.Driver_id, coord.Latitude, coord.Longitude)
 	if err != nil {
 		return "", err
 	}
@@ -210,7 +208,7 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
        ) / 1000 as distance_km
 	FROM drivers d
 	JOIN coordinates c ON c.entity_id = d.driver_id
-  		AND c.entity_type = 'driver'
+  		AND c.entity_type = 'DRIVER'
   		AND c.is_current = true
 	WHERE d.status = 'AVAILABLE'
  		AND d.vehicle_type = $3
@@ -230,7 +228,7 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 	var result []model.DriverInfo
 	for rows.Next() {
 		var dInfo model.DriverInfo
-		err := rows.Scan(&dInfo.DriverId, &dInfo.Email, &dInfo.Name, &dInfo.Vehicle, &dInfo.Rating, &dInfo.Latitude, &dInfo.Longitude)
+		err := rows.Scan(&dInfo.DriverId, &dInfo.Email, &dInfo.Name, &dInfo.Vehicle, &dInfo.Rating, &dInfo.Latitude, &dInfo.Longitude, &dInfo.Distance)
 		if err != nil {
 			fmt.Println("Repository Error Arrived ", err)
 			return []model.DriverInfo{}, err
@@ -264,3 +262,25 @@ func (dr *DriverRepository) UpdateDriverStatus(ctx context.Context, driver_id st
 	_, err := dr.db.GetConn().Exec(ctx, UpdateDriverStatusQuery, status, driver_id)
 	return err
 }
+
+/*
+SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
+       ST_Distance(
+         ST_MakePoint(c.longitude, c.latitude)::geography,
+         ST_MakePoint(76.88970, 43.238949)::geography
+       ) / 1000 as distance_km
+	FROM drivers d
+	JOIN coordinates c ON c.entity_id = d.driver_id
+  		AND c.entity_type = 'DRIVER'
+  		AND c.is_current = true
+	WHERE d.status = 'AVAILABLE'
+ 		AND d.vehicle_type = 'ECONOMY'
+  		AND ST_DWithin(
+        	ST_MakePoint(c.longitude, c.latitude)::geography,
+        	ST_MakePoint(76.88970, 43.238949)::geography,
+        	5000  -- 5km radius
+      	)
+	ORDER BY distance_km, d.rating DESC
+	LIMIT 10;
+
+*/

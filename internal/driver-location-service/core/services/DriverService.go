@@ -125,7 +125,8 @@ func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude,
 		result.Longitude = driver.Longitude
 		result.Rating = driver.Rating
 		result.Name = driver.Name
-		if err := json.Unmarshal([]byte(driver.Vehicle), &result.Vehicle); err != nil {
+		result.Distance = driver.Distance
+		if err := json.Unmarshal(driver.Vehicle, &result.Vehicle); err != nil {
 			fmt.Println("Service Error Arrived ", err)
 			return []dto.DriverInfo{}, err
 		}

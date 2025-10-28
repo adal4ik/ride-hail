@@ -82,7 +82,7 @@ func (d *Distributor) MessageDistributor() error {
 				continue
 			}
 			// Ask Drivers
-			d.AskDrivers(filteredDrivers, req, requestDelivery)
+			go d.AskDrivers(filteredDrivers, req, requestDelivery)
 
 		case st := <-d.rideStatuses:
 			fmt.Println("Ride status received (ignored by logic): ", st)
@@ -95,102 +95,67 @@ func (d *Distributor) MessageDistributor() error {
 }
 
 func (d *Distributor) AskDrivers(drivers []dto.DriverInfo, rideDetails dto.RideDetails, requestDelivery amqp.Delivery) {
-	go func() {
-		fmt.Println("Finding a driver")
-		var driverMatch dto.DriverMatchResponse
-		for _, driver := range drivers {
-			ctx := context.Background()
-			distanceToPickUp, minutes, err := d.driverService.CalculateRideDetails(
-				ctx,
-				dto.Location{
-					Latitude:  driver.Latitude,
-					Longitude: driver.Longitude,
-				},
-				dto.Location{
-					Latitude:  rideDetails.Pickup_location.Lat,
-					Longitude: rideDetails.Pickup_location.Lng,
-				},
-			)
-			if err != nil {
-				fmt.Println(err.Error())
-				break
-			}
-			driverOffer := dto.DriverRideOffer{
-				Type:        "ride_offer",
-				Offer_id:    "offer_" + time.Now().String(),
-				Ride_id:     rideDetails.Ride_id,
-				Ride_number: rideDetails.Ride_number,
-				Pickup_location: dto.LocationDetail{
-					Lat:     rideDetails.Pickup_location.Lat,
-					Lng:     rideDetails.Pickup_location.Lng,
-					Address: rideDetails.Pickup_location.Address,
-				},
-				Destination_location: dto.LocationDetail{
-					Lat:     rideDetails.Destination_location.Lat,
-					Lng:     rideDetails.Destination_location.Lng,
-					Address: rideDetails.Destination_location.Address,
-				},
-				Estimated_fare:    rideDetails.Estimated_fare,
-				Driver_earnings:   rideDetails.Estimated_fare * 0.8,
-				DistanceToPickUp:  distanceToPickUp,
-				EstimatedDuration: minutes,
-				ExpiredAt:         time.Now().Add(time.Duration(minutes+5) * time.Minute).String(),
-			}
-			d.messageDriver[driver.DriverId] <- driverOffer
-			accepted := 0
-			for {
-				select {
-				case answer := <-d.driverResponses[driver.DriverId]:
-					if answer.Accepted {
-						accepted = 1
-					}
-					break
-				case <-time.After(time.Duration(30) * time.Second):
-					fmt.Println("Offer is expired")
-					accepted = 2
-					break
-				default:
-					// do nothing
-				}
-				if accepted != 0 {
-					break
-				}
-			}
+	fmt.Println("Finding a driver")
+	var driverMatch dto.DriverMatchResponse
+	for _, driver := range drivers {
+		driverOffer := dto.DriverRideOffer{
+			Type:        "ride_offer",
+			Offer_id:    "offer_" + time.Now().String(),
+			Ride_id:     rideDetails.Ride_id,
+			Ride_number: rideDetails.Ride_number,
+			Pickup_location: dto.LocationDetail{
+				Lat:     rideDetails.Pickup_location.Lat,
+				Lng:     rideDetails.Pickup_location.Lng,
+				Address: rideDetails.Pickup_location.Address,
+			},
+			Destination_location: dto.LocationDetail{
+				Lat:     rideDetails.Destination_location.Lat,
+				Lng:     rideDetails.Destination_location.Lng,
+				Address: rideDetails.Destination_location.Address,
+			},
+			Estimated_fare:    rideDetails.Estimated_fare,
+			Driver_earnings:   rideDetails.Estimated_fare * 0.8,
+			DistanceToPickUp:  driver.Distance,
+			EstimatedDuration: int(driver.Distance / 0.75),
+			ExpiredAt:         time.Now().Add(time.Duration(int(driver.Distance/45)+5) * time.Minute).String(),
+		}
+		d.messageDriver[driver.DriverId] <- driverOffer
 
-			if accepted == 1 {
-				driverMatch = dto.DriverMatchResponse{
-					Ride_id:                   rideDetails.Ride_id,
-					Driver_id:                 driver.DriverId,
-					Accepted:                  true,
-					Estimated_arrival_minutes: minutes,
-					Driver_location: dto.Location{
-						Latitude:  driver.Latitude,
-						Longitude: driver.Longitude,
-					},
-					Driver_info:    driver,
-					Correlation_id: rideDetails.Correlation_id,
-				}
-				break
+		select {
+		case answer := <-d.driverResponses[driver.DriverId]:
+			if !answer.Accepted {
+				continue
 			}
+		case <-time.After(time.Duration(30) * time.Second):
+			fmt.Println("Offer is expired")
+			continue
 		}
-		if !driverMatch.Accepted {
-			requestDelivery.Nack(false, true)
-		} else {
-			fmt.Println("Found a driver")
-			responseBody, err := json.Marshal(driverMatch)
-			if err != nil {
-				fmt.Println("Error marshalling driver match response:", err)
-				return
-			}
-			err = d.broker.PublishJSON(d.ctx, "drive_topic", fmt.Sprintf("driver.response.%s", rideDetails.Ride_id), responseBody)
-			if err != nil {
-				fmt.Println("Error publishing driver match response:", err)
-				return
-			}
-			// Update Driver Status
-			d.driverService.UpdateDriverStatus(d.ctx, driverMatch.Driver_id, "BUSY")
-			// Acknowledge original message
-			requestDelivery.Ack(false)
+
+		driverMatch = dto.DriverMatchResponse{
+			Ride_id:                   rideDetails.Ride_id,
+			Driver_id:                 driver.DriverId,
+			Accepted:                  true,
+			Estimated_arrival_minutes: int(driver.Distance / 45),
+			Driver_location: dto.Location{
+				Latitude:  driver.Latitude,
+				Longitude: driver.Longitude,
+			},
+			Driver_info: driver,
 		}
-	}()
+		break
+	}
+	if !driverMatch.Accepted {
+		requestDelivery.Nack(false, true)
+	} else {
+		fmt.Println("Found a driver")
+		err := d.broker.PublishJSON(d.ctx, "driver_topic", fmt.Sprintf("driver.response.%s", rideDetails.Ride_id), driverMatch)
+		if err != nil {
+			fmt.Println("Error publishing driver match response:", err)
+			return
+		}
+		// Update Driver Status
+		d.driverService.UpdateDriverStatus(d.ctx, driverMatch.Driver_id, "BUSY")
+		// Acknowledge original message
+		requestDelivery.Ack(false)
+	}
 }

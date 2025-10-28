@@ -141,12 +141,13 @@ type RideStatusUpdate struct {
 // Driver Info
 type DriverInfo struct {
 	DriverId  string
-	Name      string
+	Name      string `json:"name"`
 	Email     string
 	Vehicle   VehicleDetail `json:"vehicle"`
-	Rating    float64
+	Rating    float64       `json:"rating"`
 	Latitude  float64
 	Longitude float64
+	Distance  float64
 }
 type VehicleDetail struct {
 	Make  string `json:"make"`
@@ -164,5 +165,4 @@ type DriverMatchResponse struct {
 	Estimated_arrival_minutes int        `json:"estimated_arrival_minutes"`
 	Driver_location           Location   `json:"driver_location"`
 	Driver_info               DriverInfo `json:"driver_info"`
-	Correlation_id            string     `json:"correlation_id"`
 }
