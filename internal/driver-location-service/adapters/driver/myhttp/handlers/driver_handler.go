@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DriverStatusOnline  = "ONLINE"
+	DriverStatusOnline  = "AVAILABLE"
 	DriverStatusOffline = "OFFLINE"
 )
 
@@ -121,6 +121,7 @@ func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.R
 	default:
 	}
 }
+
 func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
 	log := dh.log.Action("GoOnline")
 	ctx := r.Context()
