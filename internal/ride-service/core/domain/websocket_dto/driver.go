@@ -16,7 +16,6 @@ type DriverInfo struct {
 }
 // To Passenger - Match Notification:
 type RideStatusUpdateDto struct {
-	Type          string     `json:"type"`
 	RideID        string     `json:"ride_id"`
 	RideNumber    string     `json:"ride_number"`
 	Status        string     `json:"status"`

@@ -47,7 +47,7 @@ func (ps *PassengerService) IsPassengerExists(passengerId string) (bool, error) 
 		return false, err
 	}
 
-	if roles != "ADMIN" {
+	if !(roles == "PASSENGER" || roles == "ADMIN") {
 		return false, fmt.Errorf("you are not a passenger")
 	}
 	return true, nil

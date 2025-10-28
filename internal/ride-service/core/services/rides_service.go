@@ -64,6 +64,19 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 
+	count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
+
+	if err != nil {
+		log.Error("cannot check for duplication", err)
+		return dto.RidesResponseDto{}, err
+	}
+
+	if count > 0 {
+		return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
+	}
+
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
 	// estimate distance between pick up and destination points
 	distance, err := rs.RidesRepo.GetDistance(ctx, req)
 	if err != nil {
@@ -105,6 +118,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	} else {
 		Priority = int(EstimatedFare) / 1000
 	}
+	// math.Round()
 
 	m = model.Rides{
 		RideNumber:    RideNumber,
@@ -193,6 +207,8 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
+	log := rs.mylog.Action("SetStatusMatch")
+	log.Info("sex", "rideId", rideId, "driverId", driverId)
 	passengerId, rideNumber, err := rs.RidesRepo.ChangeStatusMatch(ctx, rideId, driverId)
 	if err != nil {
 		// TODO: add handle error
