@@ -36,50 +36,77 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger, 
 
 func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
 	log := dh.log.Action("Handling driver WebSocket connection")
+	dh.log.Action("ws_conn").Info("start WS handshake")
+
+	// 1) Достаём user_id и роль, которые положил middleware
+	userID := r.Header.Get("X-UserId")
+	role := r.Header.Get("X-Role")
+	if userID == "" || role == "" {
+		http.Error(w, "Unauthorized: empty identity", http.StatusUnauthorized)
+		return
+	}
+
+	// 2) Сверяем, что водитель подключается своим ID
+	driverID := r.PathValue("driver_id")
+	if role != "DRIVER" || userID != driverID {
+		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+		return
+	}
+
+	// 3) Дополнительно (по желанию): ограничить Origin
+	// dh.upgrader.CheckOrigin = func(r *http.Request) bool {
+	//     origin := r.Header.Get("Origin")
+	//     return origin == "https://your-frontend.example.com"
+	// }
+
+	// 4) Апгрейд только после успешной аутентификации и авторизации
 	conn, err := dh.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		dh.log.Action("WebSocket connection establishing").Error("Failed to upgrade connection: %v", err)
+		dh.log.Action("ws_upgrade").Error("failed to upgrade", err)
 		return
 	}
 	defer conn.Close()
 
-	dh.log.Action("WebSocket connection establishing").Info("WebSocket connection established successfully")
-	driver_id := r.PathValue("driver_id")
-	dh.inMessages[driver_id] = make(chan dto.DriverRideOffer, 100)
-	dh.outMessages[driver_id] = make(chan dto.DriverResponse, 100)
+	dh.log.Action("ws_conn").Info("WS established", "driver_id", driverID)
+
+	// регистрируем каналы для этого драйвера (как у тебя было)
+	dh.inMessages[driverID] = make(chan dto.DriverRideOffer, 100)
+	dh.outMessages[driverID] = make(chan dto.DriverResponse, 100)
+
+	// writer
 	go func() {
 		for {
 			select {
-			case rideOffer := <-dh.inMessages[driver_id]:
-				offerBytes, err := json.Marshal(rideOffer)
+			case rideOffer := <-dh.inMessages[driverID]:
+				b, err := json.Marshal(rideOffer)
 				if err != nil {
-					log.Printf("Error marshalling ride offer: %v", err)
-					break
+					log.Printf("marshal ride offer: %v", err)
+					continue
 				}
-				err = conn.WriteMessage(websocket.TextMessage, offerBytes)
-				if err != nil {
-					log.Printf("Error writing ride offer message: %v", err)
-					break
+				if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
+					log.Printf("write ride offer: %v", err)
+					return
 				}
-			default:
-				continue
+			case <-r.Context().Done():
+				return
 			}
 		}
 	}()
+
+	// reader (как у тебя было)
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("Error reading message: %v", err)
+			log.Printf("read msg: %v", err)
 			break
 		}
-		// IMPLEMENT LOGIC TO PROCESS INCOMING DRIVER RESPONSES BY TYPES
 		var driverResponse dto.DriverResponse
 		if err := json.Unmarshal(message, &driverResponse); err != nil {
-			log.Printf("Error unmarshalling driver response: %v", err)
+			log.Printf("unmarshal driver response: %v", err)
 			continue
 		}
-		dh.outMessages[driver_id] <- driverResponse
-		log.Printf("Received message type %v: %s", messageType, message)
+		dh.outMessages[driverID] <- driverResponse
+		log.Printf("recv type=%v: %s", messageType, message)
 	}
 }
 
