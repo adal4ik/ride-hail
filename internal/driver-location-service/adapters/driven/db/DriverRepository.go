@@ -287,6 +287,21 @@ func (dr *DriverRepository) CheckDriverStatus(ctx context.Context, driver_id str
 	return status, nil
 }
 
+func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) (bool, error) {
+	const q = `
+        SELECT EXISTS (
+            SELECT 1
+            FROM rides
+            WHERE driver_id = $1
+            AND status IN ('EN_ROUTE','ARRIVED','IN_PROGRESS')
+        )`
+	var ok bool
+	if err := dr.db.GetConn().QueryRow(ctx, q, driverID).Scan(&ok); err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
 /*
 SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
        ST_Distance(

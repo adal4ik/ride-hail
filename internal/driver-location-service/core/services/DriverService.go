@@ -164,3 +164,14 @@ func (d *DriverService) CheckDriverById(ctx context.Context, driver_id string) (
 func (d *DriverService) CheckDriverStatus(ctx context.Context, driver_id string) (string, error) {
 	return d.repositories.CheckDriverStatus(ctx, driver_id)
 }
+
+func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string) error {
+	ok, err := ds.repositories.HasActiveRide(ctx, driverID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return model.ErrNoActiveRide
+	}
+	return nil
+}

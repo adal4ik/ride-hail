@@ -17,4 +17,5 @@ type IDriverRepository interface {
 	UpdateDriverStatus(ctx context.Context, driver_id string, status string) error
 	CheckDriverById(ctx context.Context, driver_id string) (bool, error)
 	CheckDriverStatus(ctx context.Context, driver_id string) (string, error)
+	HasActiveRide(ctx context.Context, driverID string) (bool, error)
 }

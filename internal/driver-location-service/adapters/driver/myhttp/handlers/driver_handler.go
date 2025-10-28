@@ -3,9 +3,11 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
+	"ride-hail/internal/driver-location-service/core/domain/model"
 	"ride-hail/internal/driver-location-service/core/ports/driver"
 	"ride-hail/internal/mylogger"
 
@@ -211,35 +213,41 @@ func (dh *DriverHandler) GoOffline(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonResponse(w, http.StatusAccepted, res)
 }
-
 func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
-	log := dh.log.Action("Go Online")
-	ctx := context.Background()
+	log := dh.log.Action("Update Location")
+	ctx := r.Context()
 
-	// Checking Driver For Existance
 	driverID := r.PathValue("driver_id")
-	if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err == nil && !ok {
-		log.Info("Driver not found")
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
-		return
-	} else if err != nil {
+	if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err != nil {
 		log.Error("Failed to check the driver: ", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	} else if !ok {
 		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
 		return
 	}
 
-	req := dto.NewLocation{}
-	driver_id := r.PathValue("driver_id")
+	// ✅ единственная новая строка логики:
+	if err := dh.driverService.RequireActiveRide(ctx, driverID); err != nil {
+		if errors.Is(err, model.ErrNoActiveRide) {
+			http.Error(w, "Bad Request: no active ride to update location", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	var req dto.NewLocation
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, http.StatusBadRequest, err)
 		return
 	}
-	res, err := dh.driverService.UpdateLocation(ctx, req, driver_id)
+
+	res, err := dh.driverService.UpdateLocation(ctx, req, driverID)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err)
 		return
 	}
-
 	jsonResponse(w, http.StatusAccepted, res)
 }
 
