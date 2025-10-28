@@ -3,11 +3,12 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"sync"
+
 	"ride-hail/internal/mylogger"
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
-	"sync"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -59,7 +60,7 @@ func (n *Notification) Run() error {
 	// 	return err
 	// }
 
-	chDriverStatus, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, locationUpdates, "")
+	chDriverStatus, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverStatus, "")
 	if err != nil {
 		return err
 	}
@@ -71,7 +72,7 @@ func (n *Notification) Run() error {
 
 	n.wg.Add(1)
 	// go n.work(n.ctx, chDriverResponse, n.DriverResponse)
-	go n.work(n.ctx, chDriverStatus, n.DriverResponse)
+	go n.work(n.ctx, chDriverStatus, n.DriverStatusUpdate)
 	// go n.work(n.ctx, chLocation, n.LocationUpdate)
 
 	return nil
@@ -187,8 +188,8 @@ func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 	return nil
 }
 
-func (n *Notification) driverStatus(msg amqp091.Delivery) error {
-	log := n.log.Action("driverStatus")
+func (n *Notification) DriverStatusUpdate(msg amqp091.Delivery) error {
+	log := n.log.Action("DriverStatusUpdate")
 	driverStatusUpdateMessage := messagebrokerdto.DriverStatusUpdate{}
 
 	err := json.Unmarshal(msg.Body, &driverStatusUpdateMessage)
@@ -204,4 +205,7 @@ func (n *Notification) driverStatus(msg amqp091.Delivery) error {
 	}
 
 	n.dispatcher.WriteToUser(passengerId, data)
+
+	msg.Ack(false)
+	return nil
 }

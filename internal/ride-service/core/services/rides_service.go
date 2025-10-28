@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"time"
+
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
-	"time"
 
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 )
@@ -330,7 +331,7 @@ func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate
 	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*15)
 	defer cancel()
 
-	passengerId, rideNumber, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg.RideId, msg.Status)
+	passengerId, rideNumber, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg)
 	if err != nil {
 		log.Error("Failed to cancel ride", err)
 		return "", websocketdto.Event{}, err
