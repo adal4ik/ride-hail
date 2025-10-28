@@ -24,6 +24,7 @@ type IRidesRepo interface {
 	GetNumberRides(context.Context) (int64, error)
 	ChangeStatusMatch(context.Context, string, string) (string, string, error)
 	FindDistanceAndPassengerId(ctx context.Context, longitude, latitude float64, rideId string) (distance float64, passengerId string, err error)
+	CheckDuplicate(ctx context.Context, passengerId string) (count int, err error)
 }
 
 type IPassengerRepo interface {

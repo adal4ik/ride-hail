@@ -55,25 +55,25 @@ func New(
 }
 
 func (n *Notification) Run() error {
-	// chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
-	// if err != nil {
-	// 	return err
-	// }
+	chDriverResponse, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverResponse, "")
+	if err != nil {
+		return err
+	}
 
 	chDriverStatus, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, driverStatus, "")
 	if err != nil {
 		return err
 	}
 
-	// chLocation, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, locationUpdates, "")
-	// if err != nil {
-	// 	return err
-	// }
+	chLocation, err := n.consumer.ConsumeMessageFromDrivers(n.ctx, locationUpdates, "")
+	if err != nil {
+		return err
+	}
 
-	n.wg.Add(1)
-	// go n.work(n.ctx, chDriverResponse, n.DriverResponse)
+	n.wg.Add(3)
+	go n.work(n.ctx, chDriverResponse, n.DriverResponse)
 	go n.work(n.ctx, chDriverStatus, n.DriverStatusUpdate)
-	// go n.work(n.ctx, chLocation, n.LocationUpdate)
+	go n.work(n.ctx, chLocation, n.LocationUpdate)
 
 	return nil
 }
@@ -209,3 +209,5 @@ func (n *Notification) DriverStatusUpdate(msg amqp091.Delivery) error {
 	msg.Ack(false)
 	return nil
 }
+
+// }

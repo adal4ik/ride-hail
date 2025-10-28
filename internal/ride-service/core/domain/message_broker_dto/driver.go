@@ -1,7 +1,5 @@
 package messagebrokerdto
 
-import "time"
-
 // Driver Match Response ← driver_topic exchange ← driver.response.{ride_id}
 type Vehicle struct {
 	Make  string `json:"make"`
@@ -23,7 +21,6 @@ type RideAcceptance struct {
 	EstimatedArrivalMinutes int        `json:"estimated_arrival_minutes"`
 	DriverLocation          Location   `json:"driver_location"`
 	DriverInfo              DriverInfo `json:"driver_info"`
-	EstimatedArrival        time.Time  `json:"estimated_arrival"`
 }
 
 type DriverStatusUpdate struct {

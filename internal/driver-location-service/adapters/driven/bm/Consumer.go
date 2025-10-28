@@ -2,65 +2,57 @@ package bm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
-	ports "ride-hail/internal/driver-location-service/core/ports/driven"
+	"ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
-	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type IConsumer interface {
-	SubscribeForMessages() error
-}
+const (
+	bindRideRequest = "ride.request.*"
+	bindRideStatus  = "ride.status.*"
+)
 
 type Consumer struct {
-	ctx      context.Context
-	log      mylogger.Logger
-	broker   ports.IDriverBroker
-	messages chan dto.RideDetails
+	ctx    context.Context
+	log    mylogger.Logger
+	broker driven.IDriverBroker
+
+	RideRequests chan dto.RideDetails
+	RideStatuses chan dto.RideStatusUpdate
 }
 
-func NewConsumer(ctx context.Context, broker ports.IDriverBroker, log mylogger.Logger, messages chan dto.RideDetails) *Consumer {
+func NewConsumer(ctx context.Context, broker driven.IDriverBroker, log mylogger.Logger) *Consumer {
 	return &Consumer{
-		ctx:      ctx,
-		broker:   broker,
-		log:      log,
-		messages: messages,
+		ctx:    ctx,
+		broker: broker,
+		log:    log,
 	}
 }
 
-func (c *Consumer) SubscribeForMessages() error {
-	time.Sleep(2 * time.Second)
-	msgCh, err := c.broker.Consume(c.ctx, "ride_requests", "ride.request.{ride_type}", ports.ConsumeOptions{
-		Prefetch:     1,
-		AutoAck:      false,
-		QueueDurable: true,
-	})
+func (c *Consumer) ListenAll() (<-chan amqp.Delivery, <-chan amqp.Delivery, error) {
+	reqMsgs, err := c.broker.Consume(
+		c.ctx,
+		"ride_requests",
+		bindRideRequest,
+		driven.ConsumeOptions{Prefetch: 20, AutoAck: false, QueueDurable: true},
+	)
 	if err != nil {
-		c.log.Action("consume").Error("messages channel closed", nil)
-		return err
+		return nil, nil, fmt.Errorf("consume ride.request: %w", err)
 	}
-	go func() {
-		for msg := range msgCh {
-			var unmarshedMsg dto.RideDetails
-			fmt.Println("Received message in Consumer Messsage Content Type: ", msg.ContentType)
-			if err := json.Unmarshal(msg.Body, &unmarshedMsg); err != nil {
-				c.log.Action("consume").Error("failed to unmarshal message", err)
-				continue
-			}
-			fmt.Println("Unmarshalled message: ", unmarshedMsg)
-			c.messages <- unmarshedMsg
-			c.log.Action("consume").Info("message received", nil)
-			// Process the message
-			c.log.Action("consume").Info("message body: %s", string(msg.Body))
-			// Acknowledge the message
-			if err := msg.Ack(false); err != nil {
-				c.log.Action("consume").Error("failed to acknowledge message", err)
-			} else {
-				c.log.Action("consume").Info("message acknowledged", nil)
-			}
-		}
-	}()
-	return nil
+
+	statusMsgs, err := c.broker.Consume(
+		c.ctx,
+		"ride_status",
+		bindRideStatus,
+		driven.ConsumeOptions{Prefetch: 20, AutoAck: false, QueueDurable: true},
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("consume ride.status: %w", err)
+	}
+	c.log.Info("Consumers started for ride.request.* and ride.status.*")
+	return reqMsgs, statusMsgs, nil
 }

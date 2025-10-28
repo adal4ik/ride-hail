@@ -57,6 +57,20 @@ func (rr *RidesRepo) GetNumberRides(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
+func (rr *RidesRepo) CheckDuplicate(ctx context.Context, passengerId string) (int, error) {
+	q := `SELECT COUNT(8) FROM rides WHERE passenger_id = $1 AND status IN ('REQUESTED', 'MATCHED', 'EN_ROUTE', 'ARRIVED');`
+	db := rr.db.conn
+
+	row := db.QueryRow(ctx, q, passengerId)
+	var count int = 0
+	err := row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, error) {
 	conn := rr.db.conn
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})

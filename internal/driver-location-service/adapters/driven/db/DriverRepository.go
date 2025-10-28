@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ride-hail/internal/driver-location-service/core/domain/model"
@@ -16,13 +17,11 @@ func NewDriverRepository(db *DataBase) *DriverRepository {
 }
 
 func (dr *DriverRepository) GoOnline(ctx context.Context, coord model.DriverCoordinates) (string, error) {
-	UpdateQuery := `
-		UPDATE 	coordinates coord
-		SET latitude = $1, longitude = $2
-		FROM drivers
-		WHERE coord.entity_id = drivers.driver_id AND drivers.driver_id = $3;
+	InsertCoordQuery := `
+		INSERT INTO coordinates(entity_id, entity_type, address, latitude, longitude)
+		VALUES ($1, 'DRIVER', 'Car', $2, $3);
 	`
-	_, err := dr.db.GetConn().Exec(ctx, UpdateQuery, coord.Latitude, coord.Longitude, coord.Driver_id)
+	_, err := dr.db.GetConn().Exec(ctx, InsertCoordQuery, coord.Driver_id, coord.Latitude, coord.Longitude)
 	if err != nil {
 		return "", err
 	}
@@ -199,3 +198,89 @@ func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.
 	response.CompletedAt = time.Now().String()
 	return response, nil
 }
+
+func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]model.DriverInfo, error) {
+	Query := `
+	SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
+       ST_Distance(
+         ST_MakePoint(c.longitude, c.latitude)::geography,
+         ST_MakePoint($1, $2)::geography
+       ) / 1000 as distance_km
+	FROM drivers d
+	JOIN coordinates c ON c.entity_id = d.driver_id
+  		AND c.entity_type = 'DRIVER'
+  		AND c.is_current = true
+	WHERE d.status = 'AVAILABLE'
+ 		AND d.vehicle_type = $3
+  		AND ST_DWithin(
+        	ST_MakePoint(c.longitude, c.latitude)::geography,
+        	ST_MakePoint($1, $2)::geography,
+        	5000  -- 5km radius
+      	)
+	ORDER BY distance_km, d.rating DESC
+	LIMIT 10;
+	`
+	rows, err := dr.db.GetConn().Query(ctx, Query, longtitude, latitude, vehicleType)
+	if err != nil {
+		fmt.Println("Repository Error Arrived ", err)
+		return []model.DriverInfo{}, err
+	}
+	var result []model.DriverInfo
+	for rows.Next() {
+		var dInfo model.DriverInfo
+		err := rows.Scan(&dInfo.DriverId, &dInfo.Email, &dInfo.Name, &dInfo.Vehicle, &dInfo.Rating, &dInfo.Latitude, &dInfo.Longitude, &dInfo.Distance)
+		if err != nil {
+			fmt.Println("Repository Error Arrived ", err)
+			return []model.DriverInfo{}, err
+		}
+		fmt.Println("Reading rows", dInfo)
+		result = append(result, dInfo)
+	}
+	fmt.Println("Found drivers from DB:", len(result))
+	return result, nil
+}
+
+func (dr *DriverRepository) CalculateRideDetails(ctx context.Context, driverLocation model.Location, passagerLocation model.Location) (float64, error) {
+	q := `SELECT ST_Distance(ST_MakePoint($1, $2)::geography, ST_MakePoint($3, $4)::geography) / 1000 as distance_km`
+
+	db := dr.db.conn
+	row := db.QueryRow(ctx, q, driverLocation.Longitude, driverLocation.Latitude, passagerLocation.Longitude, passagerLocation.Latitude)
+	distance := 0.0
+	err := row.Scan(&distance)
+	if err != nil {
+		return 0.0, err
+	}
+	return distance, nil
+}
+
+func (dr *DriverRepository) UpdateDriverStatus(ctx context.Context, driver_id string, status string) error {
+	UpdateDriverStatusQuery := `
+		UPDATE drivers
+		SET status = $1
+		WHERE driver_id = $2;
+	`
+	_, err := dr.db.GetConn().Exec(ctx, UpdateDriverStatusQuery, status, driver_id)
+	return err
+}
+
+/*
+SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
+       ST_Distance(
+         ST_MakePoint(c.longitude, c.latitude)::geography,
+         ST_MakePoint(76.88970, 43.238949)::geography
+       ) / 1000 as distance_km
+	FROM drivers d
+	JOIN coordinates c ON c.entity_id = d.driver_id
+  		AND c.entity_type = 'DRIVER'
+  		AND c.is_current = true
+	WHERE d.status = 'AVAILABLE'
+ 		AND d.vehicle_type = 'ECONOMY'
+  		AND ST_DWithin(
+        	ST_MakePoint(c.longitude, c.latitude)::geography,
+        	ST_MakePoint(76.88970, 43.238949)::geography,
+        	5000  -- 5km radius
+      	)
+	ORDER BY distance_km, d.rating DESC
+	LIMIT 10;
+
+*/
