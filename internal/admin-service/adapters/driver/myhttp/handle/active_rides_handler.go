@@ -36,8 +36,8 @@ func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 		defer cancel()
 
 		// Get query parameters with defaults
-		pageStr := r.URL.Query().Get("page")
-		pageSizeStr := r.URL.Query().Get("page_size")
+		pageStr := r.PathValue("page")
+		pageSizeStr := r.PathValue("page_size")
 
 		// Set defaults if not provided
 		if pageStr == "" {

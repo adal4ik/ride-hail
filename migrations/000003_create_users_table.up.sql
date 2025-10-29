@@ -7,5 +7,5 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     role roles DEFAULT 'PASSENGER',
     status user_status DEFAULT 'ACTIVE',
-    attrs JSONB DEFAULT '{}'::JSONB
+    user_attrs JSONB DEFAULT '{}'::JSONB
 );

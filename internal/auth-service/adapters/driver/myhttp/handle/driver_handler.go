@@ -88,14 +88,3 @@ func (ah *DriverHandler) Login() http.HandlerFunc {
 		ah.mylog.Info("Successfully login!")
 	}
 }
-
-func (ah *DriverHandler) Logout() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-	}
-}
-
-func (ah *DriverHandler) Protected() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Its like function to test auth"))
-	}
-}

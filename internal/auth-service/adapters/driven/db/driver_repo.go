@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"ride-hail/internal/auth-service/core/domain/models"
 
 	"github.com/jackc/pgx/v5"
@@ -38,8 +37,8 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 
 	// Fixed query to insert driver with correct columns
 	q := `INSERT INTO drivers (
-		username, email, password_hash, license_number, vehicle_type, vehicle_attrs
-	) VALUES ($1, $2, $3, $4, $5, $6) RETURNING driver_id`
+		username, email, password_hash, license_number, vehicle_type, vehicle_attrs, user_attrs
+	) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING driver_id;`
 
 	id := ""
 	var vehicleAttrs interface{}
@@ -47,6 +46,12 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 		vehicleAttrs = *driver.VehicleAttrs
 	} else {
 		vehicleAttrs = nil
+	}
+	var userAttrs interface{}
+	if driver.UserAttrs != nil {
+		userAttrs = *driver.UserAttrs
+	} else {
+		userAttrs = nil
 	}
 
 	row := tx.QueryRow(ctx, q,
@@ -56,6 +61,7 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 		driver.LicenseNumber,
 		driver.VehicleType,
 		vehicleAttrs,
+		userAttrs,
 	)
 	if err = row.Scan(&id); err != nil {
 		return "", fmt.Errorf("failed to insert driver: %w", err)
@@ -110,6 +116,7 @@ func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driv
 		&d.TotalEarnings,
 		&d.Status,
 		&d.IsVerified,
+		&d.UserAttrs,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/core/ports"
 	"sync"
 	"time"
 
-	"ride-hail/internal/mylogger"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
-	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/gorilla/websocket"
 )

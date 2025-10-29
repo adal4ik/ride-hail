@@ -14,6 +14,7 @@ type DriverInfo struct {
 	Rating   float64 `json:"rating"`
 	Vehicle  Vehicle `json:"vehicle"`
 }
+
 // To Passenger - Match Notification:
 type RideStatusUpdateDto struct {
 	RideID        string     `json:"ride_id"`

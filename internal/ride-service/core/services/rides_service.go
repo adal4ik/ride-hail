@@ -2,14 +2,17 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
+	"time"
+
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
+	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
-	"time"
 
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 )
@@ -64,16 +67,16 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 
-	count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
+	// count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
 
-	if err != nil {
-		log.Error("cannot check for duplication", err)
-		return dto.RidesResponseDto{}, err
-	}
+	// if err != nil {
+	// 	log.Error("cannot check for duplication", err)
+	// 	return dto.RidesResponseDto{}, err
+	// }
 
-	if count > 0 {
-		return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
-	}
+	// if count > 0 {
+	// 	return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
+	// }
 
 	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
@@ -204,6 +207,48 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	return res, nil
 }
 
+func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string) (dto.RideCancelResponseDto, error) {
+	log := rs.mylog.Action("CreateRide")
+
+	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+
+	log.Info("params", "rideId", rideId, "reason", req.Reason)
+
+	driverId, err := rs.RidesRepo.CancelRide(ctx, rideId, req.Reason)
+	if err != nil {
+		log.Error("Failed to cancel ride", err)
+		return dto.RideCancelResponseDto{}, err
+	}
+	log.Info("Ride cancelled successfully")
+
+	cancelledAt := time.Now().Format(time.RFC3339)
+
+	res := dto.RideCancelResponseDto{
+		RideId:      rideId,
+		Status:      "CANCELLED",
+		CancelledAt: cancelledAt,
+		Message:     "Ride cancelled successfully",
+	}
+
+	m2 := messagebrokerdto.RideStatus{
+		RideId:    rideId,
+		Status:    "CANCELLED",
+		Timestamp: cancelledAt,
+		DriverID:  driverId,
+	}
+
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
+
+	err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
+	if err != nil {
+		return dto.RideCancelResponseDto{}, err
+	}
+
+	return res, nil
+}
+
 func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
@@ -290,4 +335,54 @@ const Epsilon = 1e-9
 
 func IsCloseToZero(f float64) bool {
 	return math.Abs(f) < Epsilon
+}
+
+// type DriverInfo struct {
+// 	DriverID string  `json:"driver_id"`
+// 	Name     string  `json:"name"`
+// 	Rating   float64 `json:"rating"`
+// 	Vehicle  Vehicle `json:"vehicle"`
+// }
+
+// // To Passenger - Match Notification:
+// type RideStatusUpdateDto struct {
+// 	RideID        string     `json:"ride_id"`
+// 	RideNumber    string     `json:"ride_number"`
+// 	Status        string     `json:"status"`
+// 	DriverInfo    DriverInfo `json:"driver_info"`
+// 	CorrelationID string     `json:"correlation_id"`
+// }
+
+func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate) (string, websocketdto.Event, error) {
+	log := ps.mylog.Action("UpdateRideStatus")
+
+	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*15)
+	defer cancel()
+
+	passengerId, rideNumber, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg)
+	if err != nil {
+		log.Error("Failed to cancel ride", err)
+		return "", websocketdto.Event{}, err
+	}
+
+	data := websocketdto.RideStatusUpdateDto{
+		RideID:        msg.RideId,
+		Status:        msg.Status,
+		CorrelationID: generateCorrelationID(),
+		DriverInfo:    driverInfo,
+		RideNumber:    rideNumber,
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("Error marshalling JSON:", err)
+		return "", websocketdto.Event{}, err
+	}
+
+	res := websocketdto.Event{
+		Type: "ride_status_update",
+		Data: jsonData,
+	}
+
+	return passengerId, res, nil
 }

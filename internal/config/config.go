@@ -95,7 +95,7 @@ func New() (*Config, error) {
 			Port: getEnvInt("WS_PORT", 8080),
 		},
 		Srv: &Serviceconfig{
-			RideServicePort:           getEnv("RIDE_SERVICE_PORT", "3002"),
+			RideServicePort:           getEnv("RIDE_SERVICE_PORT", "3000"),
 			DriverLocationServicePort: getEnv("DRIVER_LOCATION_SERVICE_PORT", "3001"),
 			AdminServicePort:          getEnv("ADMIN_SERVICE_PORT", "3004"),
 			AuthServicePort:           getEnv("AUTH_SERVICE_PORT", "3010"),

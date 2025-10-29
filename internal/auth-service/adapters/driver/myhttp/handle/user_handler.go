@@ -93,14 +93,3 @@ func (ah *AuthHandler) Login() http.HandlerFunc {
 		ah.mylog.Info("Successfully login!")
 	}
 }
-
-func (ah *AuthHandler) Logout() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-	}
-}
-
-func (ah *AuthHandler) Protected() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Its like function to test auth"))
-	}
-}

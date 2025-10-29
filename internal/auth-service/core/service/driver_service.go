@@ -39,7 +39,14 @@ func NewDriverService(
 func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistrationRequest) (string, string, error) {
 	mylog := ds.mylog.Action("Register")
 
-	if err := validateRegistration(ctx, regReq.Username, regReq.Email, regReq.Password); err != nil {
+	r := dto.UserRegistrationRequest{
+		Username:  regReq.Username,
+		Email:     regReq.Email,
+		Password:  regReq.Password,
+		UserAttrs: regReq.UserAttrs,
+	}
+
+	if err := validateUserRegistration(ctx, r); err != nil {
 		return "", "", err
 	}
 
@@ -58,6 +65,7 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 		LicenseNumber: regReq.LicenseNumber,
 		VehicleType:   regReq.VehicleType,
 		VehicleAttrs:  regReq.VehicleAttrs,
+		UserAttrs:     regReq.UserAttrs,
 	}
 	// add user to db
 	id, err := ds.driverRepo.Create(ctx, user)
@@ -129,12 +137,4 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverRegistrati
 
 	mylog.Info("User login successfully")
 	return accesssTokenString, nil
-}
-
-func (ds *DriverService) Logout(ctx context.Context, auth dto.DriverAuthRequest) error {
-	return nil
-}
-
-func (ds *DriverService) Protected(ctx context.Context, auth dto.DriverAuthRequest) error {
-	return nil
 }

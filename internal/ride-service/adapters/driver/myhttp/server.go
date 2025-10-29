@@ -5,20 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
-	"time"
-
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/adapters/driven/bm"
-	"ride-hail/internal/ride-service/adapters/driven/consumer"
 	"ride-hail/internal/ride-service/adapters/driven/db"
+	"ride-hail/internal/ride-service/adapters/driven/notification"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/middleware"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/ws"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
 	"ride-hail/internal/ride-service/core/services"
+	"sync"
+	"time"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -189,12 +188,12 @@ func (s *Server) Configure() {
 	s.dispatcher = dispatcher
 
 	// consumers
-	notify := consumer.New(s.appCtx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)
+	notify := notification.New(s.ctx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)
 	s.notify = notify
 
 	// Register routes
 	s.mux.Handle("POST /rides", authMiddleware.Wrap(rideHandler.CreateRide()))
-	// s.mux.Handle("GET /rides/{ride_id}/cancel", nil)
+	s.mux.Handle("POST /rides/{ride_id}/cancel", authMiddleware.Wrap(rideHandler.CancelRide()))
 
 	// websocket routes
 	s.mux.Handle("/ws/passengers/{passenger_id}", dispatcher.WsHandler())
