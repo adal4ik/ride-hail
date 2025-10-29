@@ -35,7 +35,7 @@ type Server struct {
 	mylog mylogger.Logger
 	cfg   *config.Config
 
-	notify     *consumer.Notification
+	notify     *notification.Notification
 	dispatcher *ws.Dispatcher
 
 	db               *db.DB
