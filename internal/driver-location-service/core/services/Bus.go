@@ -179,10 +179,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.RideDetails, requestDelivery amqp.Delivery) {
 	log := d.log.Action("sendRideOffers")
 	_ = log
-	// responseChan := make(chan websocketdto.RideResponseMessage, len(drivers))
-	// defer close(responseChan)
 
-	// Отправляем предложения всем драйверам
 	for _, driver := range drivers {
 		offer := websocketdto.RideOfferMessage{
 			WebSocketMessage: websocketdto.WebSocketMessage{
@@ -208,17 +205,6 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 			ExpiresAt:                    time.Now().Add(30 * time.Second),
 		}
 
-		// pendingOffer := PendingOffer{
-		// 	RideID:       rideDetails.Ride_id,
-		// 	DriverID:     driver.DriverId,
-		// 	OfferID:      offer.OfferID,
-		// 	ExpiresAt:    offer.ExpiresAt,
-		// 	ResponseChan: responseChan,
-		// }
-
-		// d.pendingMu.Lock()
-		// d.pendingOffers[offer.OfferID] = &pendingOffer
-		// d.pendingMu.Unlock()
 		d.wsManager.SendToDriver(context.Background(), driver.DriverId, offer)
 		driverResponse, err := d.wsManager.GetDriverMessages(driver.DriverId)
 		if err != nil {
@@ -234,7 +220,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 				continue
 			}
 			if response.Accepted {
-				d.handleDriverAcceptance(response, rideDetails, requestDelivery, driver.DriverId)
+				d.handleDriverAcceptance(response, rideDetails, requestDelivery, driver)
 			} else {
 				requestDelivery.Nack(false, true)
 			}
@@ -262,28 +248,14 @@ func (d *Distributor) handleRideResponse(driverID string, response websocketdto.
 		return
 	}
 
-	// Отправляем ответ в канал
 	select {
 	case pendingOffer.ResponseChan <- response:
-		// Ответ отправлен
 	default:
 		fmt.Printf("Response channel full for offer: %s\n", response.OfferID)
 	}
 
-	// Удаляем ожидающее предложение
 	d.pendingMu.Lock()
 	delete(d.pendingOffers, response.OfferID)
-	d.pendingMu.Unlock()
-}
-
-func (d *Distributor) cleanupPendingOffer(offerID string, expiresAt time.Time) {
-	time.Sleep(time.Until(expiresAt) + time.Second) // +1 секунда на всякий случай
-
-	d.pendingMu.Lock()
-	if _, exists := d.pendingOffers[offerID]; exists {
-		delete(d.pendingOffers, offerID)
-		fmt.Printf("Cleaned up expired offer: %s\n", offerID)
-	}
 	d.pendingMu.Unlock()
 }
 
@@ -303,8 +275,7 @@ func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.
 	}
 	locationUpdate := messagebrokerdto.LocationUpdate{
 		DriverID: driverID,
-		// Logic for getting Ride ID
-		RideID: "asdasda",
+		RideID:   "asdasda",
 		Location: messagebrokerdto.Location{
 			Lng: update.Longitude,
 			Lat: update.Latitude,
@@ -319,21 +290,28 @@ func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.
 	}
 }
 
-func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseMessage, rideDetails dto.RideDetails, requestDelivery amqp.Delivery, driverID string) {
+func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseMessage, rideDetails dto.RideDetails, requestDelivery amqp.Delivery, driver dto.DriverInfo) {
+	log := d.log.Action("handleDriverAcceptance")
+	_ = log
 	driverMatch := dto.DriverMatchResponse{
 		Ride_id:                   rideDetails.Ride_id,
-		Driver_id:                 driverID,
+		Driver_id:                 driver.DriverId,
 		Accepted:                  true,
 		Estimated_arrival_minutes: 5,
 		Driver_location: dto.Location{
 			Latitude:  response.CurrentLocation.Latitude,
 			Longitude: response.CurrentLocation.Longitude,
 		},
+		Driver_info: dto.DriverInfoForResponse{
+			Name:    driver.Name,
+			Vehicle: driver.Vehicle,
+			Rating:  driver.Rating,
+		},
 	}
 	d.driverService.UpdateDriverStatus(context.Background(), driverMatch.Driver_id, "BUSY")
 
 	requestDelivery.Ack(false)
-	d.broker.PublishJSON(d.ctx, "driver_topic", fmt.Sprintf("driver.response.%s", driverID), driverMatch)
+	d.broker.PublishJSON(d.ctx, "driver_topic", fmt.Sprintf("driver.response.%s", driver.DriverId), driverMatch)
 
 	fmt.Printf("Ride %s accepted by driver %s\n", rideDetails.Ride_id, driverMatch.Driver_id)
 }
@@ -342,10 +320,11 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideStatus")
 	var status websocketdto.RideResponseMessage
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
-		fmt.Println("Error unmarshaling ride status:", err)
+		log.Error("Failed to unmarshal the ride response message: ", err)
 		statusDelivery.Nack(false, true)
 		return
 	}
+	log.Info("Received ride status update:", status.RideID, status)
 	driverID, err := d.driverService.GetDriverIdByRideId(context.Background(), status.RideID)
 	if err != nil {
 		log.Error("Failed to get driver ID by ride ID:", err, status.RideID)
