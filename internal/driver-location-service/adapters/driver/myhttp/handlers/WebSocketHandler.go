@@ -48,10 +48,10 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 		return
 	}
 
-	incoming := make(chan []byte, 100)
-	outgoing := make(chan []byte, 100)
+	fromDriver := make(chan []byte, 100)
+	toDriver := make(chan []byte, 100)
 
-	if err := h.wsManager.RegisterDriver(r.Context(), driverID, incoming, outgoing); err != nil {
+	if err := h.wsManager.RegisterDriver(r.Context(), driverID, fromDriver, toDriver); err != nil {
 		log.Error("Failed to register driver:", err, driverID)
 		http.Error(w, "Failed to register driver", http.StatusInternalServerError)
 		return
@@ -75,8 +75,8 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	go h.handleIncomingMessages(ctx, driverID, conn, incoming)
-	go h.handleOutgoingMessages(ctx, driverID, conn, outgoing)
+	go h.handleIncomingMessages(ctx, driverID, conn, fromDriver)
+	go h.handleOutgoingMessages(ctx, driverID, conn, toDriver)
 	go h.handlePing(ctx, conn)
 	log.Info("WebSocket connection established for driver:", driverID)
 	<-ctx.Done()

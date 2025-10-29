@@ -18,14 +18,14 @@ type WebSocketManager struct {
 }
 
 type DriverConnection struct {
-	DriverID  string
-	Conn      *websocket.Conn
-	Incoming  chan<- []byte // Сообщения ОТ драйвера К дистрибьютору
-	Outgoing  <-chan []byte // Сообщения ОТ дистрибьютора К драйверу
-	Auth      bool
-	LastPing  time.Time
-	SessionID string
-	mu        sync.Mutex
+	DriverID   string
+	Conn       *websocket.Conn
+	fromDriver <-chan []byte // Сообщения ОТ драйвера К дистрибьютору
+	toDriver   chan<- []byte // Сообщения ОТ дистрибьютора К драйверу
+	Auth       bool
+	LastPing   time.Time
+	SessionID  string
+	mu         sync.Mutex
 }
 
 func NewWebSocketManager() *WebSocketManager {
@@ -34,7 +34,7 @@ func NewWebSocketManager() *WebSocketManager {
 	}
 }
 
-func (m *WebSocketManager) RegisterDriver(ctx context.Context, driverID string, incoming chan<- []byte, outgoing <-chan []byte) error {
+func (m *WebSocketManager) RegisterDriver(ctx context.Context, driverID string, incoming <-chan []byte, outgoing chan<- []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -43,12 +43,12 @@ func (m *WebSocketManager) RegisterDriver(ctx context.Context, driverID string, 
 	}
 
 	m.connections[driverID] = &DriverConnection{
-		DriverID:  driverID,
-		Incoming:  incoming,
-		Outgoing:  outgoing,
-		Auth:      false,
-		LastPing:  time.Now(),
-		SessionID: fmt.Sprintf("session_%s_%d", driverID, time.Now().Unix()),
+		DriverID:   driverID,
+		fromDriver: incoming,
+		toDriver:   outgoing,
+		Auth:       false,
+		LastPing:   time.Now(),
+		SessionID:  fmt.Sprintf("session_%s_%d", driverID, time.Now().Unix()),
 	}
 
 	return nil
@@ -82,14 +82,16 @@ func (m *WebSocketManager) SendToDriver(ctx context.Context, driverID string, me
 	}
 
 	messageBytes, err := json.Marshal(message)
+	fmt.Println("Sending to driver:", driverID, "message:", string(messageBytes))
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
-
-	return conn.Conn.WriteMessage(websocket.TextMessage, messageBytes)
+	conn.toDriver <- messageBytes
+	// return conn.Conn.WriteMessage(websocket.TextMessage, messageBytes)
+	return nil
 }
 
 func (m *WebSocketManager) SetConnection(driverID string, conn *websocket.Conn) {
@@ -161,7 +163,7 @@ func (m *WebSocketManager) GetDriverMessages(driverID string) (<-chan []byte, er
 		return nil, fmt.Errorf("driver not connected: %s", driverID)
 	}
 
-	return conn.Outgoing, nil
+	return conn.fromDriver, nil
 }
 
 func (m *WebSocketManager) GetDriversCount(ctx context.Context) int {
