@@ -8,23 +8,30 @@ import (
 	"time"
 
 	dto "ride-hail/internal/driver-location-service/core/domain/dto"
+	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	driven "ride-hail/internal/driver-location-service/core/ports/driven"
+	"ride-hail/internal/driver-location-service/core/ports/driver"
+	"ride-hail/internal/mylogger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// ADD LOGGER
 type Distributor struct {
-	rideOffers     <-chan amqp.Delivery
-	rideStatuses   <-chan amqp.Delivery
-	wsManager      driven.WSConnectionMeneger
-	broker         driven.IDriverBroker
-	driverService  DriverService
+	// Rabbit MQ
+	rideOffers   <-chan amqp.Delivery
+	rideStatuses <-chan amqp.Delivery
+	// Websocket Handler
+	wsManager     driven.WSConnectionMeneger
+	driverService driver.IDriverService
+	// Driver Messages
 	driverMessages chan DriverMessage
-	pendingOffers  map[string]*PendingOffer // offerID -> PendingOffer
+	pendingOffers  map[string]*PendingOffer
 	pendingMu      sync.RWMutex
-	ctx            context.Context
+	// Tools
+	broker driven.IDriverBroker
+	ctx    context.Context
+	log    mylogger.Logger
 }
 
 type DriverMessage struct {
@@ -46,7 +53,8 @@ func NewDistributor(
 	rideStatuses <-chan amqp.Delivery,
 	wsManager driven.WSConnectionMeneger,
 	broker driven.IDriverBroker,
-	driverService DriverService,
+	driverService driver.IDriverService,
+	log mylogger.Logger,
 ) *Distributor {
 	distributor := &Distributor{
 		rideOffers:     rideOffers,
@@ -57,9 +65,10 @@ func NewDistributor(
 		driverMessages: make(chan DriverMessage, 1000),
 		pendingOffers:  make(map[string]*PendingOffer),
 		ctx:            ctx,
+		log:            log,
 	}
 
-	go distributor.handleDriverMessages()
+	go (*distributor).MessageDistributor()
 	return distributor
 }
 
@@ -125,11 +134,6 @@ func (d *Distributor) handleDriverMessage(msg DriverMessage) {
 			return
 		}
 		d.handleLocationUpdate(msg.DriverID, update)
-
-	case websocketdto.MessageTypePing:
-		// Обновляем пинг в менеджере
-		d.wsManager.UpdatePing(msg.DriverID)
-
 	default:
 		fmt.Printf("Unknown message type %s from driver %s\n", baseMsg.Type, msg.DriverID)
 	}
@@ -216,7 +220,24 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 		d.pendingOffers[offer.OfferID] = pendingOffer
 		d.pendingMu.Unlock()
 
-		if err := d.wsManager.SendToDriver(context.Background(), driver.DriverId, offer); err != nil {
+		select {
+		case response := <-responseChan:
+			if response.Accepted {
+				d.handleDriverAcceptance(response, rideDetails, requestDelivery)
+			} else {
+				requestDelivery.Nack(false, true)
+			}
+		case <-time.After(30 * time.Second):
+			fmt.Println("No driver accepted the ride within timeout")
+			requestDelivery.Nack(false, true)
+		}
+
+		message, err := json.Marshal(offer)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		if err := d.wsManager.SendToDriver(context.Background(), driver.DriverId, message); err != nil {
 			fmt.Printf("Failed to send offer to driver %s: %v\n", driver.DriverId, err)
 			d.pendingMu.Lock()
 			delete(d.pendingOffers, offer.OfferID)
@@ -224,19 +245,6 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 		}
 
 		go d.cleanupPendingOffer(offer.OfferID, offer.ExpiresAt)
-	}
-
-	// Ждем первого принявшего драйвера
-	select {
-	case response := <-responseChan:
-		if response.Accepted {
-			d.handleDriverAcceptance(response, rideDetails, requestDelivery)
-		} else {
-			requestDelivery.Nack(false, true)
-		}
-	case <-time.After(30 * time.Second):
-		fmt.Println("No driver accepted the ride within timeout")
-		requestDelivery.Nack(false, true)
 	}
 }
 
@@ -281,20 +289,30 @@ func (d *Distributor) cleanupPendingOffer(offerID string, expiresAt time.Time) {
 }
 
 func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.LocationUpdateMessage) {
-	// Обновляем локацию драйвера в базе данных
 	ctx := context.Background()
-	err := d.driverService.UpdateDriverLocation(ctx, driverID, update.Latitude, update.Longitude)
+	data := dto.NewLocation{
+		Latitude:        update.Latitude,
+		Longitude:       update.Longitude,
+		Accuracy_meters: update.AccuracyMeters,
+		Speed_kmh:       update.SpeedKmh,
+		Heading_Degrees: update.HeadingDegrees,
+	}
+	_, err := d.driverService.UpdateLocation(ctx, data, driverID)
 	if err != nil {
 		fmt.Printf("Failed to update driver location: %v\n", err)
 		return
 	}
-
-	// Публикуем обновление локации в RabbitMQ
-	locationUpdate := dto.DriverLocationUpdate{
-		DriverID:  driverID,
-		Latitude:  update.Latitude,
-		Longitude: update.Longitude,
-		Timestamp: time.Now(),
+	locationUpdate := messagebrokerdto.LocationUpdate{
+		DriverID: driverID,
+		// Logic for getting Ride ID
+		RideID: "asdasda",
+		Location: messagebrokerdto.Location{
+			Lng: update.Longitude,
+			Lat: update.Latitude,
+		},
+		SpeedKmh:       update.SpeedKmh,
+		HeadingDegrees: update.HeadingDegrees,
+		Timestamp:      time.Now().String(),
 	}
 
 	if err := d.broker.PublishJSON(ctx, "location_fanout", "", locationUpdate); err != nil {
@@ -315,15 +333,6 @@ func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseM
 		},
 		// Заполнить driver_info из базы данных
 	}
-
-	// Публикуем ответ
-	err := d.broker.PublishJSON(context.Background(), "driver_topic",
-		fmt.Sprintf("driver.response.%s", rideDetails.Ride_id), driverMatch)
-	if err != nil {
-		fmt.Println("Error publishing driver match response:", err)
-		return
-	}
-
 	// Обновляем статус драйвера
 	d.driverService.UpdateDriverStatus(context.Background(), driverMatch.Driver_id, "BUSY")
 
@@ -331,4 +340,7 @@ func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseM
 	requestDelivery.Ack(false)
 
 	fmt.Printf("Ride %s accepted by driver %s\n", rideDetails.Ride_id, driverMatch.Driver_id)
+}
+
+func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 }
