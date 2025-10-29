@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/adapters/driver/myhttp/handle"
-	"ride-hail/internal/auth-service/adapters/driver/myhttp/middleware"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
@@ -121,8 +120,6 @@ func (s *Server) startHTTPServer() error {
 
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
-	authMiddle := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
-
 	// Repositories and services
 	authRepo := db.NewAuthRepo(s.ctx, s.db)
 	authService := service.NewAuthService(s.ctx, s.cfg, authRepo, s.mylog)
@@ -135,8 +132,8 @@ func (s *Server) Configure() {
 	driverService := service.NewDriverService(s.ctx, s.cfg, driverRepo, s.mylog)
 	driverHandler := handle.NewDriverHandler(driverService, s.mylog)
 
-	s.mux.Handle("POST /driver/register", authMiddle.Middle(driverHandler.Register()))
-	s.mux.Handle("POST /driver/login", authMiddle.Middle(driverHandler.Login()))
+	s.mux.Handle("POST /driver/register", driverHandler.Register())
+	s.mux.Handle("POST /driver/login", driverHandler.Login())
 }
 
 func (s *Server) initializeDatabase() error {

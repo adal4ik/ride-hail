@@ -21,4 +21,5 @@ type Driver struct {
 	TotalEarnings *float64         `json:"total_earnings,omitempty"`
 	Status        *string          `json:"status,omitempty"`
 	IsVerified    *bool            `json:"is_verified,omitempty"`
+	UserAttrs     *json.RawMessage `json:"user_attrs,omitempty"`
 }

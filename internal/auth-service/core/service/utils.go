@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"ride-hail/internal/auth-service/core/domain/dto"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -40,19 +41,40 @@ var (
 	ErrEmailRegistered = errors.New("email already registered")
 )
 
-func validateRegistration(ctx context.Context, username, email, password string) error {
-	if err := validateName(username); err != nil {
+func validateUserRegistration(ctx context.Context, regReq dto.UserRegistrationRequest) error {
+	if err := validateName(regReq.Username); err != nil {
 		return fmt.Errorf("invalid name: %v", err)
 	}
 
-	if err := validateEmail(email); err != nil {
+	if err := validateEmail(regReq.Email); err != nil {
 		return fmt.Errorf("invalid email: %v", err)
 	}
 
-	if err := validatePassword(password); err != nil {
+	if err := validatePassword(regReq.Password); err != nil {
 		return fmt.Errorf("invalid password: %v", err)
 	}
 
+	if err := validateUserAttrs(*regReq.UserAttrs); err != nil {
+		return fmt.Errorf("invalid user attributes: %v", err)
+	}
+
+	return nil
+}
+
+func validateUserAttrs(userAttrs json.RawMessage) error {
+	// If vehicle attributes are provided, validate they are proper JSON
+	if len(userAttrs) == 0 {
+		return fmt.Errorf("user attributes not provided")
+	}
+
+	if !json.Valid(userAttrs) {
+		return fmt.Errorf("invalid JSON format for user attributes")
+	}
+
+	// Optional: Validate specific vehicle attribute structure based on vehicle type
+	if err := validateUserAttrsStructure(userAttrs); err != nil {
+		return fmt.Errorf("invalid user attributes structure: %v", err)
+	}
 	return nil
 }
 
@@ -185,15 +207,17 @@ func validateVehicleType(vehicleType string) error {
 
 func validateVehicleAttrs(vehicleAttrs json.RawMessage) error {
 	// If vehicle attributes are provided, validate they are proper JSON
-	if len(vehicleAttrs) > 0 {
-		if !json.Valid(vehicleAttrs) {
-			return fmt.Errorf("invalid JSON format for vehicle attributes")
-		}
+	if len(vehicleAttrs) == 0 {
+		return fmt.Errorf("vehicle attributes not specified")
+	}
 
-		// Optional: Validate specific vehicle attribute structure based on vehicle type
-		if err := validateVehicleAttrsStructure(vehicleAttrs); err != nil {
-			return fmt.Errorf("invalid vehicle attributes structure: %v", err)
-		}
+	if !json.Valid(vehicleAttrs) {
+		return fmt.Errorf("invalid JSON format for vehicle attributes")
+	}
+
+	// Optional: Validate specific vehicle attribute structure based on vehicle type
+	if err := validateVehicleAttrsStructure(vehicleAttrs); err != nil {
+		return fmt.Errorf("invalid vehicle attributes structure: %v", err)
 	}
 
 	return nil
@@ -212,16 +236,47 @@ func getAllowedVehicleTypes() []string {
 }
 
 func validateVehicleAttrsStructure(vehicleAttrs json.RawMessage) error {
-	// Optional: Validate specific structure based on your requirements
-	// Example: Check if required fields exist for specific vehicle types
-
 	var attrs map[string]interface{}
 	if err := json.Unmarshal(vehicleAttrs, &attrs); err != nil {
 		return err
 	}
 
-	// Add specific validation logic here if needed
-	// For example, for cars you might require "model", "year", etc.
+	// Ensure all required vehicle attributes are present
+	requiredFields := []string{"make", "model", "color", "plate", "year"}
+
+	for _, field := range requiredFields {
+		if _, exists := attrs[field]; !exists {
+			return errors.New("missing " + field + " attribute")
+		}
+	}
+
+	// Check if "year" is a valid number (e.g., greater than 1885 for the first car)
+	year, ok := attrs["year"].(float64) // JSON unmarshals numbers as float64
+	if !ok || year < 1885 {
+		return errors.New("invalid or missing vehicle year")
+	}
 
 	return nil
+}
+
+func validateUserAttrsStructure(userAttrs json.RawMessage) error {
+	var attrs map[string]interface{}
+	if err := json.Unmarshal(userAttrs, &attrs); err != nil {
+		return err
+	}
+
+	// Ensure "phone" attribute exists and is a valid phone number
+	phone, exists := attrs["phone"].(string)
+	if !exists || !isValidPhoneNumber(phone) {
+		return errors.New("invalid or missing phone number")
+	}
+
+	return nil
+}
+
+// Helper function to validate phone numbers (you can adapt this regex based on your needs)
+func isValidPhoneNumber(phone string) bool {
+	// Simple regex for a phone number (e.g., +7-XXX-XXX-XX-XX)
+	re := regexp.MustCompile(`^\+7-\d{3}-\d{3}-\d{2}-\d{2}$`)
+	return re.MatchString(phone)
 }

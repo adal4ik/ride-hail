@@ -37,10 +37,19 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 		}
 	}()
 
+	var userAttrs interface{}
+	if user.UserAttrs != nil {
+		userAttrs = *user.UserAttrs
+	} else {
+		userAttrs = nil
+	}
+
 	// First query to insert the user
-	q := `INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id`
+	q := `INSERT INTO users (
+	username, email, password_hash, role, user_attrs'
+	) VALUES ($1, $2, $3, $4, $5) RETURNING user_id;`
 	id := ""
-	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role)
+	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role, userAttrs)
 	if err = row.Scan(&id); err != nil {
 		return "", fmt.Errorf("failed to insert user: %v", err)
 	}
@@ -81,7 +90,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 		&u.Status,
 		&u.PasswordHash,
 		&u.Role,
-		&u.Attrs,
+		&u.UserAttrs,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

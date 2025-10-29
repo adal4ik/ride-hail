@@ -39,7 +39,7 @@ func NewAuthService(
 func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistrationRequest) (string, string, error) {
 	mylog := as.mylog.Action("Register")
 
-	if err := validateRegistration(ctx, regReq.Username, regReq.Email, regReq.Password); err != nil {
+	if err := validateUserRegistration(ctx, regReq); err != nil {
 		return "", "", err
 	}
 
@@ -52,6 +52,7 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistration
 		Email:        regReq.Email,
 		PasswordHash: hashedPassword,
 		Role:         regReq.Role,
+		UserAttrs:    regReq.UserAttrs,
 	}
 	// add user to db
 	id, err := as.authRepo.Create(ctx, user)
