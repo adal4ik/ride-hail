@@ -16,6 +16,7 @@ import (
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/middleware"
 	"ride-hail/internal/ride-service/adapters/driver/myhttp/ws"
+	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
 	"ride-hail/internal/ride-service/core/services"
 )
@@ -25,17 +26,18 @@ var ErrServerClosed = errors.New("Server closed")
 const WaitTime = 10
 
 type Server struct {
-	mux    *http.ServeMux
-	cfg    *config.Config
-	srv    *http.Server
-	notify *consumer.Notification
-	mylog  mylogger.Logger
-	db     *db.DB
-	mb     ports.IRidesBroker
-	ctx    context.Context
-	appCtx context.Context
-	mu     sync.Mutex
-	wg     sync.WaitGroup
+	mux        *http.ServeMux
+	cfg        *config.Config
+	srv        *http.Server
+	notify     *consumer.Notification
+	dispatcher *ws.Dispatcher
+	mylog      mylogger.Logger
+	db         *db.DB
+	mb         ports.IRidesBroker
+	ctx        context.Context
+	appCtx     context.Context
+	mu         sync.Mutex
+	wg         sync.WaitGroup
 }
 
 func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) *Server {
@@ -92,32 +94,47 @@ func (s *Server) Run() error {
 
 // Stop provides a programmatic shutdown. Accepts a context for timeout control.
 func (s *Server) Stop(ctx context.Context) error {
+	log := s.mylog.Action("Stop")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.mylog.Info("Shutting down HTTP server...")
-
+	log.Info("Shutting down HTTP server...")
+	// web socket notification, that server is shutting down
+	msg := websocketdto.Event{
+		Type: "notify",
+		Data: []byte(`{"text":"shutting server lmao XD, now it is your problem XDXDXD"}`),
+	}
+ 
+	s.dispatcher.BroadCast(msg)
 	s.wg.Wait()
+	// make rides that have status like
+	//   'REQUESTED'
+	//   'MATCHED'
+	//   'EN_ROUTE'
+	//   'ARRIVED'
+	//   'IN_PROGRESS'
+	//
+	// to 'CANCELLED'
 
 	if s.srv != nil {
 		shutdownCtx, cancel := context.WithTimeout(ctx, WaitTime*time.Second)
 		defer cancel()
 
 		if err := s.srv.Shutdown(shutdownCtx); err != nil {
-			s.mylog.Error("Failed to shut down HTTP server gracefully", err)
+			log.Error("Failed to shut down HTTP server gracefully", err)
 			return fmt.Errorf("http server shutdown: %w", err)
 		}
 	}
 
 	if s.db != nil {
 		if err := s.db.Close(); err != nil {
-			s.mylog.Error("Failed to close database", err)
+			log.Error("Failed to close database", err)
 			return fmt.Errorf("db close: %w", err)
 		}
-		s.mylog.Info("Database closed")
+		log.Info("Database closed")
 	}
 
-	s.mylog.Info("HTTP server shut down gracefully")
+	log.Info("HTTP server shut down gracefully")
 	return nil
 }
 
@@ -156,8 +173,9 @@ func (s *Server) Configure() {
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 
 	eventHandle := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
-	dispatcher := ws.NewDispathcer(s.mylog, passengerService, eventHandle)
+	dispatcher := ws.NewDispathcer(s.mylog, passengerService, eventHandle, &s.wg)
 	dispatcher.InitHandler()
+	s.dispatcher = dispatcher
 
 	// consumers
 	notify := consumer.New(s.appCtx, &s.wg, s.mylog, dispatcher, s.mb, passengerService, rideService)

@@ -37,16 +37,18 @@ type Dispatcher struct {
 	hander           map[string]EventHandle
 	clients          ClientList
 	sync.RWMutex
+	wg *sync.WaitGroup
 	log mylogger.Logger
 }
 
-func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader *EventHandler) *Dispatcher {
+func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader *EventHandler, wg *sync.WaitGroup) *Dispatcher {
 	return &Dispatcher{
 		clients:          make(ClientList),
 		hander:           make(map[string]EventHandle),
 		PassengerService: passengerRepo,
 		log:              log,
 		eventHandler:     eventHader,
+		wg: wg,
 	}
 }
 
@@ -84,21 +86,12 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 		ctx, cancel := context.WithCancel(context.Background())
 		ctxAuth, cancelAuth := context.WithCancel(context.Background())
 
-		client := NewClient(ctx, d.log, conn, d, passengerId, cancelAuth)
+		client := NewClient(ctx, d.log, conn, d, passengerId, cancelAuth, d.wg)
 		d.AddClient(client)
+		d.wg.Add(1)
 		go client.ReadMessage()
 		go client.WriteMessage()
 		go d.StartTimerAuth(client, cancel, ctxAuth)
-
-		// Code from temu
-		// select {
-		// case <-time.After(time.Second * 5):
-		// 	// close connection
-		// 	conn.Close()
-		// case msg := <-client.egress:
-		// 	if msg.Type != "auth" {
-		// 	}
-		// }
 	}
 }
 
@@ -130,6 +123,15 @@ func (d *Dispatcher) WriteToUser(passengerId string, event websocketdto.Event) {
 	defer d.Unlock()
 
 	if client, ok := d.clients[passengerId]; ok {
+		client.egress <- event
+	}
+}
+
+func (d *Dispatcher) BroadCast(event websocketdto.Event) {
+	d.Lock()
+	defer d.Unlock()
+
+	for _, client := range d.clients {
 		client.egress <- event
 	}
 }

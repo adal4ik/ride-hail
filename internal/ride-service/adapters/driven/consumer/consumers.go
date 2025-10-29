@@ -69,7 +69,7 @@ func (n *Notification) Run() error {
 	if err != nil {
 		return err
 	}
-	n.wg.Add(1)
+	n.wg.Add(2)
 	go n.work(n.ctx, chDriverResponse, n.DriverResponse)
 	go n.work(n.ctx, chLocation, n.LocationUpdate)
 
