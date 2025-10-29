@@ -108,6 +108,7 @@ func (s *Server) Stop(ctx context.Context) error {
 		Type: "notify",
 		Data: []byte(`{"text":"shutting server lmao XD, now it is your problem XDXDXD"}`),
 	}
+	log.Info("sending broadcast message...")
 
 	s.dispatcher.BroadCast(msg)
 	s.wg.Wait()
@@ -119,10 +120,12 @@ func (s *Server) Stop(ctx context.Context) error {
 	//   'IN_PROGRESS'
 	//
 	// to 'CANCELLED'
+	log.Info("cancel everything...")
 	err := s.rideService.CancelEveryPossibleRides()
 	if err != nil {
 		log.Error("cannot cancel", err)
 	}
+	log.Info("cancelled everything...")
 
 	if s.srv != nil {
 		shutdownCtx, cancel := context.WithTimeout(ctx, WaitTime*time.Second)
