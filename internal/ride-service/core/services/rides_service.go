@@ -215,8 +215,8 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 		return "", "", err
 	}
 	m2 := messagebrokerdto.RideStatus{
-		RideId: rideId,
-		Status: "IN_PROGRESS",
+		RideId:    rideId,
+		Status:    "IN_PROGRESS",
 		Timestamp: time.Now().Format(time.RFC3339),
 		DriverID:  driverId,
 	}
@@ -231,13 +231,13 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 	return passengerId, rideNumber, nil
 }
 
-func (ps *RidesService) EstimateDistance(rideId string, longitude, latitude, speed float64) (string, string, float64, error) {
-	log := ps.mylog.Action("FindPassenger")
+func (rs *RidesService) EstimateDistance(rideId string, longitude, latitude, speed float64) (string, string, float64, error) {
+	log := rs.mylog.Action("FindPassenger")
 
-	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*5)
 	defer cancel()
 
-	distance, passengerId, err := ps.RidesRepo.FindDistanceAndPassengerId(ctx, longitude, latitude, rideId)
+	distance, passengerId, err := rs.RidesRepo.FindDistanceAndPassengerId(ctx, longitude, latitude, rideId)
 	if err != nil {
 		log.Error("cannot get user", err)
 		return "", "", 0.0, err
@@ -249,6 +249,20 @@ func (ps *RidesService) EstimateDistance(rideId string, longitude, latitude, spe
 	t := time.Now().Add(time.Duration(distance / speed)).Format(time.RFC3339)
 
 	return passengerId, t, distance, nil
+}
+
+func (rs *RidesService) CancelEveryPossibleRides() error {
+	log := rs.mylog.Action("CancelEveryPossibleRides")
+	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*5)
+	defer cancel()
+
+	err := rs.RidesRepo.CancelEveryPossibleRides(ctx)
+	if err != nil {
+		log.Error("cannot cancel every rides", err)
+		return err
+	}
+	log.Info("canceled every possible rides")
+	return nil
 }
 
 // Generate a new UUID as a correlation ID

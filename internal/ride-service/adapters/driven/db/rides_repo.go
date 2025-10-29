@@ -212,3 +212,23 @@ func (pr *RidesRepo) FindDistanceAndPassengerId(ctx context.Context, longitude, 
 
 	return distance, passengerId, nil
 }
+
+func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
+	q := `UPDATE rides SET status = 'CANCELLED' WHERE status IN ('REQUESTED', 'MATCHED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS')`
+	conn := pr.db.conn
+
+	// tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	// if err != nil {
+	// 	return err
+	// }
+
+	_, err := conn.Exec(ctx, q)
+	if err != nil {
+
+		// tx.Rollback(ctx)
+		return  err
+	}
+
+	// return tx.Commit(ctx)
+	return nil
+}

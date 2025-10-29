@@ -26,18 +26,23 @@ var ErrServerClosed = errors.New("Server closed")
 const WaitTime = 10
 
 type Server struct {
-	mux        *http.ServeMux
-	cfg        *config.Config
-	srv        *http.Server
+	ctx    context.Context
+	appCtx context.Context
+	mu     sync.Mutex
+	wg     sync.WaitGroup
+	mux    *http.ServeMux
+	srv    *http.Server
+
+	mylog mylogger.Logger
+	cfg   *config.Config
+
 	notify     *consumer.Notification
 	dispatcher *ws.Dispatcher
-	mylog      mylogger.Logger
-	db         *db.DB
-	mb         ports.IRidesBroker
-	ctx        context.Context
-	appCtx     context.Context
-	mu         sync.Mutex
-	wg         sync.WaitGroup
+
+	db               *db.DB
+	mb               ports.IRidesBroker
+	rideService      ports.IRidesService
+	passengerService ports.IPassengerService
 }
 
 func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) *Server {
@@ -104,7 +109,7 @@ func (s *Server) Stop(ctx context.Context) error {
 		Type: "notify",
 		Data: []byte(`{"text":"shutting server lmao XD, now it is your problem XDXDXD"}`),
 	}
- 
+
 	s.dispatcher.BroadCast(msg)
 	s.wg.Wait()
 	// make rides that have status like
@@ -115,6 +120,10 @@ func (s *Server) Stop(ctx context.Context) error {
 	//   'IN_PROGRESS'
 	//
 	// to 'CANCELLED'
+	err := s.rideService.CancelEveryPossibleRides()
+	if err != nil {
+		log.Error("cannot cancel", err)
+	}
 
 	if s.srv != nil {
 		shutdownCtx, cancel := context.WithTimeout(ctx, WaitTime*time.Second)
@@ -166,6 +175,8 @@ func (s *Server) Configure() {
 	// services
 	rideService := services.NewRidesService(s.appCtx, s.mylog, rideRepo, s.mb, nil)
 	passengerService := services.NewPassengerService(s.appCtx, s.mylog, passengerRepo, nil)
+	s.rideService = rideService
+	s.passengerService = passengerService
 
 	// handlers
 	rideHandler := handle.NewRidesHandler(rideService, s.mylog)
@@ -173,7 +184,7 @@ func (s *Server) Configure() {
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 
 	eventHandle := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
-	dispatcher := ws.NewDispathcer(s.mylog, passengerService, eventHandle, &s.wg)
+	dispatcher := ws.NewDispathcer(s.appCtx, s.mylog, passengerService, eventHandle, &s.wg)
 	dispatcher.InitHandler()
 	s.dispatcher = dispatcher
 

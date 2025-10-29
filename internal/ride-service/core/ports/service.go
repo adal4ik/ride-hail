@@ -9,6 +9,7 @@ type IRidesService interface {
 	// set to status match, and also send to the exchange
 	SetStatusMatch(string, string) (passengerId string, rideNumber string, err error)
 	EstimateDistance(rideId string, longitude, latitude, speed float64) (passengerId, estimatedTime string, distance float64, err error)
+	CancelEveryPossibleRides() error
 }
 
 type IPassengerService interface {

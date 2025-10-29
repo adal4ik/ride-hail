@@ -32,6 +32,7 @@ var websocketUpgrader = websocket.Upgrader{
 type ClientList map[string]*Client
 
 type Dispatcher struct {
+	ctx context.Context
 	PassengerService ports.IPassengerService
 	eventHandler     *EventHandler
 	hander           map[string]EventHandle
@@ -41,8 +42,9 @@ type Dispatcher struct {
 	log mylogger.Logger
 }
 
-func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader *EventHandler, wg *sync.WaitGroup) *Dispatcher {
+func NewDispathcer(ctx context.Context, log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader *EventHandler, wg *sync.WaitGroup) *Dispatcher {
 	return &Dispatcher{
+		ctx: ctx,
 		clients:          make(ClientList),
 		hander:           make(map[string]EventHandle),
 		PassengerService: passengerRepo,
@@ -83,8 +85,8 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 			log.Error("cannot upgrade", err)
 			return
 		}
-		ctx, cancel := context.WithCancel(context.Background())
-		ctxAuth, cancelAuth := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(d.ctx)
+		ctxAuth, cancelAuth := context.WithCancel(d.ctx)
 
 		client := NewClient(ctx, d.log, conn, d, passengerId, cancelAuth, d.wg)
 		d.AddClient(client)
