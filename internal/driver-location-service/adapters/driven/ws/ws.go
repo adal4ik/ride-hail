@@ -72,7 +72,7 @@ func (m *WebSocketManager) IsDriverConnected(driverID string) bool {
 	return exists && conn.Auth && time.Since(conn.LastPing) < 60*time.Second
 }
 
-func (m *WebSocketManager) SendToDriver(ctx context.Context, driverID string, message interface{}) error {
+func (m *WebSocketManager) SendToDriver(ctx context.Context, driverID string, message []byte) error {
 	m.mu.RLock()
 	conn, exists := m.connections[driverID]
 	m.mu.RUnlock()

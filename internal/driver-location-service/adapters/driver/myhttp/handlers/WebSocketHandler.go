@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"ride-hail/internal/driver-location-service/adapters/driven/ws"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
+	"ride-hail/internal/driver-location-service/core/ports/driver"
 
 	"github.com/gorilla/websocket"
 )
@@ -17,14 +19,14 @@ import (
 type WebSocketHandler struct {
 	wsManager *ws.WebSocketManager
 	upgrader  websocket.Upgrader
-	auth      AuthService
+	auth      driver.IAuthSerive
 }
 
 type AuthService interface {
 	ValidateDriverToken(token string) (string, error)
 }
 
-func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth AuthService) *WebSocketHandler {
+func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive) *WebSocketHandler {
 	return &WebSocketHandler{
 		wsManager: wsManager,
 		upgrader: websocket.Upgrader{
@@ -65,7 +67,7 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
-
+	fmt.Println("Yes Im here")
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
@@ -79,9 +81,15 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID string, conn *websocket.Conn, incoming chan<- []byte) {
 	defer close(incoming)
 
-	authTimeout := time.After(5 * time.Second)
+	authTimeout := time.NewTimer(5 * time.Second)
 	authenticated := false
 
+	go func() {
+		<-authTimeout.C
+		if !authenticated {
+			conn.Close()
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
@@ -90,6 +98,11 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 			conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 			messageType, message, err := conn.ReadMessage()
 			if err != nil {
+				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					log.Println("Client disconnected:", err)
+				} else {
+					log.Println("Error reading message:", err)
+				}
 				return
 			}
 
@@ -98,11 +111,11 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 			}
 
 			if !authenticated {
-				if authenticated = h.handleAuthentication(driverID, message, authTimeout); authenticated {
+				if authenticated = h.handleAuthentication(driverID, message); authenticated {
 					h.wsManager.SetAuthenticated(driverID, true)
 					h.sendAuthSuccess(conn)
 				} else {
-					h.sendAuthError(conn, "Authentication failed or timeout")
+					h.sendAuthError(conn, "Authentication failed")
 					conn.Close()
 					return
 				}
@@ -161,7 +174,7 @@ func (h *WebSocketHandler) handlePing(ctx context.Context, conn *websocket.Conn)
 	}
 }
 
-func (h *WebSocketHandler) handleAuthentication(driverID string, message []byte, authTimeout <-chan time.Time) bool {
+func (h *WebSocketHandler) handleAuthentication(driverID string, message []byte) bool {
 	var baseMsg websocketdto.WebSocketMessage
 	if err := json.Unmarshal(message, &baseMsg); err != nil {
 		return false
@@ -176,16 +189,11 @@ func (h *WebSocketHandler) handleAuthentication(driverID string, message []byte,
 		return false
 	}
 
-	select {
-	case <-authTimeout:
+	tokenDriverID, err := h.auth.ValidateDriverToken(authMsg.Token)
+	if err != nil || tokenDriverID != driverID {
 		return false
-	default:
-		tokenDriverID, err := h.auth.ValidateDriverToken(authMsg.Token)
-		if err != nil || tokenDriverID != driverID {
-			return false
-		}
-		return true
 	}
+	return true
 }
 
 func (h *WebSocketHandler) validateMessage(message []byte) error {
@@ -194,7 +202,6 @@ func (h *WebSocketHandler) validateMessage(message []byte) error {
 		return err
 	}
 
-	// Валидация в зависимости от типа сообщения
 	switch baseMsg.Type {
 	case websocketdto.MessageTypeRideResponse:
 		var rideResp websocketdto.RideResponseMessage
@@ -209,10 +216,6 @@ func (h *WebSocketHandler) validateMessage(message []byte) error {
 			return err
 		}
 		return h.validateLocationUpdate(locUpdate)
-
-	case websocketdto.MessageTypePing, websocketdto.MessageTypePong:
-		return nil // Эти сообщения всегда валидны
-
 	default:
 		return fmt.Errorf("unknown message type: %s", baseMsg.Type)
 	}
