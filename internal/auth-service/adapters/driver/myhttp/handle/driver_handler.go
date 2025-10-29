@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/mylogger"
@@ -42,8 +43,8 @@ func (ah *DriverHandler) Register() http.HandlerFunc {
 
 		userId, accessToken, err := ah.driverService.Register(ctx, regReq)
 		if err != nil {
-			if errors.Is(err, ErrEmailRegistered) || errors.Is(err, ErrUsernameTaken) {
-				jsonError(w, http.StatusBadRequest, err)
+			if errors.Is(err, db.ErrEmailRegistered) || errors.Is(err, db.ErrDriverLicenseNumberRegistered) {
+				jsonError(w, http.StatusConflict, err)
 				return
 			}
 			jsonError(w, http.StatusInternalServerError, err)
@@ -53,7 +54,7 @@ func (ah *DriverHandler) Register() http.HandlerFunc {
 		jsonResponse(w, http.StatusOK, map[string]string{
 			"msg":        fmt.Sprintf("%s registered successfully!", regReq.Username),
 			"jwt_access": accessToken,
-			"userId":     userId,
+			"driverId":   userId,
 		})
 		mylog.Info("Successfully registered!")
 	}
@@ -61,7 +62,7 @@ func (ah *DriverHandler) Register() http.HandlerFunc {
 
 func (ah *DriverHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var driverReq dto.DriverRegistrationRequest
+		var driverReq dto.DriverAuthRequest
 
 		mylog := ah.mylog.Action("Register")
 
@@ -82,7 +83,7 @@ func (ah *DriverHandler) Login() http.HandlerFunc {
 		}
 
 		jsonResponse(w, http.StatusOK, map[string]string{
-			"msg":        fmt.Sprintf("%s login successfully!", driverReq.Username),
+			"msg":        "Successfully logged in",
 			"jwt_access": accessToken,
 		})
 		ah.mylog.Info("Successfully login!")

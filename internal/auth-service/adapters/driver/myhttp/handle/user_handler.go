@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/mylogger"
@@ -23,11 +24,6 @@ func NewAuthHandler(authService *service.AuthService, mylog mylogger.Logger) *Au
 		mylog:       mylog,
 	}
 }
-
-var (
-	ErrEmailRegistered = errors.New("email already registered")
-	ErrUsernameTaken   = errors.New("username already taken")
-)
 
 func (ah *AuthHandler) Register() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -47,8 +43,8 @@ func (ah *AuthHandler) Register() http.HandlerFunc {
 
 		userId, accessToken, err := ah.authService.Register(ctx, regReq)
 		if err != nil {
-			if errors.Is(err, ErrEmailRegistered) || errors.Is(err, ErrUsernameTaken) {
-				jsonError(w, http.StatusBadRequest, err)
+			if errors.Is(err, db.ErrEmailRegistered) {
+				jsonError(w, http.StatusConflict, err)
 				return
 			}
 			jsonError(w, http.StatusInternalServerError, err)
