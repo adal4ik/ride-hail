@@ -274,6 +274,18 @@ func (dr *DriverRepository) CheckDriverById(ctx context.Context, driver_id strin
 	return exists, nil
 }
 
+func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error) {
+	Query := `
+		SELECT driver_id FROM rides WHERE ride_id = $1;
+	`
+	var driver_id string
+	err := dr.db.conn.QueryRow(ctx, Query, ride_id).Scan(&driver_id)
+	if err != nil {
+		return "", err
+	}
+	return driver_id, nil
+}
+
 /*
 SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
        ST_Distance(

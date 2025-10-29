@@ -346,13 +346,13 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 		statusDelivery.Nack(false, true)
 		return
 	}
-	log.Info("Processing ride status update:", status.RideID, status.Status)
-	ctx := context.Background()
-	err := d.driverService.ProcessRideStatusUpdate(ctx, status)
+	driverID, err := d.driverService.GetDriverIdByRideId(context.Background(), status.RideID)
 	if err != nil {
-		log.Error("Failed to process ride status update:", err, status.RideID)
+		log.Error("Failed to get driver ID by ride ID:", err, status.RideID)
 		statusDelivery.Nack(false, true)
 		return
 	}
+	d.wsManager.SendToDriver(context.Background(), driverID, status)
+	log.Info("Processing ride status update:", status.RideID)
 	statusDelivery.Ack(false)
 }
