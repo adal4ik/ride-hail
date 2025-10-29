@@ -10,38 +10,13 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os/signal"
+	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	"sync"
 	"syscall"
 
 	"github.com/gorilla/websocket"
 )
 
-type LocationDetail struct {
-	Lat     float64 `json:"lat"`
-	Lng     float64 `json:"lng"`
-	Address string  `json:"address"`
-}
-
-type DriverRideOffer struct {
-	Type            string         `json:"type"`
-	Ride_id         string         `json:"ride_id"`
-	Passenger_name  string         `json:"passenger_name"`
-	Passenger_phone string         `json:"passenger_phone"`
-	Pickup_location LocationDetail `json:"pickup_location"`
-}
-
-type DriverResponse struct {
-	Type             string               `json:"type"`
-	Offer_id         string               `json:"offer_id"`
-	Ride_id          string               `json:"ride_id"`
-	Accepted         bool                 `json:"accepted"`
-	Current_location DriverCoordinatesDTO `json:"current_location"`
-}
-type DriverCoordinatesDTO struct {
-	Driver_id string  `json:"driver_id"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
 type HttpRequest struct {
 	Username      string `json:"username"`
 	Email         string `json:"email"`
@@ -65,17 +40,25 @@ type HttpResponse struct {
 type Client struct {
 	ctx       context.Context
 	conn      *websocket.Conn
-	Incoming  chan DriverRideOffer
-	Outcoming chan DriverResponse
-	Tohandle  chan DriverRideOffer
+	ToDriver  chan []byte
+	FromDriver chan []byte
+
+	Tohandle  chan []byte
 
 	DriverId   string
 	Jwt        string
+
+	InOffer bool
+
 	CurrentLat float64
 	CurrentLng float64
 
 	PickupLocationLng float64
 	PickupLocationLat float64
+
+	DestLocationLat float64
+	DestpLocationLat float64
+
 }
 
 func (c *Client) read() {
@@ -84,20 +67,48 @@ func (c *Client) read() {
 		if err != nil {
 			log.Fatal("err to read")
 		}
-		data := DriverRideOffer{}
+		data := websocketdto.WebSocketMessage{}
 		err = json.Unmarshal(payload, &data)
 		if err != nil {
 			log.Printf("err to unmarshal")
 		}
-		fmt.Printf("gay info: %+v", data)
-		c.Tohandle <- data
+		switch data.Type {
+		case websocketdto.MessageTypeRideOffer:
+			data := websocketdto.RideOfferMessage{}
+			err = json.Unmarshal(payload, &data)
+			if err != nil {
+				log.Printf("err to unmarshal ride offer: %v", err)
+			}
+			fmt.Printf("Ride offer received, gay: %+v\n", data)
+			
+			newData := websocketdto.RideResponseMessage{
+				WebSocketMessage: websocketdto.WebSocketMessage{
+					Type: websocketdto.MessageTypeRideResponse,
+				},
+				OfferID:  data.OfferID,
+				RideID:   data.RideID,
+				Accepted: true,
+				CurrentLocation: websocketdto.Location{
+					Latitude:  c.CurrentLat,
+					Longitude: c.CurrentLng,
+				},
+			}
+			responseData, err := json.Marshal(newData)
+			if err != nil {
+				log.Printf("err to marshal ride response: %v", err)
+				continue
+			}
+			c.ToDriver <- responseData
+		}
+
+		fmt.Printf("get info: %+v", data)
 	}
 }
 
 func (c *Client) write() {
 	for {
 		select {
-		case msg, ok := <-c.Outcoming:
+		case msg, ok := <-c.ToDriver:
 			if !ok {
 				log.Fatal("err to read msg")
 			}
@@ -118,34 +129,7 @@ func (c *Client) write() {
 	}
 }
 
-func (c *Client) handle() {
-	for {
-		select {
-		case msg, ok := <-c.Tohandle:
-			if !ok {
-				log.Fatal("lox")
-				return
-			}
 
-			c.PickupLocationLat = msg.Pickup_location.Lat
-			c.PickupLocationLng = msg.Pickup_location.Lng
-			res := DriverResponse{
-				Type:     "",
-				Offer_id: "lox",
-				Ride_id:  msg.Ride_id,
-				Accepted: true,
-				Current_location: DriverCoordinatesDTO{
-					Driver_id: c.DriverId,
-					Latitude:  c.CurrentLat,
-					Longitude: c.CurrentLng,
-				},
-			}
-			c.Outcoming <- res
-		case <-c.ctx.Done():
-			return
-		}
-	}
-}
 func main() {
 
 	HttpRequest := HttpRequest{
@@ -190,7 +174,6 @@ func main() {
 		log.Fatal("cannot unmarshal http request")
 	}
 	fmt.Printf("created driver res: %+v\n, %s", response, string(bodyResponse))
-	ch := make(chan DriverRideOffer)
 	// establish connection via ws
 	fmt.Printf("sex: %v, lox: %s\n", response.UserId, fmt.Sprintf("ws://localhost:3001/ws/drivers/%s", response.UserId))
 
@@ -205,17 +188,17 @@ func main() {
 	defer close()
 	wg := sync.WaitGroup{}
 	client := &Client{
-		Incoming: ch,
+		ToDriver: make(chan []byte),
+		FromDriver: make(chan []byte),
 		conn:     c,
 		ctx:      ctx,
 		DriverId: response.UserId,
 		Jwt:      response.JWT,
 	}
 
-	wg.Add(3)
+	wg.Add(2)
 	go client.read()
 	go client.write()
-	go client.handle()
 
 	<-ctx.Done()
 	wg.Wait()
