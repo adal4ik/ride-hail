@@ -46,7 +46,7 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 
 	// First query to insert the user
 	q := `INSERT INTO users (
-	username, email, password_hash, role, user_attrs'
+	username, email, password_hash, role, user_attrs
 	) VALUES ($1, $2, $3, $4, $5) RETURNING user_id;`
 	id := ""
 	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role, userAttrs)
