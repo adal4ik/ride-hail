@@ -72,7 +72,7 @@ func (m *WebSocketManager) IsDriverConnected(driverID string) bool {
 	return exists && conn.Auth && time.Since(conn.LastPing) < 60*time.Second
 }
 
-func (m *WebSocketManager) SendToDriver(ctx context.Context, driverID string, message []byte) error {
+func (m *WebSocketManager) SendToDriver(ctx context.Context, driverID string, message any) error {
 	m.mu.RLock()
 	conn, exists := m.connections[driverID]
 	m.mu.RUnlock()
@@ -81,7 +81,6 @@ func (m *WebSocketManager) SendToDriver(ctx context.Context, driverID string, me
 		return fmt.Errorf("driver not connected or not authenticated: %s", driverID)
 	}
 
-	// Маршалим сообщение в JSON
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
@@ -151,4 +150,23 @@ func (m *WebSocketManager) GetConnectedDrivers() []string {
 		}
 	}
 	return drivers
+}
+
+func (m *WebSocketManager) GetDriverMessages(driverID string) (<-chan []byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	conn, exists := m.connections[driverID]
+	if !exists {
+		return nil, fmt.Errorf("driver not connected: %s", driverID)
+	}
+
+	return conn.Outgoing, nil
+}
+
+func (m *WebSocketManager) GetDriversCount(ctx context.Context) int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return len(m.connections)
 }

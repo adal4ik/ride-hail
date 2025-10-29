@@ -236,7 +236,6 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 		fmt.Println("Reading rows", dInfo)
 		result = append(result, dInfo)
 	}
-	fmt.Println("Found drivers from DB:", len(result))
 	return result, nil
 }
 

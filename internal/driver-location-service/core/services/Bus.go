@@ -147,7 +147,11 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		return
 	}
 
-	// Получаем подходящих драйверов
+	if d.wsManager.GetDriversCount(d.ctx) == 0 {
+		time.Sleep(7 * time.Second)
+		requestDelivery.Nack(false, true)
+		return
+	}
 	ctx := context.Background()
 	allDrivers, err := d.driverService.FindAppropriateDrivers(ctx,
 		req.Pickup_location.Lng,
@@ -159,7 +163,6 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		return
 	}
 
-	// Фильтруем подключенных драйверов
 	var connectedDrivers []dto.DriverInfo
 	for _, driver := range allDrivers {
 		if d.wsManager.IsDriverConnected(driver.DriverId) {
@@ -167,13 +170,6 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		}
 	}
 
-	if len(connectedDrivers) == 0 {
-		requestDelivery.Nack(false, true)
-		time.Sleep(7 * time.Second)
-		return
-	}
-
-	// Отправляем предложения драйверам
 	go d.sendRideOffers(connectedDrivers, req, requestDelivery)
 }
 
@@ -207,8 +203,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 			ExpiresAt:                    time.Now().Add(30 * time.Second),
 		}
 
-		// Сохраняем ожидающее предложение
-		pendingOffer := &PendingOffer{
+		pendingOffer := PendingOffer{
 			RideID:       rideDetails.Ride_id,
 			DriverID:     driver.DriverId,
 			OfferID:      offer.OfferID,
@@ -217,7 +212,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 		}
 
 		d.pendingMu.Lock()
-		d.pendingOffers[offer.OfferID] = pendingOffer
+		d.wsManager.SendToDriver(d.ctx, driver.DriverId, pendingOffer)
 		d.pendingMu.Unlock()
 
 		select {
@@ -230,6 +225,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 		case <-time.After(30 * time.Second):
 			fmt.Println("No driver accepted the ride within timeout")
 			requestDelivery.Nack(false, true)
+			break
 		}
 
 		message, err := json.Marshal(offer)
