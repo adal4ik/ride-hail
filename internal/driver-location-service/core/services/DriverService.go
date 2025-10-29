@@ -156,3 +156,7 @@ func (ds *DriverService) CalculateRideDetails(ctx context.Context, driverLocatio
 func (d *DriverService) UpdateDriverStatus(ctx context.Context, driver_id string, status string) error {
 	return d.repositories.UpdateDriverStatus(ctx, driver_id, status)
 }
+
+func (d *DriverService) CheckDriverById(ctx context.Context, driver_id string) (bool, error) {
+	return d.repositories.CheckDriverById(ctx, driver_id)
+}

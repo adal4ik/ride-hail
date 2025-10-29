@@ -263,6 +263,18 @@ func (dr *DriverRepository) UpdateDriverStatus(ctx context.Context, driver_id st
 	return err
 }
 
+func (dr *DriverRepository) CheckDriverById(ctx context.Context, driver_id string) (bool, error) {
+	Query := `
+		SELECT EXISTS(SELECT 1 FROM drivers WHERE driver_id = $1);
+	`
+	var exists bool
+	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 /*
 SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
        ST_Distance(

@@ -15,4 +15,5 @@ type IDriverService interface {
 	FindAppropriateDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]dto.DriverInfo, error)
 	CalculateRideDetails(ctx context.Context, driverLocation dto.Location, passagerLocation dto.Location) (float64, int, error)
 	UpdateDriverStatus(ctx context.Context, driver_id string, status string) error
+	CheckDriverById(ctx context.Context, driver_id string) (bool, error)
 }
