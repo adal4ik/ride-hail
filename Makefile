@@ -45,3 +45,7 @@ kill-rh:
 .PHONY: help
 help:
 	@echo "Targets: b, u, d, a, run, run-all, run-all-tmux, help"
+
+.PHONY: helper
+helper:
+	go run ./cmd/helper/main.go

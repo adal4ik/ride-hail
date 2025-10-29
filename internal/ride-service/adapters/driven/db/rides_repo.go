@@ -173,7 +173,12 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 	}
 	defer tx.Rollback(ctx) // Safe rollback if not committed
 
-	q := `UPDATE rides SET driver_id = $1 WHERE ride_id = $2`
+	q := `UPDATE 
+			rides 
+		SET 
+			driver_id = $1,
+			status = 'MATCHED'
+		WHERE ride_id = $2`
 	_, err = tx.Exec(ctx, q, driverID, rideID)
 	if err != nil {
 		return "", "", err
@@ -183,7 +188,7 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 		passengerId string = ""
 		rideNumber  string = ""
 	)
-
+	
 	q = `SELECT passenger_id, ride_number FROM rides WHERE ride_id = $1`
 	row := tx.QueryRow(ctx, q, rideID)
 

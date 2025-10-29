@@ -3,6 +3,7 @@ package notification
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/ports"
 	"sync"
@@ -113,6 +114,7 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 		log.Error("cannot unmarshal", err)
 		return err
 	}
+	fmt.Printf("Driver Response Message: %+v\n", string(msg.Body))
 	passengerId, rideNumber, err := n.rideService.SetStatusMatch(m.RideID, m.DriverID)
 	if err != nil {
 		log.Error("cannot set status to match", err)
