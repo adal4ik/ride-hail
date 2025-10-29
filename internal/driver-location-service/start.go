@@ -57,7 +57,7 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	// Declaring service components
 	repository := db.New(database)
 	wbManager := ws.NewWebSocketManager()
-	service := services.New(repository, mylog, broker, cfg.App.PrivateJwtSecret)
+	service := services.New(repository, mylog, broker, cfg.App.PublicJwtSecret)
 	handler := handlers.New(service, mylog, wbManager)
 	log.Info("All driver-location components are declared")
 
