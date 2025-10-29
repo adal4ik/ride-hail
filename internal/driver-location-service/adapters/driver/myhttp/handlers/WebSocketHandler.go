@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"ride-hail/internal/driver-location-service/adapters/driven/ws"
@@ -42,7 +41,7 @@ func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive
 
 func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.Request) {
 	log := h.log.Action("HandleDriverWebSocket")
-	driverID := extractDriverID(r.URL.Path)
+	driverID := r.PathValue("driver_id")
 	if driverID == "" {
 		log.Warn("Driver ID missing in URL")
 		http.Error(w, "Driver ID required", http.StatusBadRequest)
@@ -289,30 +288,4 @@ func (h *WebSocketHandler) sendError(conn *websocket.Conn, code, message string)
 	}
 	messageBytes, _ := json.Marshal(errorMsg)
 	conn.WriteMessage(websocket.TextMessage, messageBytes)
-}
-
-func extractDriverID(path string) string {
-	parts := strings.Split(path, "/")
-	if len(parts) < 2 {
-		return ""
-	}
-	return parts[len(parts)-1]
-}
-
-// Admin endpoint для проверки статуса соединений
-func (h *WebSocketHandler) GetConnectionStatus(w http.ResponseWriter, r *http.Request) {
-	driverID := r.URL.Query().Get("driver_id")
-	if driverID != "" {
-		status := h.wsManager.GetConnectionStatus(driverID)
-		jsonResponse(w, http.StatusOK, status)
-		return
-	}
-
-	// Возвращаем список всех подключенных драйверов
-	connectedDrivers := h.wsManager.GetConnectedDrivers()
-	response := map[string]interface{}{
-		"connected_drivers": connectedDrivers,
-		"total_connected":   len(connectedDrivers),
-	}
-	jsonResponse(w, http.StatusOK, response)
 }
