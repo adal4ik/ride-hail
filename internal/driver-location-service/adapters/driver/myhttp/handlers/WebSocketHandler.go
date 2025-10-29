@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"ride-hail/internal/driver-location-service/adapters/driven/ws"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	"ride-hail/internal/driver-location-service/core/ports/driver"
+	"ride-hail/internal/mylogger"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,13 +19,14 @@ type WebSocketHandler struct {
 	wsManager *ws.WebSocketManager
 	upgrader  websocket.Upgrader
 	auth      driver.IAuthSerive
+	log       mylogger.Logger
 }
 
 type AuthService interface {
 	ValidateDriverToken(token string) (string, error)
 }
 
-func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive) *WebSocketHandler {
+func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive, log mylogger.Logger) *WebSocketHandler {
 	return &WebSocketHandler{
 		wsManager: wsManager,
 		upgrader: websocket.Upgrader{
@@ -35,25 +35,29 @@ func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive
 			WriteBufferSize: 1024,
 		},
 		auth: auth,
+		log:  log,
 	}
 }
 
 func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.Request) {
-	driverID := extractDriverID(r.URL.Path)
+	log := h.log.Action("HandleDriverWebSocket")
+	driverID := r.PathValue("driver_id")
 	if driverID == "" {
+		log.Warn("Driver ID missing in URL")
 		http.Error(w, "Driver ID required", http.StatusBadRequest)
 		return
 	}
 
-	incoming := make(chan []byte, 100)
-	outgoing := make(chan []byte, 100)
+	fromDriver := make(chan []byte, 100)
+	toDriver := make(chan []byte, 100)
 
-	if err := h.wsManager.RegisterDriver(r.Context(), driverID, incoming, outgoing); err != nil {
+	if err := h.wsManager.RegisterDriver(r.Context(), driverID, fromDriver, toDriver); err != nil {
+		log.Error("Failed to register driver:", err, driverID)
 		http.Error(w, "Failed to register driver", http.StatusInternalServerError)
 		return
 	}
 	defer h.wsManager.UnregisterDriver(r.Context(), driverID)
-
+	log.Info("Driver registered:", driverID)
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -71,14 +75,15 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	go h.handleIncomingMessages(ctx, driverID, conn, incoming)
-	go h.handleOutgoingMessages(ctx, driverID, conn, outgoing)
+	go h.handleIncomingMessages(ctx, driverID, conn, fromDriver)
+	go h.handleOutgoingMessages(ctx, driverID, conn, toDriver)
 	go h.handlePing(ctx, conn)
-
+	log.Info("WebSocket connection established for driver:", driverID)
 	<-ctx.Done()
 }
 
 func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID string, conn *websocket.Conn, incoming chan<- []byte) {
+	log := h.log.Action("handleIncomingMessages")
 	defer close(incoming)
 
 	authTimeout := time.NewTimer(5 * time.Second)
@@ -87,6 +92,7 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 	go func() {
 		<-authTimeout.C
 		if !authenticated {
+			log.Warn("Authentication timeout for driver:", driverID)
 			conn.Close()
 		}
 	}()
@@ -99,9 +105,9 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 			messageType, message, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					log.Println("Client disconnected:", err)
+					log.Info("WebSocket closed for driver:", driverID)
 				} else {
-					log.Println("Error reading message:", err)
+					log.Error("Error reading WebSocket message for driver:", err, driverID)
 				}
 				return
 			}
@@ -114,7 +120,9 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 				if authenticated = h.handleAuthentication(driverID, message); authenticated {
 					h.wsManager.SetAuthenticated(driverID, true)
 					h.sendAuthSuccess(conn)
+					log.Info("Driver authenticated successfully:", driverID)
 				} else {
+					log.Warn("Authentication failed for driver:", driverID)
 					h.sendAuthError(conn, "Authentication failed")
 					conn.Close()
 					return
@@ -124,6 +132,7 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 
 			if err := h.validateMessage(message); err != nil {
 				h.sendError(conn, "invalid_message", err.Error())
+				log.Warn("Invalid message from driver:", driverID, err)
 				continue
 			}
 
@@ -175,8 +184,10 @@ func (h *WebSocketHandler) handlePing(ctx context.Context, conn *websocket.Conn)
 }
 
 func (h *WebSocketHandler) handleAuthentication(driverID string, message []byte) bool {
+	log := h.log.Action("handleAuthentication")
 	var baseMsg websocketdto.WebSocketMessage
 	if err := json.Unmarshal(message, &baseMsg); err != nil {
+		log.Error("Failed to unmarshal authentication message:", err, driverID)
 		return false
 	}
 
@@ -186,11 +197,17 @@ func (h *WebSocketHandler) handleAuthentication(driverID string, message []byte)
 
 	var authMsg websocketdto.AuthMessage
 	if err := json.Unmarshal(message, &authMsg); err != nil {
+		log.Error("Failed to unmarshal auth message:", err, driverID)
 		return false
 	}
 
 	tokenDriverID, err := h.auth.ValidateDriverToken(authMsg.Token)
-	if err != nil || tokenDriverID != driverID {
+	if err != nil {
+		log.Error("Token validation failed:", err, driverID)
+		return false
+	}
+	if tokenDriverID != driverID {
+		log.Warn("Driver ID mismatch in token:", driverID)
 		return false
 	}
 	return true
@@ -271,30 +288,4 @@ func (h *WebSocketHandler) sendError(conn *websocket.Conn, code, message string)
 	}
 	messageBytes, _ := json.Marshal(errorMsg)
 	conn.WriteMessage(websocket.TextMessage, messageBytes)
-}
-
-func extractDriverID(path string) string {
-	parts := strings.Split(path, "/")
-	if len(parts) < 2 {
-		return ""
-	}
-	return parts[len(parts)-1]
-}
-
-// Admin endpoint для проверки статуса соединений
-func (h *WebSocketHandler) GetConnectionStatus(w http.ResponseWriter, r *http.Request) {
-	driverID := r.URL.Query().Get("driver_id")
-	if driverID != "" {
-		status := h.wsManager.GetConnectionStatus(driverID)
-		jsonResponse(w, http.StatusOK, status)
-		return
-	}
-
-	// Возвращаем список всех подключенных драйверов
-	connectedDrivers := h.wsManager.GetConnectedDrivers()
-	response := map[string]interface{}{
-		"connected_drivers": connectedDrivers,
-		"total_connected":   len(connectedDrivers),
-	}
-	jsonResponse(w, http.StatusOK, response)
 }

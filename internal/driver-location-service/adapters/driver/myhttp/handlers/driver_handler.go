@@ -30,20 +30,20 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) 
 }
 
 func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
-	log := dh.log.Action("Go Online")
+	// log := dh.log.Action("Go Online")
 	ctx := context.Background()
 
 	// Checking Driver For Existance
 	driverID := r.PathValue("driver_id")
-	if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err == nil && !ok {
-		log.Info("Driver not found")
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
-		return
-	} else if err != nil {
-		log.Error("Failed to check the driver: ", err)
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
-		return
-	}
+	// if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err == nil && !ok {
+	// 	log.Info("Driver not found")
+	// 	http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+	// 	return
+	// } else if err != nil {
+	// 	log.Error("Failed to check the driver: ", err)
+	// 	http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+	// 	return
+	// }
 
 	// Preparing
 	req := dto.DriverCoordinatesDTO{}
