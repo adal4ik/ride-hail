@@ -214,10 +214,10 @@ func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide
 func (dr *DriverRepository) GetDestinationAndDriverCoords(
 	ctx context.Context,
 	rideID, driverID string,
-) (float64, error) {
+) (destLat, destLng, driverLat, driverLng float64, err error) {
 	const q = `
-		SELECT ST_Distance(ST_MakePoint(c_dest.latitude, c_dest.longitude),
-		       ST_MakePoint(c_driver.latitude, c_driver.longitude)) / 1000 as distance_km
+		SELECT c_dest.latitude, c_dest.longitude,
+		       c_driver.latitude, c_driver.longitude
 		FROM rides r
 		JOIN drivers d ON d.driver_id = r.driver_id
 		JOIN coordinates c_dest   ON c_dest.coord_id   = r.destination_coord_id
@@ -225,14 +225,13 @@ func (dr *DriverRepository) GetDestinationAndDriverCoords(
 		WHERE r.ride_id = $1 AND d.driver_id = $2
 		LIMIT 1;
 	`
-	var d float64
-	err := dr.db.GetConn().QueryRow(ctx, q, rideID, driverID).Scan(
-		&d,
+	err = dr.db.GetConn().QueryRow(ctx, q, rideID, driverID).Scan(
+		&destLat, &destLng, &driverLat, &driverLng,
 	)
 	if err != nil {
-		return 0, err
+		return 0, 0, 0, 0, err
 	}
-	return d, nil
+	return destLat, destLng, driverLat, driverLng, nil
 }
 
 func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]model.DriverInfo, error) {
@@ -396,7 +395,9 @@ func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) 
 	return ok, nil
 }
 
-func (dr *DriverRepository) GetPickupAndDriverCoords(ctx context.Context, rideID, driverID string,
+func (dr *DriverRepository) GetPickupAndDriverCoords(
+	ctx context.Context,
+	rideID, driverID string,
 ) (pickupLat, pickupLng, driverLat, driverLng float64, err error) {
 	const q = `
 		SELECT c_pickup.latitude, c_pickup.longitude,

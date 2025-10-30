@@ -76,13 +76,13 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	responseDTO.Updated_at = response.Updated_at
 	return responseDTO, nil
 }
-
 func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.StartRideResponse, error) {
 	l := ds.log.Action("service.start_ride")
 	l.Info("start", "ride_id", msg.Ride_id, "driver_id", msg.Driver_location.Driver_id)
 
 	// 1️⃣ получаем координаты pickup и текущие координаты водителя
-	pickupLat, pickupLng, driverLat, driverLng, err := ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
+	pickupLat, pickupLng, driverLat, driverLng, err :=
+		ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
 	if err != nil {
 		l.Error("get coords failed", err)
 		return dto.StartRideResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
@@ -132,33 +132,24 @@ func haversineMeters(lat1, lng1, lat2, lng2 float64) float64 {
 	return 2 * R * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }
 
-// select c1.latitude, c1.longitude, c2.latitude, c2.longitude FROM rides r JOIN coordinates c1 ON c1.coord_id = r.pickup_coord_id JOIN coordinates c2 ON c2.coord_id = r.destination_coord_id WHERE r.ride_id = $1;
-
 func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompleteForm) (dto.RideCompleteResponse, error) {
 	l := ds.log.Action("service.complete_ride")
 	l.Info("start", "ride_id", request.Ride_id)
 
-	dId, err := ds.GetDriverIdByRideId(ctx, request.Ride_id)
-	if err != nil {
-		return dto.RideCompleteResponse{}, err
-	}
-
-	request.FinalLocation.Driver_id = dId
 	// 1) тянем координаты точки назначения и текущие координаты водителя
-	d, err := ds.repositories.GetDestinationAndDriverCoords(ctx, request.Ride_id, request.FinalLocation.Driver_id)
+	destLat, destLng, driverLat, driverLng, err := ds.repositories.GetDestinationAndDriverCoords(ctx, request.Ride_id, request.FinalLocation.Driver_id)
 	if err != nil {
 		l.Error("get destination/driver coords failed", err)
 		return dto.RideCompleteResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
 	}
 
 	// 2) считаем расстояние
-	// dist := haversineMeters(destLat, destLng, driverLat, driverLng)
+	dist := haversineMeters(destLat, destLng, driverLat, driverLng)
+	l.Info("distance to destination", "meters", fmt.Sprintf("%.2f", dist))
 
-	// l.Info("distance to destination", "meters", fmt.Sprintf("%.2f", dist))
-
-	if d > maxCompleteDistanceMeters {
-		l.Warn("too far to complete", "distance_m", fmt.Sprintf("%.2f", d))
-		return dto.RideCompleteResponse{}, fmt.Errorf("driver too far from destination (%.1fm > %.0fm)", d, maxCompleteDistanceMeters)
+	if dist > maxCompleteDistanceMeters {
+		l.Warn("too far to complete", "distance_m", fmt.Sprintf("%.2f", dist))
+		return dto.RideCompleteResponse{}, fmt.Errorf("driver too far from destination (%.1fm > %.0fm)", dist, maxCompleteDistanceMeters)
 	}
 
 	// 3) транзакционно завершаем
