@@ -1,6 +1,5 @@
 package messagebrokerdto
 
-import "time"
 
 //Location Update ← location_fanout exchange
 type LocationUpdate struct {
@@ -9,5 +8,5 @@ type LocationUpdate struct {
 	Location       Location  `json:"location"`
 	SpeedKmh       float64   `json:"speed_kmh"`
 	HeadingDegrees float64   `json:"heading_degrees"`
-	Timestamp      time.Time `json:"timestamp"`
+	Timestamp      string `json:"timestamp"`
 }

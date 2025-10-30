@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"ride-hail/internal/admin-service/adapters/driver/myhttp/handle"
+
 	"github.com/golang-jwt/jwt"
 )
 
@@ -30,35 +32,39 @@ func (am *AuthMiddleware) Wrap(next http.Handler) http.Handler {
 			return []byte(am.accessSecret), nil
 		})
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to parse JWT-Token: %v", err), http.StatusBadRequest)
+			handle.JsonError(w, http.StatusBadRequest, fmt.Errorf("Failed to parse JWT-Token"))
 			return
 		}
 
 		if !token.Valid {
-			http.Error(w, "Invalid JWT-Token", http.StatusBadRequest)
+			handle.JsonError(w, http.StatusBadRequest, fmt.Errorf("Invalid JWT-Token"))
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			http.Error(w, "Invalid claims", http.StatusUnauthorized)
+			handle.JsonError(w, http.StatusBadRequest, fmt.Errorf("Invalid claims"))
 			return
 		}
 
 		userId, ok := claims["user_id"].(string)
 		if !ok {
-			http.Error(w, "Username not found in token", http.StatusUnauthorized)
+			handle.JsonError(w, http.StatusUnauthorized, fmt.Errorf("Username not found in token"))
 			return
 		}
 
 		role, ok := claims["role"].(string)
 		if !ok {
-			http.Error(w, "role not found in token", http.StatusUnauthorized)
+			handle.JsonError(w, http.StatusUnauthorized, fmt.Errorf("Role not found in token"))
+			return
+		}
+
+		if role != "ADMIN" {
+			handle.JsonError(w, http.StatusBadRequest, fmt.Errorf("Only admins allowed to use this service"))
 			return
 		}
 
 		r.Header.Set("X-UserId", userId)
-		r.Header.Set("X-Role", role)
 
 		next.ServeHTTP(w, r)
 	})

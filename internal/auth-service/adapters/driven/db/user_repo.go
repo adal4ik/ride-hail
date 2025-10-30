@@ -7,6 +7,7 @@ import (
 	"ride-hail/internal/auth-service/core/domain/models"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type AuthRepo struct {
@@ -20,8 +21,6 @@ func NewAuthRepo(ctx context.Context, db *DB) *AuthRepo {
 		db:  db,
 	}
 }
-
-var ErrUnknownEmail = errors.New("unknown email")
 
 func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error) {
 	// Start a new transaction
@@ -37,14 +36,29 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 		}
 	}()
 
-	// First query to insert the user
-	q := `INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id`
-	id := ""
-	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role)
-	if err = row.Scan(&id); err != nil {
-		return "", fmt.Errorf("failed to insert user: %v", err)
+	var userAttrs interface{}
+	if user.UserAttrs != nil {
+		userAttrs = *user.UserAttrs
+	} else {
+		userAttrs = nil
 	}
 
+	// First query to insert the user
+	q := `INSERT INTO users (
+	username, email, password_hash, role, user_attrs
+	) VALUES ($1, $2, $3, $4, $5) RETURNING user_id;`
+	id := ""
+	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role, userAttrs)
+	if err = row.Scan(&id); err != nil {
+		// Check if it's a Postgres unique violation
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" { // unique_violation
+				return "", ErrEmailRegistered
+			}
+		}
+		return "", fmt.Errorf("failed to insert user: %v", err)
+	}
 	// Commit the transaction
 	if err = tx.Commit(ctx); err != nil {
 		return "", fmt.Errorf("failed to commit transaction: %v", err)
@@ -64,7 +78,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 			u.status,
 			u.password_hash,
 			u.role,
-			u.attrs
+			u.user_attrs
 		FROM 
 			users u
 		WHERE
@@ -81,7 +95,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 		&u.Status,
 		&u.PasswordHash,
 		&u.Role,
-		&u.Attrs,
+		&u.UserAttrs,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

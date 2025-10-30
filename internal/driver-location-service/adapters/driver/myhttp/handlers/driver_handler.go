@@ -12,6 +12,7 @@ import (
 	"ride-hail/internal/mylogger"
 
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -23,11 +24,9 @@ type DriverHandler struct {
 	driverService driver.IDriverService
 	log           mylogger.Logger
 	upgrader      websocket.Upgrader
-	inMessages    map[string]chan dto.DriverRideOffer
-	outMessages   map[string]chan dto.DriverResponse
 }
 
-func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger, inMessages map[string]chan dto.DriverRideOffer, outMessages map[string]chan dto.DriverResponse) *DriverHandler {
+func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) *DriverHandler {
 	return &DriverHandler{
 		driverService: driverService,
 		log:           log,
@@ -36,32 +35,22 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger, 
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
-		inMessages:  inMessages,
-		outMessages: outMessages,
 	}
 }
 
-func (dh *DriverHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
-	log := dh.log.Action("Handling driver WebSocket connection")
-	log.Info("Starting websocket handshake")
-	// ctx := context.Background()
+func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
+	// log := dh.log.Action("Go Online")
+	ctx := context.Background()
 
-	// Checking for Driver Existance
+	// Checking Driver For Existance
 	driverID := r.PathValue("driver_id")
 	// if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err == nil && !ok {
 	// 	log.Info("Driver not found")
-	// 	jsonError(w, http.StatusForbidden, errors.New("The driver is not registered or not online"))
+	// 	http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
 	// 	return
 	// } else if err != nil {
 	// 	log.Error("Failed to check the driver: ", err)
-	// 	jsonError(w, http.StatusInternalServerError, err)
-	// 	return
-	// }
-
-	// // Cheking for duplication connection
-	// if _, ok := dh.inMessages[driverID]; ok {
-	// 	log.Info("Driver already in connection")
-	// 	jsonError(w, http.StatusBadRequest, errors.New("Driver already in webscoket connection"))
+	// 	http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
 	// 	return
 	// }
 
@@ -160,14 +149,14 @@ func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	var req dto.DriverCoordinatesDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, http.StatusBadRequest, err)
+		JsonError(w, http.StatusBadRequest, err)
 		return
 	}
 	req.Driver_id = driverID
 
 	res, err := dh.driverService.GoOnline(ctx, req)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err)
+		JsonError(w, http.StatusInternalServerError, err)
 		return
 	}
 	jsonResponse(w, http.StatusAccepted, res)
@@ -208,7 +197,7 @@ func (dh *DriverHandler) GoOffline(w http.ResponseWriter, r *http.Request) {
 
 	res, err := dh.driverService.GoOffline(ctx, driverID)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err)
+		JsonError(w, http.StatusInternalServerError, err)
 		return
 	}
 	jsonResponse(w, http.StatusAccepted, res)
@@ -239,13 +228,13 @@ func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) 
 
 	var req dto.NewLocation
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, http.StatusBadRequest, err)
+		JsonError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	res, err := dh.driverService.UpdateLocation(ctx, req, driverID)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err)
+		JsonError(w, http.StatusInternalServerError, err)
 		return
 	}
 	jsonResponse(w, http.StatusAccepted, res)
@@ -273,8 +262,7 @@ func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
 	// Декодим JSON
 	var req dto.StartRide
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Error("decode body failed", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		JsonError(w, http.StatusBadRequest, err)
 		return
 	}
 	log.Info("decoded request", "ride_id", req.Ride_id)
@@ -282,6 +270,7 @@ func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
 	// Запуск
 	res, err := dh.driverService.StartRide(ctx, req)
 	if err != nil {
+		JsonError(w, http.StatusInternalServerError, err)
 		log.Error("start ride failed", err, "ride_id", req.Ride_id, "driver_id", driverID)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -312,12 +301,12 @@ func (dh *DriverHandler) CompleteRide(w http.ResponseWriter, r *http.Request) {
 	req := dto.RideCompleteForm{}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, http.StatusBadRequest, err)
+		JsonError(w, http.StatusBadRequest, err)
 		return
 	}
 	res, err := dh.driverService.CompleteRide(ctx, req)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err)
+		JsonError(w, http.StatusInternalServerError, err)
 		return
 	}
 

@@ -2,10 +2,16 @@ package db
 
 import (
 	"context"
-
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
+
+	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
+
+	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -72,6 +78,7 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 	if err != nil {
 		return "", err
 	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
 
 	// pick up coordinates
 	q1 := `INSERT INTO coordinates(
@@ -99,7 +106,6 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 	)
 	PickupCoordinateId := ""
 	if err := row.Scan(&PickupCoordinateId); err != nil {
-		tx.Rollback(ctx)
 		return "", err
 	}
 	// destination coordinates
@@ -128,7 +134,6 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 	)
 	DestinationCoordinateId := ""
 	if err := row.Scan(&DestinationCoordinateId); err != nil {
-		tx.Rollback(ctx)
 		return "", err
 	}
 	// rides
@@ -155,7 +160,6 @@ func (rr *RidesRepo) CreateRide(ctx context.Context, m model.Rides) (string, err
 
 	RideId := ""
 	if err := row.Scan(&RideId); err != nil {
-		tx.Rollback(ctx)
 		return "", err
 	}
 
@@ -168,8 +172,14 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 	if err != nil {
 		return "", "", err
 	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
 
-	q := `UPDATE rides SET driver_id = $1 WHERE ride_id = $2`
+	q := `UPDATE 
+			rides 
+		SET 
+			driver_id = $1,
+			status = 'MATCHED'
+		WHERE ride_id = $2`
 	_, err = tx.Exec(ctx, q, driverID, rideID)
 	if err != nil {
 		return "", "", err
@@ -179,13 +189,12 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 		passengerId string = ""
 		rideNumber  string = ""
 	)
-
+	
 	q = `SELECT passenger_id, ride_number FROM rides WHERE ride_id = $1`
 	row := tx.QueryRow(ctx, q, rideID)
 
 	err = row.Scan(&passengerId, &rideNumber)
 	if err != nil {
-		tx.Rollback(ctx)
 		return "", "", err
 	}
 	return passengerId, rideNumber, tx.Commit(ctx)
@@ -194,7 +203,7 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 func (pr *RidesRepo) FindDistanceAndPassengerId(ctx context.Context, longitude, latitude float64, rideId string) (float64, string, error) {
 	q := `SELECT
 			ST_Distance(ST_MakePoint(c.longitude, c.latitude)::geography, ST_MakePoint($1, $2)::geography),
-			r.passenger_id, 
+			r.passenger_id
 		FROM rides r 
 		JOIN coordinates c ON r.pickup_coord_id = c.coord_id 
 		WHERE r.ride_id = $3`
@@ -211,4 +220,163 @@ func (pr *RidesRepo) FindDistanceAndPassengerId(ctx context.Context, longitude, 
 	}
 
 	return distance, passengerId, nil
+}
+
+func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (string, error) {
+	q1 := `
+    SELECT  
+        driver_id, 
+        status
+    FROM 
+        rides
+    WHERE 
+        ride_id = $1`
+
+	q2 := `
+    UPDATE rides
+    SET 
+        status = 'CANCELLED', 
+        cancelled_at = NOW(),
+        cancellation_reason = $2
+    WHERE ride_id = $1`
+
+	conn := rr.db.conn
+
+	// Use sql.NullString or pointers to handle NULL values
+	var (
+		driverId sql.NullString
+		status   string
+	)
+
+	// Start transaction first to maintain consistency
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
+	// Perform SELECT within the same transaction
+	row := tx.QueryRow(ctx, q1, rideId)
+	if err := row.Scan(&driverId, &status); err != nil {
+		return "", fmt.Errorf("failed to fetch ride details: %w", err)
+	}
+
+	// Return driverId only if it's valid
+	// if !driverId.Valid {
+	// 	return "", fmt.Errorf("driver id not found")
+	// }
+
+	// Validate business rules
+	if status == "CANCELLED" {
+		return "", fmt.Errorf("ride already cancelled")
+	}
+
+	// Perform the update
+	if _, err := tx.Exec(ctx, q2, rideId, reason); err != nil {
+		return "", fmt.Errorf("failed to cancel ride: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return driverId.String, nil
+}
+
+// ChangeStatus will return passenger id, ride number and driver information
+func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.DriverStatusUpdate) (string, string, websocketdto.DriverInfo, error) {
+	q1 := `
+    SELECT  
+        r.passenger_id, 
+        r.ride_number,
+		d.username,
+		d.rating,
+		d.vehicle_attrs,
+    FROM 
+        rides r
+	JOIN drivers d 
+	ON d.driver_id = r.driver_id 
+    WHERE 
+        ride_id = $1`
+
+	q2 := `
+	UPDATE rides
+    SET 
+        status = '$2', 
+    WHERE ride_id = $1`
+
+	conn := rr.db.conn
+
+	var (
+		driverInfo  websocketdto.DriverInfo
+		jsonData    []byte
+		passengerId sql.NullString
+		rideNumber  sql.NullString
+	)
+	driverInfo.DriverID = msg.DriverId
+
+	// Start transaction first to maintain consistency
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", "", websocketdto.DriverInfo{}, err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
+	// first get the passenger id
+	row := tx.QueryRow(ctx, q1, msg.RideId)
+	if err := row.Scan(
+		&passengerId,
+		&rideNumber,
+		&driverInfo.Name,
+		&driverInfo.Rating,
+		&jsonData,
+	); err != nil {
+		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to fetch ride details: %w", err)
+	}
+
+	if err := json.Unmarshal(jsonData, &driverInfo.Vehicle); err != nil {
+		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to unmarshal vehile details: %w", err)
+	}
+
+	// Check for values
+	if !passengerId.Valid {
+		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("driver id not found")
+	}
+
+	if !rideNumber.Valid {
+		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("ride number not found")
+	}
+
+	// Perform the update
+	if _, err := tx.Exec(ctx, q2, msg.RideId); err != nil {
+		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to update status: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return passengerId.String, rideNumber.String, driverInfo, nil
+}
+
+func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
+	q := `UPDATE rides SET status = 'CANCELLED' WHERE status IN ('REQUESTED', 'MATCHED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS')`
+	conn := pr.db.conn
+
+	// tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	// if err != nil {
+	// 	return err
+	// }
+
+	_, err := conn.Exec(ctx, q)
+	if err != nil {
+
+		// tx.Rollback(ctx)
+		return  err
+	}
+
+	// return tx.Commit(ctx)
+	return nil
 }

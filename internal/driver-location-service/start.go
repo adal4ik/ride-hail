@@ -11,9 +11,9 @@ import (
 	"ride-hail/internal/config"
 	"ride-hail/internal/driver-location-service/adapters/driven/bm"
 	"ride-hail/internal/driver-location-service/adapters/driven/db"
+	"ride-hail/internal/driver-location-service/adapters/driven/ws"
 	"ride-hail/internal/driver-location-service/adapters/driver/myhttp"
 	"ride-hail/internal/driver-location-service/adapters/driver/myhttp/handlers"
-	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/services"
 	"ride-hail/internal/mylogger"
 )
@@ -42,8 +42,8 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	}
 
 	// Declaring channels for ride offers and driver responses
-	driverResponses := make(map[string]chan dto.DriverResponse)
-	messageDriver := make(map[string]chan dto.DriverRideOffer)
+	// driverResponses := make(map[string]chan dto.DriverResponse)
+	// messageDriver := make(map[string]chan dto.DriverRideOffer)
 
 	// Declaring Consumer
 	consumer := bm.NewConsumer(newCtx, broker, mylog)
@@ -56,9 +56,19 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 
 	// Declaring service components
 	repository := db.New(database)
-	service := services.New(repository, mylog, broker)
-	handler := handlers.New(service, mylog, messageDriver, driverResponses)
+	wbManager := ws.NewWebSocketManager()
+	service := services.New(repository, mylog, broker, cfg.App.PublicJwtSecret)
+	handler := handlers.New(service, mylog, wbManager)
 	log.Info("All driver-location components are declared")
+
+	// Creating the distributor
+	distributor := services.NewDistributor(newCtx, req, statusMsgs, wbManager, broker, service.DriverService, mylog)
+	go func() {
+		if err := distributor.MessageDistributor(); err != nil {
+			mylog.Error("Message distributor encountered an error", err)
+		}
+	}()
+	log.Info("Distribur successfully setted up and ready to work")
 
 	// Defining the rounter
 	mux := myhttp.Router(handler, cfg)
@@ -66,15 +76,6 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 		Addr:    fmt.Sprintf(":%v", cfg.Srv.DriverLocationServicePort),
 		Handler: mux,
 	}
-
-	// Creating the distributor
-	distributor := services.NewDistributor(newCtx, messageDriver, req, statusMsgs, driverResponses, broker, service.DriverService)
-	go func() {
-		if err := distributor.MessageDistributor(); err != nil {
-			mylog.Error("Message distributor encountered an error", err)
-		}
-	}()
-	log.Info("Distribur successfully setted up and ready to work")
 
 	// Running server
 	runErrCh := make(chan error, 1)

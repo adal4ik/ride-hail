@@ -17,9 +17,15 @@ type IDriverRepository interface {
 	CalculateRideDetails(ctx context.Context, driverLocation model.Location, passagerLocation model.Location) (float64, error)
 	UpdateDriverStatus(ctx context.Context, driver_id string, status string) error
 	CheckDriverById(ctx context.Context, driver_id string) (bool, error)
+<<<<<<< HEAD
 	CheckDriverStatus(ctx context.Context, driver_id string) (string, error)
 	HasActiveRide(ctx context.Context, driverID string) (bool, error)
 	StartRideTx(ctx context.Context, req model.StartRide) (model.StartRideResponse, error)
 	GetPickupAndDriverCoords(ctx context.Context, rideID, driverID string) (pickupLat, pickupLng, driverLat, driverLng float64, err error)
 	GetDestinationAndDriverCoords(ctx context.Context, rideID, driverID string) (destLat, destLng, driverLat, driverLng float64, err error)
+=======
+	GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error)
+	GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error)
+	GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error)
+>>>>>>> develop
 }
