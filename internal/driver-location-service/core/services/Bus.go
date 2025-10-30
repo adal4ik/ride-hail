@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -16,7 +15,6 @@ import (
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	driven "ride-hail/internal/driver-location-service/core/ports/driven"
 
-	"github.com/jackc/pgx/v5"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -76,6 +74,8 @@ func NewDistributor(
 }
 
 func (d *Distributor) MessageDistributor() error {
+	log := d.log.Action("MessageDistributor")
+	log.Info("Starting message distributor...")
 	for {
 		select {
 		case requestDelivery := <-d.rideOffers:
@@ -84,7 +84,8 @@ func (d *Distributor) MessageDistributor() error {
 		case statusDelivery := <-d.rideStatuses:
 			go d.handleRideStatus(statusDelivery)
 
-		case driverMsg := <-d.driverMessages:
+		case driverMsg := <-d.wsManager.GetFanIn():
+			log.Info("Getting message from FanIn....")
 			go d.handleDriverMessage(driverMsg)
 
 		case <-d.ctx.Done():
@@ -114,39 +115,50 @@ func (d *Distributor) handleDriverConnection(driverID string, incoming <-chan []
 	}
 }
 
-func (d *Distributor) handleDriverMessage(msg DriverMessage) {
-	var baseMsg websocketdto.WebSocketMessage
-	if err := json.Unmarshal(msg.Message, &baseMsg); err != nil {
-		fmt.Printf("Invalid message format from driver %s: %v\n", msg.DriverID, err)
+// IMPLEMENT
+func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
+	log := d.log.Action("handleDriverMessage")
+	var LocationUpdate websocketdto.LocationUpdateMessage
+	if err := json.Unmarshal(msg.Message, &LocationUpdate); err != nil {
+		log.Error("Failed to unmarshal message:", err)
 		return
 	}
-
-	switch baseMsg.Type {
-	case websocketdto.MessageTypeRideResponse:
-		var response websocketdto.RideResponseMessage
-		if err := json.Unmarshal(msg.Message, &response); err != nil {
-			fmt.Printf("Invalid ride response from driver %s: %v\n", msg.DriverID, err)
-			return
-		}
-		d.handleRideResponse(msg.DriverID, response)
-
-	case websocketdto.MessageTypeLocationUpdate:
-		var update websocketdto.LocationUpdateMessage
-		if err := json.Unmarshal(msg.Message, &update); err != nil {
-			fmt.Printf("Invalid location update from driver %s: %v\n", msg.DriverID, err)
-			return
-		}
-		d.handleLocationUpdate(msg.DriverID, update)
-	default:
-		fmt.Printf("Unknown message type %s from driver %s\n", baseMsg.Type, msg.DriverID)
+	d.driverService.UpdateLocation(context.Background(), dto.NewLocation{
+		Latitude:        LocationUpdate.Latitude,
+		Longitude:       LocationUpdate.Longitude,
+		Accuracy_meters: LocationUpdate.AccuracyMeters,
+		Speed_kmh:       LocationUpdate.SpeedKmh,
+		Heading_Degrees: LocationUpdate.HeadingDegrees,
+	}, msg.DriverID)
+	ride_id, err := d.driverService.GetRideIdByDriverId(context.Background(), msg.DriverID)
+	if err != nil {
+		log.Error("Failed to get ride id from db:", err)
+		return
 	}
+	rmMessage := messagebrokerdto.LocationUpdate{
+		DriverID: msg.DriverID,
+		RideID:   ride_id,
+		Location: messagebrokerdto.Location{
+			Lng: LocationUpdate.Longitude,
+			Lat: LocationUpdate.Latitude,
+		},
+		SpeedKmh:       LocationUpdate.SpeedKmh,
+		HeadingDegrees: LocationUpdate.HeadingDegrees,
+		Timestamp:      time.Now().String(),
+	}
+
+	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "location", rmMessage); err != nil {
+		log.Error("Failed to Publish location_fanout", err)
+	}
+
 }
 
 func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideRequest")
 	var req dto.RideDetails
+
 	if err := json.Unmarshal(requestDelivery.Body, &req); err != nil {
-		fmt.Println("Error unmarshaling ride request:", err)
+		log.Error("Error Unmarshalling request:", err)
 		requestDelivery.Nack(false, true)
 		return
 	}
@@ -165,7 +177,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 	)
 	if err != nil {
 		log.Error("Failed to find appropriate drivers:", err, req.Ride_id)
-		requestDelivery.Nack(false, true)
+		// requestDelivery.Nack(false, true)
 		return
 	}
 
@@ -207,18 +219,18 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 			EstimatedRideDurationMinutes: int(driver.Distance / 0.75),
 			ExpiresAt:                    time.Now().Add(30 * time.Second),
 		}
-
+		log.Info("Sending message to driver:", offer)
 		d.wsManager.SendToDriver(context.Background(), driver.DriverId, offer)
 		driverResponse, err := d.wsManager.GetDriverMessages(driver.DriverId)
 		if err != nil {
-			fmt.Printf("Failed to get messages for driver %s: %v\n", driver.DriverId, err)
+			log.Error("Failed to get messages for driver", err, driver.DriverId)
 			continue
 		}
 		select {
 		case data := <-driverResponse:
 			var response websocketdto.RideResponseMessage
 			if err := json.Unmarshal(data, &response); err != nil {
-				fmt.Printf("Invalid ride response from driver %s: %v\n", driver.DriverId, err)
+				log.Error("Failed to unmarshal driver response:", err, driver.DriverId)
 				requestDelivery.Nack(false, true)
 				continue
 			}
@@ -229,40 +241,15 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 			}
 			return
 		case <-time.After(30 * time.Second):
-			fmt.Println("No driver accepted the ride within timeout")
+			log.Info("No driver accepted the ride within timeout")
 			requestDelivery.Nack(false, true)
 			continue
 		}
 	}
 }
 
-func (d *Distributor) handleRideResponse(driverID string, response websocketdto.RideResponseMessage) {
-	d.pendingMu.RLock()
-	pendingOffer, exists := d.pendingOffers[response.OfferID]
-	d.pendingMu.RUnlock()
-
-	if !exists {
-		fmt.Printf("Received response for unknown offer: %s\n", response.OfferID)
-		return
-	}
-
-	if pendingOffer.DriverID != driverID {
-		fmt.Printf("Driver %s attempted to respond to offer for driver %s\n", driverID, pendingOffer.DriverID)
-		return
-	}
-
-	select {
-	case pendingOffer.ResponseChan <- response:
-	default:
-		fmt.Printf("Response channel full for offer: %s\n", response.OfferID)
-	}
-
-	d.pendingMu.Lock()
-	delete(d.pendingOffers, response.OfferID)
-	d.pendingMu.Unlock()
-}
-
 func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.LocationUpdateMessage) {
+	log := d.log.Action("handleLocationUpdate")
 	ctx := context.Background()
 	data := dto.NewLocation{
 		Latitude:        update.Latitude,
@@ -273,7 +260,7 @@ func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.
 	}
 	_, err := d.driverService.UpdateLocation(ctx, data, driverID)
 	if err != nil {
-		fmt.Printf("Failed to update driver location: %v\n", err)
+		log.Error("Failed to update driver location", err)
 		return
 	}
 	locationUpdate := messagebrokerdto.LocationUpdate{
@@ -288,8 +275,8 @@ func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.
 		Timestamp:      time.Now().String(),
 	}
 
-	if err := d.broker.PublishJSON(ctx, "location_fanout", "", locationUpdate); err != nil {
-		fmt.Printf("Failed to publish location update: %v\n", err)
+	if err := d.broker.PublishJSON(ctx, "location_updates", "", locationUpdate); err != nil {
+		log.Error("Failed to publish location update", err)
 	}
 }
 
@@ -316,34 +303,34 @@ func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseM
 	requestDelivery.Ack(false)
 	d.broker.PublishJSON(d.ctx, "driver_topic", fmt.Sprintf("driver.response.%s", driver.DriverId), driverMatch)
 
-	fmt.Printf("Ride %s accepted by driver %s\n", rideDetails.Ride_id, driverMatch.Driver_id)
+	log.Info("Ride accepted by driver", rideDetails.Ride_id, driverMatch.Driver_id)
 }
 
 func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideStatus")
-	var status websocketdto.RideResponseMessage
-	if len(statusDelivery.Body) == 0 {
-		log.Error("Received empty ride request message", fmt.Errorf("empty ride request message"))
-		statusDelivery.Nack(false, true)
-		return
-	}
+	var status messagebrokerdto.RideStatus
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
 		log.Error("Failed to unmarshal the ride response message: ", err)
 		statusDelivery.Nack(false, true)
 		return
 	}
-	log.Info("Received ride status update:", status.RideID, status)
-	driverID, err := d.driverService.GetDriverIdByRideId(context.Background(), status.RideID)
+	log.Info("Received ride status update:", status.RideId, status)
+	driverID, err := d.driverService.GetDriverIdByRideId(context.Background(), status.RideId)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			log.Info("Successfully cancelled requested ride (without driver)", "ride-id", status.RideID)
-			statusDelivery.Ack(false)
-		}
-		log.Error("Failed to get driver ID by ride ID:", err, "ride-id", status.RideID)
+		log.Error("Failed to get driver ID by ride ID:", err, status.RideId)
 		statusDelivery.Nack(false, true)
 		return
 	}
-	d.wsManager.SendToDriver(context.Background(), driverID, status)
-	log.Info("Processing ride status update:", status.RideID)
+	rideDetails, err := d.driverService.GetRideDetailsByRideId(context.Background(), status.RideId)
+	if err != nil {
+		log.Error("Failed to get ride details by ride ID:", err, status.RideId)
+		statusDelivery.Nack(false, true)
+		return
+	}
+	rideDetails.WebSocketMessage = websocketdto.WebSocketMessage{
+		Type: websocketdto.MessageTypeRideDetails,
+	}
+	d.wsManager.SendToDriver(context.Background(), driverID, rideDetails)
+	log.Info("Processing ride status update:", status.RideId)
 	statusDelivery.Ack(false)
 }
