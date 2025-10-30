@@ -56,11 +56,6 @@ type RideCompleteForm struct {
 	ActualDurationm  float64
 }
 
-type Location struct {
-	Latitude  float64
-	Longitude float64
-}
-
 type RideCompleteResponse struct {
 	Ride_id       string
 	Status        string
@@ -85,4 +80,10 @@ type DriverLocation struct {
 	Driver_id string  `json:"driver_id"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+}
+
+type Location struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Driver_id string  `json:"driver_id,omitempty"`
 }

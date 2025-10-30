@@ -212,59 +212,28 @@ func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide
 	}
 	return resp, nil
 }
-func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.RideCompleteForm) (model.RideCompleteResponse, error) {
-	var response model.RideCompleteResponse
-	response.Status = "AVAILABLE"
-	response.Ride_id = requestData.Ride_id
-	response.Message = "Ride completed successfully"
 
-	RidesQuery := `
-		UPDATE rides
-		SET status = 'COMPLETED',
-		WHERE ride_id = $1;
+func (dr *DriverRepository) GetDestinationAndDriverCoords(
+	ctx context.Context,
+	rideID, driverID string,
+) (destLat, destLng, driverLat, driverLng float64, err error) {
+	const q = `
+		SELECT c_dest.latitude, c_dest.longitude,
+		       c_driver.latitude, c_driver.longitude
+		FROM rides r
+		JOIN drivers d ON d.driver_id = r.driver_id
+		JOIN coordinates c_dest   ON c_dest.coord_id   = r.destination_coord_id
+		JOIN coordinates c_driver ON c_driver.coord_id = d.coord
+		WHERE r.ride_id = $1 AND d.driver_id = $2
+		LIMIT 1;
 	`
-	_, err := dr.db.GetConn().Exec(ctx, RidesQuery, requestData.Ride_id)
+	err = dr.db.GetConn().QueryRow(ctx, q, rideID, driverID).Scan(
+		&destLat, &destLng, &driverLat, &driverLng,
+	)
 	if err != nil {
-		return model.RideCompleteResponse{}, err
+		return 0, 0, 0, 0, err
 	}
-
-	CoordinatesQuery := `
-		UPDATE coordinates
-		SET distance_km = $1,
-			duration_minutes = $2,
-			latitude = $3,
-			longitude = $4
-		FROM rides
-		WHERE coordinates.coord_id = rides.destination_coord_id && rides.ride_id = $5;
-	`
-
-	_, err = dr.db.GetConn().Exec(ctx, CoordinatesQuery, requestData.ActualDistancekm, requestData.ActualDurationm, requestData.FinalLocation.Latitude, requestData.FinalLocation.Longitude, requestData.Ride_id)
-	if err != nil {
-		return model.RideCompleteResponse{}, err
-	}
-
-	UpdateDriverStatusQuery := `
-		UPDATE drivers
-		SET status = 'AVAILABLE'
-		FROM rides
-		WHERE drivers.driver_id = rides.driver_id && rides.ride_id = $1;
-	`
-	_, err = dr.db.GetConn().Exec(ctx, UpdateDriverStatusQuery, requestData.Ride_id)
-	if err != nil {
-		return model.RideCompleteResponse{}, err
-	}
-
-	DriverEarningsQuery := `
-		SELECT final_fare FROM rides WHERE ride_id = $1;
-	`
-
-	err = dr.db.GetConn().QueryRow(ctx, DriverEarningsQuery, requestData.Ride_id).Scan(&response.DriverEarning)
-	if err != nil {
-		return model.RideCompleteResponse{}, err
-	}
-
-	response.CompletedAt = time.Now().String()
-	return response, nil
+	return destLat, destLng, driverLat, driverLng, nil
 }
 
 func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]model.DriverInfo, error) {
@@ -416,3 +385,104 @@ SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, 
 	LIMIT 10;
 
 */
+
+func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.RideCompleteForm) (model.RideCompleteResponse, error) {
+	return dr.CompleteRideTx(ctx, requestData)
+}
+
+func (dr *DriverRepository) CompleteRideTx(ctx context.Context, requestData model.RideCompleteForm) (model.RideCompleteResponse, error) {
+	conn := dr.db.GetConn()
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return model.RideCompleteResponse{}, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		} else {
+			_ = tx.Commit(ctx)
+		}
+	}()
+
+	// 1) убеждаемся, что ride принадлежит этому водителю и сейчас IN_PROGRESS
+	const qCheck = `
+		SELECT status, driver_id
+		FROM rides
+		WHERE ride_id = $1
+		FOR UPDATE;
+	`
+	var status string
+	var rideDriverID string
+	if err = tx.QueryRow(ctx, qCheck, requestData.Ride_id).Scan(&status, &rideDriverID); err != nil {
+		if err == pgx.ErrNoRows {
+			return model.RideCompleteResponse{}, fmt.Errorf("ride not found")
+		}
+		return model.RideCompleteResponse{}, err
+	}
+	if rideDriverID == "" || rideDriverID != requestData.FinalLocation.Driver_id {
+		return model.RideCompleteResponse{}, fmt.Errorf("ride driver mismatch")
+	}
+	if status != "IN_PROGRESS" {
+		return model.RideCompleteResponse{}, fmt.Errorf("invalid ride status: %s", status)
+	}
+
+	// 2) обновляем координаты destination фактическими (дистанция/длительность/координаты)
+	const qUpdateDest = `
+		UPDATE coordinates
+		SET distance_km = $1,
+		    duration_minutes = $2,
+		    latitude = $3,
+		    longitude = $4,
+		    updated_at = NOW()
+		WHERE coord_id = (
+			SELECT destination_coord_id FROM rides WHERE ride_id = $5
+		);
+	`
+	if _, err = tx.Exec(ctx, qUpdateDest,
+		requestData.ActualDistancekm,
+		requestData.ActualDurationm,
+		requestData.FinalLocation.Latitude,
+		requestData.FinalLocation.Longitude,
+		requestData.Ride_id,
+	); err != nil {
+		return model.RideCompleteResponse{}, err
+	}
+
+	// 3) завершить поездку
+	const qRideDone = `
+		UPDATE rides
+		SET status = 'COMPLETED',
+		    completed_at = NOW(),
+		    updated_at = NOW()
+		WHERE ride_id = $1;
+	`
+	if _, err = tx.Exec(ctx, qRideDone, requestData.Ride_id); err != nil {
+		return model.RideCompleteResponse{}, err
+	}
+
+	// 4) освободить водителя
+	const qDriverAvail = `
+		UPDATE drivers
+		SET status = 'AVAILABLE',
+		    updated_at = NOW()
+		WHERE driver_id = $1;
+	`
+	if _, err = tx.Exec(ctx, qDriverAvail, rideDriverID); err != nil {
+		return model.RideCompleteResponse{}, err
+	}
+
+	// 5) забираем финальную сумму (final_fare) для ответа
+	const qFare = `SELECT COALESCE(final_fare, estimated_fare) FROM rides WHERE ride_id = $1`
+	var earning float64
+	if err = tx.QueryRow(ctx, qFare, requestData.Ride_id).Scan(&earning); err != nil {
+		return model.RideCompleteResponse{}, err
+	}
+
+	return model.RideCompleteResponse{
+		Message:       "Ride completed successfully",
+		Ride_id:       requestData.Ride_id,
+		Status:        "AVAILABLE",
+		DriverEarning: earning,
+		CompletedAt:   time.Now().Format(time.RFC3339),
+	}, nil
+}

@@ -15,6 +15,8 @@ import (
 
 const maxPickupDistanceMeters = 100.0
 
+const maxCompleteDistanceMeters = 100.0
+
 type DriverService struct {
 	repositories driven.IDriverRepository
 	log          mylogger.Logger
@@ -130,23 +132,53 @@ func haversineMeters(lat1, lng1, lat2, lng2 float64) float64 {
 }
 
 func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompleteForm) (dto.RideCompleteResponse, error) {
-	var requestDAO model.RideCompleteForm
-	requestDAO.Ride_id = request.Ride_id
-	requestDAO.ActualDistancekm = request.ActualDistancekm
-	requestDAO.ActualDurationm = request.ActualDurationm
-	requestDAO.FinalLocation.Latitude = request.FinalLocation.Latitude
-	requestDAO.FinalLocation.Longitude = request.FinalLocation.Longitude
-	results, err := ds.repositories.CompleteRide(ctx, requestDAO)
+	l := ds.log.Action("service.complete_ride")
+	l.Info("start", "ride_id", request.Ride_id)
+
+	// 1) тянем координаты точки назначения и текущие координаты водителя
+	destLat, destLng, driverLat, driverLng, err := ds.repositories.GetDestinationAndDriverCoords(ctx, request.Ride_id, request.FinalLocation.Driver_id)
 	if err != nil {
+		l.Error("get destination/driver coords failed", err)
+		return dto.RideCompleteResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
+	}
+
+	// 2) считаем расстояние
+	dist := haversineMeters(destLat, destLng, driverLat, driverLng)
+	l.Info("distance to destination", "meters", fmt.Sprintf("%.2f", dist))
+
+	if dist > maxCompleteDistanceMeters {
+		l.Warn("too far to complete", "distance_m", fmt.Sprintf("%.2f", dist))
+		return dto.RideCompleteResponse{}, fmt.Errorf("driver too far from destination (%.1fm > %.0fm)", dist, maxCompleteDistanceMeters)
+	}
+
+	// 3) транзакционно завершаем
+	reqDAO := model.RideCompleteForm{
+		Ride_id:          request.Ride_id,
+		ActualDistancekm: request.ActualDistancekm,
+		ActualDurationm:  request.ActualDurationm,
+		FinalLocation: model.Location{
+			Latitude:  request.FinalLocation.Latitude,
+			Longitude: request.FinalLocation.Longitude,
+			Driver_id: request.FinalLocation.Driver_id,
+		},
+	}
+
+	resDAO, err := ds.repositories.CompleteRideTx(ctx, reqDAO)
+	if err != nil {
+		l.Error("repository.CompleteRideTx failed", err)
 		return dto.RideCompleteResponse{}, err
 	}
-	var response dto.RideCompleteResponse
-	response.Message = results.Message
-	response.Ride_id = results.Ride_id
-	response.Status = results.Status
-	response.DriverEarning = results.DriverEarning
-	response.CompletedAt = results.CompletedAt
-	return response, nil
+
+	// 4) маппим ответ
+	resp := dto.RideCompleteResponse{
+		Message:       resDAO.Message,
+		Ride_id:       resDAO.Ride_id,
+		Status:        resDAO.Status,
+		DriverEarning: resDAO.DriverEarning,
+		CompletedAt:   resDAO.CompletedAt,
+	}
+	l.Info("completed", "ride_id", resp.Ride_id, "status", resp.Status)
+	return resp, nil
 }
 
 func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]dto.DriverInfo, error) {
