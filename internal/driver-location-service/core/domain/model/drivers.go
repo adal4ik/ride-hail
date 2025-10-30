@@ -59,6 +59,8 @@ type RideCompleteForm struct {
 type Location struct {
 	Latitude  float64
 	Longitude float64
+	Address   string
+	Notes     string
 }
 
 type RideCompleteResponse struct {
@@ -79,4 +81,12 @@ type DriverInfo struct {
 	Latitude  float64
 	Longitude float64
 	Distance  float64
+}
+
+// RideDetails for WebSocket
+type RideDetails struct {
+	Ride_id        string
+	PassengerName  string
+	PassengerAttrs []byte
+	PickupLocation Location
 }

@@ -18,4 +18,5 @@ type IDriverRepository interface {
 	CheckDriverById(ctx context.Context, driver_id string) (bool, error)
 	GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error)
 	GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error)
+	GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error)
 }

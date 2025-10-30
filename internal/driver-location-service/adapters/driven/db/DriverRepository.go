@@ -298,6 +298,31 @@ func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id s
 	return ride_id, nil
 }
 
+func (dr *DriverRepository) GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error) {
+	Query := `
+		SELECT r.ride_id, u.username, u.attrs ,
+		       pc.latitude AS pickup_latitude, pc.longitude AS pickup_longitude, pc.address AS pickup_address
+		FROM rides r	
+		JOIN users u ON r.passenger_id = u.user_id
+		JOIN coordinates pc ON r.pickup_coord_id = pc.coord_id
+		WHERE r.ride_id = $1;
+		`
+	var details model.RideDetails
+	err := dr.db.conn.QueryRow(ctx, Query, ride_id).Scan(
+		&details.Ride_id,
+		&details.PassengerName,
+		&details.PassengerAttrs,
+		&details.PickupLocation.Latitude,
+		&details.PickupLocation.Longitude,
+		&details.PickupLocation.Address,
+	)
+	if err != nil {
+		fmt.Println(err.Error())
+		return model.RideDetails{}, err
+	}
+	return details, nil
+}
+
 /*
 SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
        ST_Distance(

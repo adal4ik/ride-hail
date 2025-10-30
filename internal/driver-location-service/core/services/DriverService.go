@@ -7,6 +7,7 @@ import (
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
+	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
 	ports "ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
@@ -170,4 +171,31 @@ func (d *DriverService) GetDriverIdByRideId(ctx context.Context, ride_id string)
 func (d *DriverService) GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error) {
 	// This is a placeholder implementation. Replace with actual logic to get ride ID by driver ID.
 	return d.repositories.GetRideIdByDriverId(ctx, driver_id)
+}
+
+func (d *DriverService) GetRideDetailsByRideId(ctx context.Context, ride_id string) (websocketdto.RideDetailsMessage, error) {
+	// This is a placeholder implementation. Replace with actual logic to get ride details by ride ID.
+	// For example, you might query the database to find the ride details associated with the given ride ID.
+	rideDetailsModel, err := d.repositories.GetRideDetailsByRideId(ctx, ride_id)
+	fmt.Println("Ride Details Model: ", rideDetailsModel)
+	fmt.Println("User phone", string(rideDetailsModel.PassengerAttrs))
+	if err != nil {
+		return websocketdto.RideDetailsMessage{}, err
+	}
+	var rideDetails websocketdto.RideDetailsMessage
+	rideDetails.RideID = rideDetailsModel.Ride_id
+	rideDetails.PassengerName = rideDetailsModel.PassengerName
+	rideDetails.PickupLocation = websocketdto.Location{
+		Latitude:  rideDetailsModel.PickupLocation.Latitude,
+		Longitude: rideDetailsModel.PickupLocation.Longitude,
+		Address:   rideDetailsModel.PickupLocation.Address,
+	}
+	tempStruct := struct {
+		PhoneNumer string `json:"phone"`
+	}{}
+	if err := json.Unmarshal(rideDetailsModel.PassengerAttrs, &tempStruct); err != nil {
+		return websocketdto.RideDetailsMessage{}, err
+	}
+	rideDetails.PassengerPhone = tempStruct.PhoneNumer
+	return rideDetails, nil
 }
