@@ -45,7 +45,7 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 	driverID := r.PathValue("driver_id")
 	if driverID == "" {
 		log.Warn("Driver ID missing in URL")
-		http.Error(w, "Driver ID required", http.StatusBadRequest)
+		JsonError(w, http.StatusBadRequest, fmt.Errorf("Driver ID required"))
 		return
 	}
 
@@ -53,7 +53,7 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 	toDriver := make(chan []byte, 100)
 	if err := h.wsManager.RegisterDriver(r.Context(), driverID, fromDriver, toDriver); err != nil {
 		log.Error("Failed to register driver:", err, driverID)
-		http.Error(w, "Failed to register driver", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Failed to register driver"))
 		return
 	}
 	defer h.wsManager.UnregisterDriver(r.Context(), driverID)

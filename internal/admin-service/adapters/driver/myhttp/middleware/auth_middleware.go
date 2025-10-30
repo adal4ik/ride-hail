@@ -24,7 +24,7 @@ func (am *AuthMiddleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenString := r.Header.Get("Authorization")
 		if tokenString == "" {
-			http.Error(w, "Empty JWT-Token", http.StatusBadRequest)
+			handle.JsonError(w, http.StatusBadRequest, fmt.Errorf("Empty JWT-Token"))
 			return
 		}
 		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
