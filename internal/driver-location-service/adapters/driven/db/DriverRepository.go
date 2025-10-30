@@ -540,3 +540,27 @@ func (dr *DriverRepository) CompleteRideTx(ctx context.Context, requestData mode
 		CompletedAt:   time.Now().Format(time.RFC3339),
 	}, nil
 }
+
+func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
+	Query := `
+		UPDATE drivers
+		SET total_earnings = total_earnings + $1
+		WHERE driver_id = $2;
+	`
+	_, err := dr.db.GetConn().Exec(ctx, Query, amount, driver_id)
+	if err != nil {
+		return err
+	}
+
+	SessionQuery := `
+	UPDATE driver_sessions
+	SET total_rides = total_rides + 1,
+	total_earnings = total_earnings + $1
+	WHERE driver_id = $2 AND ended_at = NULL;
+	`
+	_, err = dr.db.GetConn().Exec(ctx, SessionQuery, amount, driver_id)
+	if err != nil {
+		return err
+	}
+	return nil
+}

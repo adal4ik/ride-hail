@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"time"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
+	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
@@ -116,6 +118,15 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 		l.Error("repository.StartRideTx failed", err)
 		return dto.StartRideResponse{}, err
 	}
+	// Driver.statis.{driver_id}
+	driverStatus := messagebrokerdto.DriverStatus{
+		DriverID:  dId,
+		RideID:    msg.Ride_id,
+		Status:    "BUSY",
+		Timestamp: time.Now().String(),
+	}
+	ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", dId), driverStatus)
+	l.Info("Driver status send to rabbitmq", dId)
 
 	l.Info("success", "ride_id", res.Ride_id, "status", res.Status, "started_at", res.Started_at)
 	return dto.StartRideResponse{
@@ -184,6 +195,15 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 		l.Error("repository.CompleteRideTx failed", err)
 		return dto.RideCompleteResponse{}, err
 	}
+	// Driver.statis.{driver_id}
+	driverStatus := messagebrokerdto.DriverStatus{
+		DriverID:  dId,
+		RideID:    request.Ride_id,
+		Status:    "AVAILABLE",
+		Timestamp: time.Now().String(),
+	}
+	ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", dId), driverStatus)
+	l.Info("Driver status send to rabbitmq", dId)
 
 	// 4) маппим ответ
 	resp := dto.RideCompleteResponse{
@@ -299,4 +319,8 @@ func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string)
 		return model.ErrNoActiveRide
 	}
 	return nil
+}
+
+func (ds *DriverService) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
+	return ds.repositories.PayDriverMoney(ctx, driver_id, amount)
 }

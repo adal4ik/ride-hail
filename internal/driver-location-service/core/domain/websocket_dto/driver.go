@@ -90,3 +90,12 @@ type ConnectionStatus struct {
 	LastPing  time.Time `json:"last_ping,omitempty"`
 	SessionID string    `json:"session_id,omitempty"`
 }
+
+// Order canceled
+
+type CanceledOrderMessage struct {
+	WebSocketMessage
+	RideID  string `json:"ride_id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
