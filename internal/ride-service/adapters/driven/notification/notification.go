@@ -153,7 +153,7 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 	log := n.log.Action("LocationUpdate")
 	m2 := messagebrokerdto.LocationUpdate{}
-
+	log.Info("nigga what did i get?", "body", string(msg.Body))
 	err := json.Unmarshal(msg.Body, &m2)
 	if err != nil {
 		log.Error("cannot unmarshal", err)

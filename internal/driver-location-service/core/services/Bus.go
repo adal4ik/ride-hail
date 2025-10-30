@@ -69,7 +69,7 @@ func NewDistributor(
 		log:            log,
 	}
 
-	go (*distributor).MessageDistributor()
+	// go (*distributor).MessageDistributor()
 	return distributor
 }
 
