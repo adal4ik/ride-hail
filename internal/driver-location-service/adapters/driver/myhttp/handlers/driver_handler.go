@@ -12,7 +12,6 @@ import (
 	"ride-hail/internal/mylogger"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -35,81 +34,6 @@ func NewDriverHandler(driverService driver.IDriverService, log mylogger.Logger) 
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
-	}
-}
-
-func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
-	// log := dh.log.Action("Go Online")
-	ctx := context.Background()
-
-	// Checking Driver For Existance
-	driverID := r.PathValue("driver_id")
-	// if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err == nil && !ok {
-	// 	log.Info("Driver not found")
-	// 	http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
-	// 	return
-	// } else if err != nil {
-	// 	log.Error("Failed to check the driver: ", err)
-	// 	http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
-	// 	return
-	// }
-
-	// Upgrading connection
-	conn, err := dh.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Error("failed to upgrade", err)
-		return
-	}
-	defer conn.Close()
-	log.Info("Websocket connection established", "driver_id", driverID)
-
-	// Creating channels
-	dh.inMessages[driverID] = make(chan dto.DriverRideOffer, 100)
-	dh.outMessages[driverID] = make(chan dto.DriverResponse, 100)
-
-	// Writer
-	go func() {
-		for {
-			select {
-			case rideOffer := <-dh.inMessages[driverID]:
-				b, err := json.Marshal(rideOffer)
-				if err != nil {
-					log.Error("marshal ride offer: %v", err)
-					continue
-				}
-				if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
-					log.Error("write ride offer: %v", err)
-					return
-				}
-			case <-r.Context().Done():
-				return
-			}
-		}
-	}()
-
-	// Reader
-	go func() {
-		for {
-			messageType, message, err := conn.ReadMessage()
-			if err != nil {
-				log.Error("Failed to read message from driver: %v", err)
-				break
-			}
-			var driverResponse dto.DriverResponse
-			if err := json.Unmarshal(message, &driverResponse); err != nil {
-				log.Error("unmarshal driver response: %v", err)
-				continue
-			}
-			dh.outMessages[driverID] <- driverResponse
-			log.Info("recv type=%v: %s", messageType, message)
-		}
-	}()
-
-	select {
-	case <-r.Context().Done():
-		delete(dh.inMessages, driverID)
-		delete(dh.inMessages, driverID)
-	default:
 	}
 }
 
@@ -202,6 +126,7 @@ func (dh *DriverHandler) GoOffline(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonResponse(w, http.StatusAccepted, res)
 }
+
 func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
 	log := dh.log.Action("Update Location")
 	ctx := r.Context()
@@ -239,6 +164,7 @@ func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) 
 	}
 	jsonResponse(w, http.StatusAccepted, res)
 }
+
 func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
 	log := dh.log.Action("driver.start_ride")
 	ctx := context.Background()

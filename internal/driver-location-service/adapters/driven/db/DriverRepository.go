@@ -3,8 +3,9 @@ package db
 import (
 	"context"
 	"fmt"
-	"ride-hail/internal/driver-location-service/core/domain/model"
 	"time"
+
+	"ride-hail/internal/driver-location-service/core/domain/model"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -145,7 +146,6 @@ func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.Sta
 }
 
 func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide) (model.StartRideResponse, error) {
-
 	conn := dr.db.GetConn()
 	tx, err := conn.Begin(ctx)
 	if err != nil {
@@ -221,7 +221,7 @@ func (dr *DriverRepository) GetDestinationAndDriverCoords(
 		FROM rides r
 		JOIN drivers d ON d.driver_id = r.driver_id
 		JOIN coordinates c_dest   ON c_dest.coord_id   = r.destination_coord_id
-		JOIN coordinates c_driver ON c_driver.coord_id = d.coord
+		JOIN coordinates c_driver ON c_driver.entity_id = d.driver_id
 		WHERE r.ride_id = $1 AND d.driver_id = $2
 		LIMIT 1;
 	`
@@ -330,6 +330,7 @@ func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id str
 
 	return *driver_id, nil // Dereference the pointer to return the driver_id string
 }
+
 func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error) {
 	Query := `
 		SELECT ride_id FROM rides WHERE driver_id = $1 AND status NOT IN ('CANCELLED', 'COMPLETED');
@@ -338,7 +339,6 @@ func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id s
 	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&ride_id)
 	if err != nil {
 		return "", err
-
 	}
 	return ride_id, nil
 }
@@ -399,14 +399,13 @@ func (dr *DriverRepository) GetPickupAndDriverCoords(
 	ctx context.Context,
 	rideID, driverID string,
 ) (pickupLat, pickupLng, driverLat, driverLng float64, err error) {
-
 	const q = `
 		SELECT c_pickup.latitude, c_pickup.longitude,
 		       c_driver.latitude, c_driver.longitude
 		FROM rides r
 		JOIN coordinates c_pickup ON c_pickup.coord_id = r.pickup_coord_id
 		JOIN drivers d ON d.driver_id = r.driver_id
-		JOIN coordinates c_driver ON c_driver.coord_id = d.coord
+		JOIN coordinates c_driver ON c_driver.entity_id  = d.driver_id 
 		WHERE r.ride_id = $1 AND d.driver_id = $2
 		LIMIT 1;
 	`
