@@ -150,7 +150,6 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "location", rmMessage); err != nil {
 		log.Error("Failed to Publish location_fanout", err)
 	}
-
 }
 
 func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
@@ -159,7 +158,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 
 	if err := json.Unmarshal(requestDelivery.Body, &req); err != nil {
 		log.Error("Error Unmarshalling request:", err)
-		requestDelivery.Nack(false, true)
+		requestDelivery.Nack(false, false)
 		return
 	}
 	if len(d.wsManager.GetConnectedDrivers()) == 0 {
@@ -176,7 +175,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		req.Ride_type,
 	)
 	if err != nil {
-		log.Error("Failed to find appropriate drivers:", err, req.Ride_id)
+		log.Error("Failed to find appropriate drivers:", err, "ride-id", req.Ride_id)
 		// requestDelivery.Nack(false, true)
 		return
 	}
@@ -248,38 +247,6 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 	}
 }
 
-func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.LocationUpdateMessage) {
-	log := d.log.Action("handleLocationUpdate")
-	ctx := context.Background()
-	data := dto.NewLocation{
-		Latitude:        update.Latitude,
-		Longitude:       update.Longitude,
-		Accuracy_meters: update.AccuracyMeters,
-		Speed_kmh:       update.SpeedKmh,
-		Heading_Degrees: update.HeadingDegrees,
-	}
-	_, err := d.driverService.UpdateLocation(ctx, data, driverID)
-	if err != nil {
-		log.Error("Failed to update driver location", err)
-		return
-	}
-	locationUpdate := messagebrokerdto.LocationUpdate{
-		DriverID: driverID,
-		RideID:   "asdasda",
-		Location: messagebrokerdto.Location{
-			Lng: update.Longitude,
-			Lat: update.Latitude,
-		},
-		SpeedKmh:       update.SpeedKmh,
-		HeadingDegrees: update.HeadingDegrees,
-		Timestamp:      time.Now().String(),
-	}
-
-	if err := d.broker.PublishJSON(ctx, "location_updates", "", locationUpdate); err != nil {
-		log.Error("Failed to publish location update", err)
-	}
-}
-
 func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseMessage, rideDetails dto.RideDetails, requestDelivery amqp.Delivery, driver dto.DriverInfo) {
 	log := d.log.Action("handleDriverAcceptance")
 	_ = log
@@ -311,7 +278,7 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	var status messagebrokerdto.RideStatus
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
 		log.Error("Failed to unmarshal the ride response message: ", err)
-		statusDelivery.Nack(false, true)
+		statusDelivery.Nack(false, false)
 		return
 	}
 	log.Info("Received ride status update:", status.RideId, status)
