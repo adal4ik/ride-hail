@@ -189,7 +189,7 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 		passengerId string = ""
 		rideNumber  string = ""
 	)
-	
+
 	q = `SELECT passenger_id, ride_number FROM rides WHERE ride_id = $1`
 	row := tx.QueryRow(ctx, q, rideID)
 
@@ -238,7 +238,7 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (str
         status = 'CANCELLED', 
         cancelled_at = NOW(),
         cancellation_reason = $2
-    WHERE ride_id = $1`
+    WHERE ride_id = $1 AND status != 'COMPLETED'`
 
 	conn := rr.db.conn
 
@@ -285,7 +285,7 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (str
 }
 
 // ChangeStatus will return passenger id, ride number and driver information
-func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.DriverStatusUpdate) (string, string, websocketdto.DriverInfo, error) {
+func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.DriverStatusUpdate) (string, string, float64, websocketdto.DriverInfo, error) {
 	q1 := `
     SELECT  
         r.passenger_id, 
@@ -293,6 +293,7 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 		d.username,
 		d.rating,
 		d.vehicle_attrs,
+		r.final_fare
     FROM 
         rides r
 	JOIN drivers d 
@@ -303,7 +304,7 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 	q2 := `
 	UPDATE rides
     SET 
-        status = $2, 
+        status = $2
     WHERE ride_id = $1`
 
 	conn := rr.db.conn
@@ -313,13 +314,14 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 		jsonData    []byte
 		passengerId sql.NullString
 		rideNumber  sql.NullString
+		finalFare   sql.NullFloat64
 	)
 	driverInfo.DriverID = msg.DriverId
 
 	// Start transaction first to maintain consistency
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return "", "", websocketdto.DriverInfo{}, err
+		return "", "", 0, websocketdto.DriverInfo{}, err
 	}
 	defer tx.Rollback(ctx) // Safe rollback if not committed
 
@@ -331,34 +333,39 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 		&driverInfo.Name,
 		&driverInfo.Rating,
 		&jsonData,
+		&finalFare,
 	); err != nil {
-		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to fetch ride details: %w", err)
+		return "", "", 0, websocketdto.DriverInfo{}, fmt.Errorf("failed to fetch ride details: %w", err)
 	}
 
 	if err := json.Unmarshal(jsonData, &driverInfo.Vehicle); err != nil {
-		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to unmarshal vehile details: %w", err)
+		return "", "", 0, websocketdto.DriverInfo{}, fmt.Errorf("failed to unmarshal vehile details: %w", err)
 	}
 
 	// Check for values
 	if !passengerId.Valid {
-		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("driver id not found")
+		return "", "", 0, websocketdto.DriverInfo{}, fmt.Errorf("driver id not found")
 	}
 
 	if !rideNumber.Valid {
-		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("ride number not found")
+		return "", "", 0, websocketdto.DriverInfo{}, fmt.Errorf("ride number not found")
+	}
+
+	if !finalFare.Valid {
+		return "", "", 0, websocketdto.DriverInfo{}, fmt.Errorf("ride number not found")
 	}
 
 	// Perform the update
 	if _, err := tx.Exec(ctx, q2, msg.RideId, msg.Status); err != nil {
-		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to update status: %w", err)
+		return "", "", 0, websocketdto.DriverInfo{}, fmt.Errorf("failed to update status: %w", err)
 	}
 
 	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {
-		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to commit: %w", err)
+		return "", "", 0, websocketdto.DriverInfo{}, fmt.Errorf("failed to commit: %w", err)
 	}
 
-	return passengerId.String, rideNumber.String, driverInfo, nil
+	return passengerId.String, rideNumber.String, finalFare.Float64, driverInfo, nil
 }
 
 func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
@@ -374,7 +381,7 @@ func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
 	if err != nil {
 
 		// tx.Rollback(ctx)
-		return  err
+		return err
 	}
 
 	// return tx.Commit(ctx)
@@ -383,7 +390,7 @@ func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
 
 func (pr *RidesRepo) GetCancelPossibleRides(ctx context.Context) ([]model.Rides, error) {
 	q := `SELECT ride_id FROM rides WHERE status IN ('REQUESTED', 'MATCHED', 'EN_ROUTE', 'ARRIVED');`
-	cn := pr.db.conn 
+	cn := pr.db.conn
 
 	rows, err := cn.Query(ctx, q)
 	if err != nil {
@@ -392,7 +399,7 @@ func (pr *RidesRepo) GetCancelPossibleRides(ctx context.Context) ([]model.Rides,
 
 	var rides []model.Rides
 	for rows.Next() {
-		var rideId string 
+		var rideId string
 		if err := rows.Scan(&rideId); err != nil {
 			continue
 		}

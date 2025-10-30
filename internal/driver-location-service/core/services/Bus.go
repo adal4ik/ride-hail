@@ -287,7 +287,7 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 		return
 	}
 	switch status.Status {
-	case "CANCELED":
+	case "CANCELLED":
 		cancelMessage := websocketdto.CanceledOrderMessage{
 			WebSocketMessage: websocketdto.WebSocketMessage{
 				Type: "Info",
@@ -329,13 +329,14 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 
 		statusDelivery.Ack(false)
 	case "COMPLETED":
+		log.Info("ride completed", "final_fare", status.Final_fare)
 		err := d.driverService.PayDriverMoney(d.ctx, driverID, status.Final_fare)
 		if err != nil {
 			log.Error("Failed to pay money to driver:", err)
 			statusDelivery.Nack(false, false)
 		}
 	default:
-		log.Warn("Ride status message undefined (sending to trash queue)")
+		log.Warn("Ride status message undefined (sending to trash queue)", "status", status.Status)
 		statusDelivery.Nack(false, false)
 	}
 }
