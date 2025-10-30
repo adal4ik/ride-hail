@@ -76,19 +76,40 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	responseDTO.Updated_at = response.Updated_at
 	return responseDTO, nil
 }
-
 func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.StartRideResponse, error) {
 	l := ds.log.Action("service.start_ride")
 	l.Info("start", "ride_id", msg.Ride_id, "driver_id", msg.Driver_location.Driver_id)
 
-	dId, err := ds.GetDriverIdByRideId(ctx, msg.Ride_id)
-	if err != nil {
-		return dto.StartRideResponse{}, err
+	driverID := msg.Driver_location.Driver_id
+	if driverID == "" {
+		l.Error("empty driver_id", nil)
+		return dto.StartRideResponse{}, fmt.Errorf("missing driver_id")
 	}
 
-	msg.Driver_location.Driver_id = dId
-	// 1️⃣ получаем координаты pickup и текущие координаты водителя
-	pickupLat, pickupLng, driverLat, driverLng, err := ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
+	// 1️⃣ Проверка: есть ли активная поездка
+	active, err := ds.repositories.HasActiveRide(ctx, driverID)
+	if err != nil {
+		l.Error("check active ride failed", err)
+		return dto.StartRideResponse{}, fmt.Errorf("failed to check active rides: %w", err)
+	}
+	if active {
+		l.Warn("driver already has an active ride", "driver_id", driverID)
+		return dto.StartRideResponse{}, fmt.Errorf("driver already has an active ride")
+	}
+
+	// 2️⃣ Проверяем, что поездка действительно назначена этому водителю
+	dId, err := ds.GetDriverIdByRideId(ctx, msg.Ride_id)
+	if err != nil {
+		l.Error("cannot find driver for this ride", err)
+		return dto.StartRideResponse{}, fmt.Errorf("ride not found or has no driver assigned")
+	}
+	if dId != driverID {
+		l.Warn("ride-driver mismatch", "ride_driver", dId, "request_driver", driverID)
+		return dto.StartRideResponse{}, fmt.Errorf("forbidden: ride not assigned to this driver")
+	}
+
+	// 3️⃣ Получаем координаты pickup и водителя
+	pickupLat, pickupLng, driverLat, driverLng, err := ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, driverID)
 	if err != nil {
 		l.Error("get coords failed", err)
 		return dto.StartRideResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
@@ -97,17 +118,17 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 	dist := haversineMeters(pickupLat, pickupLng, driverLat, driverLng)
 	l.Info("distance calculated", "meters", fmt.Sprintf("%.2f", dist))
 
-	// 2️⃣ проверяем порог
+	// 4️⃣ Проверка расстояния (допустим, максимум 300 м)
 	if dist > maxPickupDistanceMeters {
 		l.Warn("driver too far from pickup", "distance_m", fmt.Sprintf("%.2f", dist))
 		return dto.StartRideResponse{}, fmt.Errorf("driver too far from pickup (%.1fm > %.0fm)", dist, maxPickupDistanceMeters)
 	}
 
-	// 3️⃣ запускаем транзакционный апдейт
+	// 5️⃣ Запускаем транзакционный апдейт
 	res, err := ds.repositories.StartRideTx(ctx, model.StartRide{
 		Ride_id: msg.Ride_id,
 		Driver_location: model.DriverCoordinates{
-			Driver_id: msg.Driver_location.Driver_id,
+			Driver_id: driverID,
 			Latitude:  driverLat,
 			Longitude: driverLng,
 		},
