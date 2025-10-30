@@ -112,12 +112,14 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 	err := json.Unmarshal(msg.Body, &m)
 	if err != nil {
 		log.Error("cannot unmarshal", err)
+		msg.Nack(false, false)
 		return err
 	}
 	fmt.Printf("Driver Response Message: %+v\n", string(msg.Body))
 	passengerId, rideNumber, err := n.rideService.SetStatusMatch(m.RideID, m.DriverID)
 	if err != nil {
 		log.Error("cannot set status to match", err)
+		msg.Nack(false, false)
 		return err
 	}
 	log.Info("ride status set to match", "ride-id", m.RideID, "driver-id", m.DriverID)
@@ -137,6 +139,7 @@ func (n *Notification) DriverResponse(msg amqp091.Delivery) error {
 	payload, err := json.Marshal(m1)
 	if err != nil {
 		log.Error("cannot marshal", err)
+		msg.Nack(false, false)
 		return err
 	}
 
@@ -157,11 +160,13 @@ func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 	err := json.Unmarshal(msg.Body, &m2)
 	if err != nil {
 		log.Error("cannot unmarshal", err)
+		msg.Nack(false, false)
 		return err
 	}
 	passengerId, estimatedTime, distance, err := n.rideService.EstimateDistance(m2.RideID, m2.Location.Lng, m2.Location.Lat, m2.SpeedKmh)
 	if err != nil {
 		log.Error("cannot estimate distance", err)
+		msg.Nack(false, false)
 		return err
 	}
 	m1 := websocketdto.DriverLocationUpdate{
@@ -177,6 +182,7 @@ func (n *Notification) LocationUpdate(msg amqp091.Delivery) error {
 	payload, err := json.Marshal(m1)
 	if err != nil {
 		log.Error("cannot marshal", err)
+		msg.Nack(false, false)
 		return err
 	}
 	m := websocketdto.Event{
@@ -197,12 +203,14 @@ func (n *Notification) DriverStatusUpdate(msg amqp091.Delivery) error {
 	err := json.Unmarshal(msg.Body, &driverStatusUpdateMessage)
 	if err != nil {
 		log.Error("cannot unmarshal", err)
+		msg.Nack(false, false)
 		return err
 	}
 
 	passengerId, data, err := n.rideService.UpdateRideStatus(driverStatusUpdateMessage)
 	if err != nil {
 		log.Error("cannot update ride status", err)
+		msg.Nack(false, false)
 		return err
 	}
 

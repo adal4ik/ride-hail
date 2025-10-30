@@ -203,7 +203,7 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 func (pr *RidesRepo) FindDistanceAndPassengerId(ctx context.Context, longitude, latitude float64, rideId string) (float64, string, error) {
 	q := `SELECT
 			ST_Distance(ST_MakePoint(c.longitude, c.latitude)::geography, ST_MakePoint($1, $2)::geography),
-			r.passenger_id, 
+			r.passenger_id
 		FROM rides r 
 		JOIN coordinates c ON r.pickup_coord_id = c.coord_id 
 		WHERE r.ride_id = $3`

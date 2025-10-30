@@ -381,7 +381,7 @@ func (rs *RidesService) EstimateDistance(rideId string, longitude, latitude, spe
 
 	distance, passengerId, err := rs.RidesRepo.FindDistanceAndPassengerId(ctx, longitude, latitude, rideId)
 	if err != nil {
-		log.Error("cannot get user", err)
+		log.Error("cannot get user or something", err)
 		return "", "", 0.0, err
 	}
 	if IsCloseToZero(speed) {
