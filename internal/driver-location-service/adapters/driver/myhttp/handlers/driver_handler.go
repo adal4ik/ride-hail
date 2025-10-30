@@ -194,6 +194,7 @@ func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
 	log.Info("decoded request", "ride_id", req.Ride_id)
 
 	// Запуск
+	req.Driver_location.Driver_id = driverID
 	res, err := dh.driverService.StartRide(ctx, req)
 	if err != nil {
 		JsonError(w, http.StatusInternalServerError, err)
