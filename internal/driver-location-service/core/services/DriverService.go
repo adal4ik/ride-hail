@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
@@ -11,6 +12,8 @@ import (
 	ports "ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
 )
+
+const maxPickupDistanceMeters = 100.0
 
 type DriverService struct {
 	repositories driven.IDriverRepository
@@ -70,24 +73,60 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	responseDTO.Updated_at = response.Updated_at
 	return responseDTO, nil
 }
+func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.StartRideResponse, error) {
+	l := ds.log.Action("service.start_ride")
+	l.Info("start", "ride_id", msg.Ride_id, "driver_id", msg.Driver_location.Driver_id)
 
-func (ds *DriverService) StartRide(ctx context.Context, requestMessage dto.StartRide) (dto.StartRideResponse, error) {
-	var requestedData model.StartRide
-	requestedData.Ride_id = requestMessage.Ride_id
-	requestedData.Driver_location.Driver_id = requestMessage.Driver_location.Driver_id
-	requestedData.Driver_location.Latitude = requestMessage.Driver_location.Latitude
-	requestedData.Driver_location.Longitude = requestMessage.Driver_location.Longitude
-	results, err := ds.repositories.StartRide(ctx, requestedData)
+	// 1️⃣ получаем координаты pickup и текущие координаты водителя
+	pickupLat, pickupLng, driverLat, driverLng, err :=
+		ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
 	if err != nil {
+		l.Error("get coords failed", err)
+		return dto.StartRideResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
+	}
+
+	dist := haversineMeters(pickupLat, pickupLng, driverLat, driverLng)
+	l.Info("distance calculated", "meters", fmt.Sprintf("%.2f", dist))
+
+	// 2️⃣ проверяем порог
+	if dist > maxPickupDistanceMeters {
+		l.Warn("driver too far from pickup", "distance_m", fmt.Sprintf("%.2f", dist))
+		return dto.StartRideResponse{}, fmt.Errorf("driver too far from pickup (%.1fm > %.0fm)", dist, maxPickupDistanceMeters)
+	}
+
+	// 3️⃣ запускаем транзакционный апдейт
+	res, err := ds.repositories.StartRideTx(ctx, model.StartRide{
+		Ride_id: msg.Ride_id,
+		Driver_location: model.DriverCoordinates{
+			Driver_id: msg.Driver_location.Driver_id,
+			Latitude:  driverLat,
+			Longitude: driverLng,
+		},
+	})
+	if err != nil {
+		l.Error("repository.StartRideTx failed", err)
 		return dto.StartRideResponse{}, err
 	}
 
-	var response dto.StartRideResponse
-	response.Message = "Ride started successfully"
-	response.Ride_id = results.Ride_id
-	response.Started_at = results.Started_at
-	response.Status = results.Status
-	return response, nil
+	l.Info("success", "ride_id", res.Ride_id, "status", res.Status, "started_at", res.Started_at)
+	return dto.StartRideResponse{
+		Message:    "Ride started successfully",
+		Ride_id:    res.Ride_id,
+		Status:     res.Status,
+		Started_at: res.Started_at,
+	}, nil
+}
+
+// Haversine formula: расстояние между двумя точками в метрах
+func haversineMeters(lat1, lng1, lat2, lng2 float64) float64 {
+	const R = 6371000.0 // радиус Земли в м
+	toRad := func(x float64) float64 { return x * (math.Pi / 180.0) }
+
+	dLat := toRad(lat2 - lat1)
+	dLng := toRad(lng2 - lng1)
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(toRad(lat1))*math.Cos(toRad(lat2))*math.Sin(dLng/2)*math.Sin(dLng/2)
+	return 2 * R * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }
 
 func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompleteForm) (dto.RideCompleteResponse, error) {

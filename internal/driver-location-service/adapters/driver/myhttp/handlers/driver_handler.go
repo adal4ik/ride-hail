@@ -250,36 +250,47 @@ func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) 
 	}
 	jsonResponse(w, http.StatusAccepted, res)
 }
-
 func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
-	log := dh.log.Action("Go Online")
+	log := dh.log.Action("driver.start_ride")
 	ctx := context.Background()
 
-	// Checking Driver For Existance
 	driverID := r.PathValue("driver_id")
-	if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err == nil && !ok {
-		log.Info("Driver not found")
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+	log.Info("request received", "driver_id", driverID)
+
+	// Проверяем, существует ли водитель
+	ok, err := dh.driverService.CheckDriverById(ctx, driverID)
+	if err != nil {
+		log.Error("check driver failed", err, "driver_id", driverID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
-	} else if err != nil {
-		log.Error("Failed to check the driver: ", err)
+	}
+	if !ok {
+		log.Warn("driver not found", "driver_id", driverID)
 		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
 		return
 	}
 
-	req := dto.StartRide{}
-
+	// Декодим JSON
+	var req dto.StartRide
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, http.StatusBadRequest, err)
+		log.Error("decode body failed", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
+	log.Info("decoded request", "ride_id", req.Ride_id)
+
+	// Запуск
 	res, err := dh.driverService.StartRide(ctx, req)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err)
+		log.Error("start ride failed", err, "ride_id", req.Ride_id, "driver_id", driverID)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	jsonResponse(w, http.StatusAccepted, res)
+	log.Info("ride started", "ride_id", res.Ride_id, "driver_id", driverID, "started_at", res.Started_at)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func (dh *DriverHandler) CompleteRide(w http.ResponseWriter, r *http.Request) {

@@ -80,3 +80,9 @@ type DriverInfo struct {
 	Longitude float64
 	Distance  float64
 }
+
+type DriverLocation struct {
+	Driver_id string  `json:"driver_id"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}

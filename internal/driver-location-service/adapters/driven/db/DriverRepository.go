@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"ride-hail/internal/driver-location-service/core/domain/model"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type DriverRepository struct {
@@ -144,6 +146,72 @@ func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.Sta
 	return response, nil
 }
 
+func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide) (model.StartRideResponse, error) {
+
+	conn := dr.db.GetConn()
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return model.StartRideResponse{}, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		} else {
+			_ = tx.Commit(ctx)
+		}
+	}()
+
+	// Проверка статуса
+	const qCheck = `
+		SELECT status
+		FROM rides
+		WHERE ride_id = $1 AND driver_id = $2
+		FOR UPDATE;
+	`
+	var current string
+	if err = tx.QueryRow(ctx, qCheck, req.Ride_id, req.Driver_location.Driver_id).Scan(&current); err != nil {
+		if err == pgx.ErrNoRows {
+			return model.StartRideResponse{}, fmt.Errorf("ride not found for this driver")
+		}
+		return model.StartRideResponse{}, err
+	}
+
+	switch current {
+	case "ARRIVED", "EN_ROUTE", "MATCHED":
+	default:
+		return model.StartRideResponse{}, fmt.Errorf("invalid status transition from %s", current)
+	}
+
+	// Обновляем ride
+	const qRide = `
+		UPDATE rides
+		SET status = 'IN_PROGRESS',
+		    started_at = NOW(),
+		    updated_at = NOW()
+		WHERE ride_id = $1;
+	`
+	if _, err = tx.Exec(ctx, qRide, req.Ride_id); err != nil {
+		return model.StartRideResponse{}, err
+	}
+
+	// Обновляем driver
+	const qDriver = `
+		UPDATE drivers
+		SET status = 'BUSY',
+		    updated_at = NOW()
+		WHERE driver_id = $1;
+	`
+	if _, err = tx.Exec(ctx, qDriver, req.Driver_location.Driver_id); err != nil {
+		return model.StartRideResponse{}, err
+	}
+
+	resp := model.StartRideResponse{
+		Ride_id:    req.Ride_id,
+		Status:     "BUSY",
+		Started_at: time.Now().Format(time.RFC3339),
+	}
+	return resp, nil
+}
 func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.RideCompleteForm) (model.RideCompleteResponse, error) {
 	var response model.RideCompleteResponse
 	response.Status = "AVAILABLE"
@@ -300,6 +368,31 @@ func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) 
 		return false, err
 	}
 	return ok, nil
+}
+
+func (dr *DriverRepository) GetPickupAndDriverCoords(
+	ctx context.Context,
+	rideID, driverID string,
+) (pickupLat, pickupLng, driverLat, driverLng float64, err error) {
+
+	const q = `
+		SELECT c_pickup.latitude, c_pickup.longitude,
+		       c_driver.latitude, c_driver.longitude
+		FROM rides r
+		JOIN coordinates c_pickup ON c_pickup.coord_id = r.pickup_coord_id
+		JOIN drivers d ON d.driver_id = r.driver_id
+		JOIN coordinates c_driver ON c_driver.coord_id = d.coord
+		WHERE r.ride_id = $1 AND d.driver_id = $2
+		LIMIT 1;
+	`
+	err = dr.db.GetConn().QueryRow(ctx, q, rideID, driverID).Scan(
+		&pickupLat, &pickupLng, &driverLat, &driverLng,
+	)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+
+	return pickupLat, pickupLng, driverLat, driverLng, nil
 }
 
 /*
