@@ -146,7 +146,7 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 		Timestamp:      time.Now().String(),
 	}
 
-	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "", rmMessage); err != nil {
+	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "location", rmMessage); err != nil {
 		fmt.Printf("Failed to publish location update: %v\n", err)
 	}
 }
