@@ -11,9 +11,10 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os/signal"
-	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	"syscall"
 	"time"
+
+	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 
 	"github.com/gorilla/websocket"
 )
@@ -70,7 +71,7 @@ type HttpRequest struct {
 type HttpResponse struct {
 	JWT    string `json:"jwt_access"`
 	Msg    string `json:"msg"`
-	UserId string `json:"userId"`
+	UserId string `json:"driverId"`
 }
 
 type Client struct {
@@ -214,14 +215,13 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 	}
 }
 
-
-func moveLinearly(current, target websocketdto.Location, steps int, delay time.Duration)  {
+func moveLinearly(current, target websocketdto.Location, steps int, delay time.Duration) {
 	dLat := (target.Latitude - current.Latitude) / float64(steps)
 	dLng := (target.Longitude - current.Longitude) / float64(steps)
 
 	for i := 0; i <= steps; i++ {
 		newLat := current.Latitude + dLat*float64(i)
-		newLng := current.Longitude+ dLng*float64(i)
+		newLng := current.Longitude + dLng*float64(i)
 		fmt.Printf("Step %d: Lat: %.6f, Lng: %.6f\n", i, newLat, newLng)
 		time.Sleep(delay)
 	}
@@ -241,9 +241,6 @@ func distance(a, b websocketdto.Location) float64 {
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
-	info("🚀 Starting driver simulator...")
-
 	HttpRequest := HttpRequest{
 		Username:      "demo-driver",
 		Email:         fmt.Sprintf("%s@mail.com", randGenerate()),

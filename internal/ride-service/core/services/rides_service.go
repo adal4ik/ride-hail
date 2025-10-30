@@ -94,7 +94,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 		Priority      int     = 1
 	)
 
-	switch req.RideType {
+	switch *req.RideType {
 	case ECONOMY:
 		EstimatedFare = ECONOMY_BASE + (distance * ECONOMY_RATE_PER_KM) + (DEFUALT_RATE_PER_MIN * ECONOMY_RATE_PER_MIN)
 	case PREMIUM:
@@ -118,7 +118,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 
 	m = model.Rides{
 		RideNumber:    RideNumber,
-		PassengerId:   req.PassengerId,
+		PassengerId:   *req.PassengerId,
 		Status:        "REQUESTED",
 		EstimatedFare: EstimatedFare,
 		FinalFare:     EstimatedFare,
@@ -126,22 +126,22 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	}
 
 	m.PickupCoordinate = model.Coordinates{
-		EntityId:        req.PassengerId,
+		EntityId:        *req.PassengerId,
 		EntityType:      "PASSENGER",
-		Address:         req.PickUpAddress,
-		Latitude:        req.PickUpLatitude,
-		Longitude:       req.PickUpLongitude,
+		Address:         *req.PickUpAddress,
+		Latitude:        *req.PickUpLatitude,
+		Longitude:       *req.PickUpLongitude,
 		FareAmount:      m.EstimatedFare,
 		DistanceKm:      distance,
 		DurationMinutes: 0,
 		IsCurrent:       true,
 	}
 	m.DestinationCoordinate = model.Coordinates{
-		EntityId:        req.PassengerId,
+		EntityId:        *req.PassengerId,
 		EntityType:      "PASSENGER",
-		Address:         req.DestinationAddress,
-		Latitude:        req.DestinationLatitude,
-		Longitude:       req.DestinationLongitude,
+		Address:         *req.DestinationAddress,
+		Latitude:        *req.DestinationLatitude,
+		Longitude:       *req.DestinationLongitude,
 		FareAmount:      m.EstimatedFare,
 		DistanceKm:      distance,
 		DurationMinutes: 0,
@@ -163,7 +163,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	rideMsg := messagebrokerdto.Ride{
 		RideID:         ride_id,
 		RideNumber:     RideNumber,
-		RideType:       req.RideType,
+		RideType:       *req.RideType,
 		EstimatedFare:  EstimatedFare,
 		MaxDistanceKm:  distance,
 		TimeoutSeconds: 30,
@@ -172,15 +172,15 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	}
 
 	rideMsg.PickupLocation = messagebrokerdto.Location{
-		Lat:     req.PickUpLatitude,
-		Lng:     req.PickUpLongitude,
-		Address: req.PickUpAddress,
+		Lat:     *req.PickUpLatitude,
+		Lng:     *req.PickUpLongitude,
+		Address: *req.PickUpAddress,
 	}
 
 	rideMsg.DestinationLocation = messagebrokerdto.Location{
-		Lat:     req.DestinationLatitude,
-		Lng:     req.DestinationLongitude,
-		Address: req.DestinationAddress,
+		Lat:     *req.DestinationLatitude,
+		Lng:     *req.DestinationLongitude,
+		Address: *req.DestinationAddress,
 	}
 
 	if err := rs.RidesBroker.PushMessageToRequest(rs.ctx, rideMsg); err != nil {
@@ -247,27 +247,35 @@ func validateRideRequest(req dto.RidesRequestDto) error {
 	return nil
 }
 
-func validatePassengerId(passengerId string) error {
-	if passengerId == "" {
+func validatePassengerId(passengerId *string) error {
+	if passengerId == nil || *passengerId == "" {
 		return ErrEmptyField
 	}
 
 	return nil
 }
 
-func validateLatLng(lat, lng float64) error {
-	if math.Abs(lat) > 90 {
+func validateLatLng(lat, lng *float64) error {
+	if lat == nil || lng == nil {
+		return ErrEmptyField
+	}
+
+	if lat == nil || math.Abs(*lat) > 90 {
 		return ErrInvalidLatitute
 	}
-	if math.Abs(lng) > 180 {
+	if lng == nil || math.Abs(*lng) > 180 {
 		return ErrInvalidLongitude
 	}
 
 	return nil
 }
 
-func validateAddress(s string) error {
-	if len(s) > 255 {
+func validateAddress(s *string) error {
+	if s == nil {
+		return ErrEmptyField
+	}
+
+	if len(*s) > 255 {
 		return ErrInvalidAdress
 	}
 	return nil
@@ -283,12 +291,12 @@ var AllowedRideTypes = map[string]bool{
 	"XL":      true,
 }
 
-func validateRideType(s string) error {
-	if s == "" {
+func validateRideType(s *string) error {
+	if s == nil || *s == "" {
 		return ErrEmptyField
 	}
-	s = strings.ToUpper(s)
-	if ok := AllowedRideTypes[s]; !ok {
+	sn := strings.ToUpper(*s)
+	if ok := AllowedRideTypes[sn]; !ok {
 		return fmt.Errorf("unknown ride type. Allowed ride types are: %v", getAllowedRideTypes())
 	}
 	return nil
