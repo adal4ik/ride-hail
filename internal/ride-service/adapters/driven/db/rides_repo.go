@@ -303,7 +303,7 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 	q2 := `
 	UPDATE rides
     SET 
-        status = '$2', 
+        status = $2, 
     WHERE ride_id = $1`
 
 	conn := rr.db.conn
@@ -349,7 +349,7 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 	}
 
 	// Perform the update
-	if _, err := tx.Exec(ctx, q2, msg.RideId); err != nil {
+	if _, err := tx.Exec(ctx, q2, msg.RideId, msg.Status); err != nil {
 		return "", "", websocketdto.DriverInfo{}, fmt.Errorf("failed to update status: %w", err)
 	}
 

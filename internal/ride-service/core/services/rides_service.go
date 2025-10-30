@@ -473,12 +473,23 @@ func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate
 	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*15)
 	defer cancel()
 
+	switch msg.Status {
+	case "AVAILABLE":
+		msg.Status = "COMPLETED"
+	case "BUSY":
+		msg.Status = "IN_PROGRESS"
+	case "COMPLETED":
+		msg.Status = "COMPLETED"
+	default:
+		log.Warn("msg status different")
+	}
+
 	passengerId, rideNumber, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg)
 	if err != nil {
 		log.Error("Failed to cancel ride", err)
 		return "", websocketdto.Event{}, err
 	}
-	if msg.Status == "COMPLETED" {
+	if msg.Status == "AVAILABLE" {
 		msg := messagebrokerdto.RideStatus{
 			RideId:    msg.RideId,
 			Status:    "COMPLETED",
