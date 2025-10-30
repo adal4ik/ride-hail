@@ -3,9 +3,10 @@ package db
 import (
 	"context"
 	"fmt"
+	"ride-hail/internal/driver-location-service/core/domain/model"
 	"time"
 
-	"ride-hail/internal/driver-location-service/core/domain/model"
+	"github.com/jackc/pgx/v5"
 )
 
 type DriverRepository struct {
@@ -276,14 +277,24 @@ func (dr *DriverRepository) CheckDriverById(ctx context.Context, driver_id strin
 
 func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error) {
 	Query := `
-		SELECT driver_id FROM rides WHERE ride_id = $1;
-	`
-	var driver_id string
+        SELECT driver_id FROM rides WHERE ride_id = $1;
+    `
+	var driver_id *string // Use a pointer to string
 	err := dr.db.conn.QueryRow(ctx, Query, ride_id).Scan(&driver_id)
+	// Check for errors
 	if err != nil {
-		return "", err
+		if err == pgx.ErrNoRows {
+			return "", pgx.ErrNoRows
+		}
+		return "", fmt.Errorf("error querying driver for ride_id %s: %w", ride_id, err)
 	}
-	return driver_id, nil
+
+	// If driver_id is nil, it means the value was NULL in the database
+	if driver_id == nil {
+		return "", pgx.ErrNoRows
+	}
+
+	return *driver_id, nil // Dereference the pointer to return the driver_id string
 }
 func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error) {
 	Query := `

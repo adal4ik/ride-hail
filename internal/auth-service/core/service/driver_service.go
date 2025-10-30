@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/domain/models"
-	"ride-hail/internal/auth-service/core/ports"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"time"
@@ -17,14 +17,14 @@ import (
 type DriverService struct {
 	ctx        context.Context
 	cfg        *config.Config
-	driverRepo ports.IDriverRepo
+	driverRepo *db.DriverRepo
 	mylog      mylogger.Logger
 }
 
 func NewDriverService(
 	ctx context.Context,
 	cfg *config.Config,
-	driverRepo ports.IDriverRepo,
+	driverRepo *db.DriverRepo,
 	mylogger mylogger.Logger,
 ) *DriverService {
 	return &DriverService{
@@ -39,11 +39,19 @@ func NewDriverService(
 func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistrationRequest) (string, string, error) {
 	mylog := ds.mylog.Action("Register")
 
-	if err := validateRegistration(ctx, regReq.Username, regReq.Email, regReq.Password); err != nil {
+	r := dto.UserRegistrationRequest{
+		Username:  regReq.Username,
+		Email:     regReq.Email,
+		Role:      "DRIVER",
+		Password:  regReq.Password,
+		UserAttrs: regReq.UserAttrs,
+	}
+
+	if err := validateUserRegistration(ctx, r); err != nil {
 		return "", "", err
 	}
 
-	if err := validateDriverRegistration(ctx, regReq.LicenseNumber, regReq.VehicleType, *regReq.VehicleAttrs); err != nil {
+	if err := validateDriverRegistration(ctx, regReq.LicenseNumber, regReq.VehicleType, regReq.VehicleAttrs); err != nil {
 		return "", "", err
 	}
 
@@ -58,18 +66,20 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 		LicenseNumber: regReq.LicenseNumber,
 		VehicleType:   regReq.VehicleType,
 		VehicleAttrs:  regReq.VehicleAttrs,
+		UserAttrs:     regReq.UserAttrs,
 	}
 	// add user to db
 	id, err := ds.driverRepo.Create(ctx, user)
 	if err != nil {
-		if errors.Is(err, ErrUsernameTaken) {
-			mylog.Warn("Failed to register, username already taken")
-			return "", "", err
-		}
-		if errors.Is(err, ErrEmailRegistered) {
+		if errors.Is(err, db.ErrEmailRegistered) {
 			mylog.Warn("Failed to register, email already registered")
 			return "", "", err
 		}
+		if errors.Is(err, db.ErrDriverLicenseNumberRegistered) {
+			mylog.Warn("Failed to register, driver licence number already registered")
+			return "", "", err
+		}
+
 		mylog.Error("Failed to save user in db", err)
 		return "", "", fmt.Errorf("cannot save user in db: %w", err)
 	}
@@ -91,21 +101,21 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 	return id, accessTokenString, nil
 }
 
-func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverRegistrationRequest) (string, error) {
+func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverAuthRequest) (string, error) {
 	mylog := ds.mylog.Action("Login")
 
 	if err := validateLogin(ctx, authReq.Email, authReq.Password); err != nil {
 		return "", err
 	}
 
-	user, err := ds.driverRepo.GetByEmail(ctx, authReq.Username)
+	user, err := ds.driverRepo.GetByEmail(ctx, authReq.Email)
 	if err != nil {
 		if errors.Is(err, ErrUnknownEmail) {
 			mylog.Warn("Failed to login, unknown username")
 			return "", err
 		}
-		mylog.Error("Failed to save user in db", err)
-		return "", fmt.Errorf("cannot save user in db: %w", err)
+		mylog.Error("Failed to get driver by id", err)
+		return "", fmt.Errorf("cannot get user from db: %w", err)
 	}
 
 	// Compare password hashes
@@ -116,7 +126,7 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverRegistrati
 
 	AccessTokenString := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":  user.DriverId,
-		"username": authReq.Username,
+		"username": user.Username,
 		"role":     "DRIVER",
 		"exp":      time.Now().Add(time.Hour * 27 * 7).Unix(),
 	})
@@ -129,12 +139,4 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverRegistrati
 
 	mylog.Info("User login successfully")
 	return accesssTokenString, nil
-}
-
-func (ds *DriverService) Logout(ctx context.Context, auth dto.DriverAuthRequest) error {
-	return nil
-}
-
-func (ds *DriverService) Protected(ctx context.Context, auth dto.DriverAuthRequest) error {
-	return nil
 }

@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
+	"ride-hail/internal/driver-location-service/core/ports/driver"
+	"ride-hail/internal/mylogger"
+
 	dto "ride-hail/internal/driver-location-service/core/domain/dto"
 	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	driven "ride-hail/internal/driver-location-service/core/ports/driven"
-	"ride-hail/internal/driver-location-service/core/ports/driver"
-	"ride-hail/internal/mylogger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -161,7 +162,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		return
 	}
 	if len(d.wsManager.GetConnectedDrivers()) == 0 {
-		log.Info("No drivers online to handle ride request (sleeping):", req.Ride_id)
+		log.Info("No drivers online to handle ride request (sleeping):", "ride-id", req.Ride_id)
 		time.Sleep(7 * time.Second)
 		requestDelivery.Nack(false, true)
 		return

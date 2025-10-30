@@ -12,5 +12,6 @@ CREATE TABLE IF NOT EXISTS drivers (
     total_rides INTEGER DEFAULT 0 CHECK (total_rides >= 0),
     total_earnings DECIMAL(10,2) DEFAULT 0 CHECK (total_earnings >= 0),
     status driver_status DEFAULT 'OFFLINE',
-    is_verified BOOLEAN DEFAULT false
+    is_verified BOOLEAN DEFAULT false,
+    user_attrs JSONB DEFAULT '{}'::JSONB
 );

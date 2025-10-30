@@ -14,5 +14,5 @@ type User struct {
 	PasswordHash []byte           `json:"password_hash"`
 	Role         string           `json:"role"`
 	Status       *string          `json:"status,omitempty"`
-	Attrs        *json.RawMessage `json:"attrs,omitempty"`
+	UserAttrs    *json.RawMessage `json:"user_attrs,omitempty"`
 }

@@ -12,7 +12,6 @@ type Driver struct {
 	Username      string           `json:"username"`
 	Email         string           `json:"email"`
 	PasswordHash  []byte           `json:"password_hash"`
-	Coord         *string          `json:"coord,omitempty"`
 	LicenseNumber string           `json:"license_number"`
 	VehicleType   string           `json:"vehicle_type"`
 	VehicleAttrs  *json.RawMessage `json:"vehicle_attrs,omitempty"`
@@ -21,4 +20,5 @@ type Driver struct {
 	TotalEarnings *float64         `json:"total_earnings,omitempty"`
 	Status        *string          `json:"status,omitempty"`
 	IsVerified    *bool            `json:"is_verified,omitempty"`
+	UserAttrs     *json.RawMessage `json:"user_attrs,omitempty"`
 }

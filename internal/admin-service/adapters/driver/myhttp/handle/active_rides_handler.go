@@ -2,13 +2,13 @@ package handle
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
-	"ride-hail/internal/admin-service/core/service"
-	"ride-hail/internal/mylogger"
 	"strconv"
 	"time"
+
+	"ride-hail/internal/admin-service/core/service"
+	"ride-hail/internal/mylogger"
 )
 
 type ActiveDrivesHandler struct {
@@ -25,19 +25,12 @@ func NewActiveDrivesHandler(mylog mylogger.Logger, activeDrivesService *service.
 
 func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userRole := r.Header.Get("X-Role")
-
-		if userRole != "ADMIN" {
-			jsonError(w, http.StatusForbidden, errors.New("only admins allowed to use this service"))
-			return
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), WaitTime*time.Second)
 		defer cancel()
 
 		// Get query parameters with defaults
-		pageStr := r.URL.Query().Get("page")
-		pageSizeStr := r.URL.Query().Get("page_size")
+		pageStr := r.PathValue("page")
+		pageSizeStr := r.PathValue("page_size")
 
 		// Set defaults if not provided
 		if pageStr == "" {
@@ -62,7 +55,7 @@ func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 
 		activeRides, err := dh.activeDrivesService.GetActiveRides(ctx, page, pageSize)
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, fmt.Errorf("failed to get active rides: %v", err))
+			JsonError(w, http.StatusInternalServerError, fmt.Errorf("failed to get active rides: %v", err))
 			return
 		}
 

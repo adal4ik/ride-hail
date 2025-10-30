@@ -22,8 +22,8 @@ func jsonResponse(w http.ResponseWriter, code int, data interface{}) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-// jsonError writes an error response as JSON with the specified HTTP status code.
-func jsonError(w http.ResponseWriter, code int, err error) {
+// JsonError writes an error response as JSON with the specified HTTP status code.
+func JsonError(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	if err == nil {

@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
+
+	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/mylogger"
-	"time"
 )
 
 type DriverHandler struct {
@@ -32,7 +34,7 @@ func (ah *DriverHandler) Register() http.HandlerFunc {
 
 		if err := json.NewDecoder(r.Body).Decode(&regReq); err != nil {
 			mylog.Error("Failed to parse auth", err)
-			jsonError(w, http.StatusBadRequest, errors.New("failed to parse JSON"))
+			JsonError(w, http.StatusBadRequest, errors.New("failed to parse JSON"))
 			return
 		}
 		mylog.Debug("registration data successfully parsed")
@@ -42,18 +44,18 @@ func (ah *DriverHandler) Register() http.HandlerFunc {
 
 		userId, accessToken, err := ah.driverService.Register(ctx, regReq)
 		if err != nil {
-			if errors.Is(err, ErrEmailRegistered) || errors.Is(err, ErrUsernameTaken) {
-				jsonError(w, http.StatusBadRequest, err)
+			if errors.Is(err, db.ErrEmailRegistered) || errors.Is(err, db.ErrDriverLicenseNumberRegistered) {
+				JsonError(w, http.StatusConflict, err)
 				return
 			}
-			jsonError(w, http.StatusInternalServerError, err)
+			JsonError(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		jsonResponse(w, http.StatusOK, map[string]string{
 			"msg":        fmt.Sprintf("%s registered successfully!", regReq.Username),
 			"jwt_access": accessToken,
-			"userId":     userId,
+			"driverId":   userId,
 		})
 		mylog.Info("Successfully registered!")
 	}
@@ -61,13 +63,13 @@ func (ah *DriverHandler) Register() http.HandlerFunc {
 
 func (ah *DriverHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var driverReq dto.DriverRegistrationRequest
+		var driverReq dto.DriverAuthRequest
 
 		mylog := ah.mylog.Action("Register")
 
 		if err := json.NewDecoder(r.Body).Decode(&driverReq); err != nil {
 			mylog.Error("Failed to parse auth", err)
-			jsonError(w, http.StatusBadRequest, errors.New("failed to parse JSON"))
+			JsonError(w, http.StatusBadRequest, errors.New("failed to parse JSON"))
 			return
 		}
 		mylog.Info("registration data successfully parsed")
@@ -77,25 +79,14 @@ func (ah *DriverHandler) Login() http.HandlerFunc {
 
 		accessToken, err := ah.driverService.Login(ctx, driverReq)
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, err)
+			JsonError(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		jsonResponse(w, http.StatusOK, map[string]string{
-			"msg":        fmt.Sprintf("%s login successfully!", driverReq.Username),
+			"msg":        "Successfully logged in",
 			"jwt_access": accessToken,
 		})
 		ah.mylog.Info("Successfully login!")
-	}
-}
-
-func (ah *DriverHandler) Logout() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-	}
-}
-
-func (ah *DriverHandler) Protected() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Its like function to test auth"))
 	}
 }
