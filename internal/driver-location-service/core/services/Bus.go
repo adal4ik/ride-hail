@@ -328,6 +328,12 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 		log.Info("Processing ride status update:", status.RideId)
 
 		statusDelivery.Ack(false)
+	case "COMPLETED":
+		err := d.driverService.PayDriverMoney(d.ctx, driverID, status.Final_fare)
+		if err != nil {
+			log.Error("Failed to pay money to driver:", err)
+			statusDelivery.Nack(false, false)
+		}
 	default:
 		log.Warn("Ride status message undefined (sending to trash queue)")
 		statusDelivery.Nack(false, false)

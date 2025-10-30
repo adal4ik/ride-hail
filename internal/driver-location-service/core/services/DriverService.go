@@ -320,3 +320,7 @@ func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string)
 	}
 	return nil
 }
+
+func (ds *DriverService) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
+	return ds.repositories.PayDriverMoney(ctx, driver_id, amount)
+}
