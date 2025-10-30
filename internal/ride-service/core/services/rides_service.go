@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 	"time"
 
 	"ride-hail/internal/mylogger"
@@ -64,21 +66,12 @@ func NewRidesService(ctx context.Context,
 func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDto, error) {
 	m := model.Rides{}
 	log := rs.mylog.Action("CreateRide")
+
+	if err := validateRideRequest(req); err != nil {
+		return dto.RidesResponseDto{}, err
+	}
+
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
-	defer cancel()
-
-	// count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
-
-	// if err != nil {
-	// 	log.Error("cannot check for duplication", err)
-	// 	return dto.RidesResponseDto{}, err
-	// }
-
-	// if count > 0 {
-	// 	return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
-	// }
-
-	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 	// estimate distance between pick up and destination points
 	distance, err := rs.RidesRepo.GetDistance(ctx, req)
@@ -207,6 +200,100 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	return res, nil
 }
 
+var (
+	ErrEmptyField       = errors.New("field id empty")
+	ErrInvalidLatitute  = errors.New("invalid latititude [-90, 90]")
+	ErrInvalidLongitude = errors.New("invalid longitude  [-180, 180]")
+	ErrInvalidAdress    = errors.New("maximum 255 characters allowed")
+)
+
+func validateRideRequest(req dto.RidesRequestDto) error {
+	if err := validatePassengerId(req.PassengerId); err != nil {
+		return fmt.Errorf("invalid passenger id: %v", err)
+	}
+
+	// ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
+	// defer cancel()
+
+	// count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
+
+	// if err != nil {
+	// 	log.Error("cannot check for duplication", err)
+	// 	return dto.RidesResponseDto{}, err
+	// }
+
+	// if count > 0 {
+	// 	return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
+	// }
+
+	if err := validateLatLng(req.PickUpLatitude, req.PickUpLongitude); err != nil {
+		return fmt.Errorf("invalid pickup coords: %v", err)
+	}
+	if err := validateAddress(req.PickUpAddress); err != nil {
+		return fmt.Errorf("invalid pickup address: %v", err)
+	}
+
+	if err := validateLatLng(req.DestinationLatitude, req.DestinationLongitude); err != nil {
+		return fmt.Errorf("invalid destination coords: %v", err)
+	}
+	if err := validateAddress(req.DestinationAddress); err != nil {
+		return fmt.Errorf("invalid destination address: %v", err)
+	}
+
+	if err := validateRideType(req.RideType); err != nil {
+		return fmt.Errorf("invalid ride type: %v", err)
+	}
+
+	return nil
+}
+
+func validatePassengerId(passengerId string) error {
+	if passengerId == "" {
+		return ErrEmptyField
+	}
+
+	return nil
+}
+
+func validateLatLng(lat, lng float64) error {
+	if math.Abs(lat) > 90 {
+		return ErrInvalidLatitute
+	}
+	if math.Abs(lng) > 180 {
+		return ErrInvalidLongitude
+	}
+
+	return nil
+}
+
+func validateAddress(s string) error {
+	if len(s) > 255 {
+		return ErrInvalidAdress
+	}
+	return nil
+}
+
+func getAllowedRideTypes() []string {
+	return []string{"ECONOMY", "PREMIUM", "XL"}
+}
+
+var AllowedRideTypes = map[string]bool{
+	"ECONOMY": true,
+	"PREMIUM": true,
+	"XL":      true,
+}
+
+func validateRideType(s string) error {
+	if s == "" {
+		return ErrEmptyField
+	}
+	s = strings.ToUpper(s)
+	if ok := AllowedRideTypes[s]; !ok {
+		return fmt.Errorf("unknown ride type. Allowed ride types are: %v", getAllowedRideTypes())
+	}
+	return nil
+}
+
 func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string) (dto.RideCancelResponseDto, error) {
 	log := rs.mylog.Action("CreateRide")
 
@@ -231,19 +318,21 @@ func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string)
 		Message:     "Ride cancelled successfully",
 	}
 
-	m2 := messagebrokerdto.RideStatus{
-		RideId:    rideId,
-		Status:    "CANCELLED",
-		Timestamp: cancelledAt,
-		DriverID:  driverId,
-	}
+	if driverId != "" {
+		m2 := messagebrokerdto.RideStatus{
+			RideId:    rideId,
+			Status:    "CANCELLED",
+			Timestamp: cancelledAt,
+			DriverID:  driverId,
+		}
 
-	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
-	defer cancel()
+		ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+		defer cancel()
 
-	err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
-	if err != nil {
-		return dto.RideCancelResponseDto{}, err
+		err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
+		if err != nil {
+			return dto.RideCancelResponseDto{}, err
+		}
 	}
 
 	return res, nil

@@ -3,6 +3,7 @@ package handle
 import (
 	"encoding/json"
 	"net/http"
+
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/ports"
@@ -25,13 +26,13 @@ func (rh *RidesHandler) CreateRide() http.HandlerFunc {
 		req := dto.RidesRequestDto{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, http.StatusBadRequest, err)
+			JsonError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		res, err := rh.ridesService.CreateRide(req)
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, err)
+			JsonError(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -46,13 +47,13 @@ func (rh *RidesHandler) CancelRide() http.HandlerFunc {
 		req := dto.RidesCancelRequestDto{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, http.StatusBadRequest, err)
+			JsonError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		res, err := rh.ridesService.CancelRide(req, rideId)
 		if err != nil {
-			jsonError(w, http.StatusInternalServerError, err)
+			JsonError(w, http.StatusInternalServerError, err)
 			return
 		}
 

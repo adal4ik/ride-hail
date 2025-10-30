@@ -3,17 +3,20 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
+
+	"ride-hail/internal/driver-location-service/core/ports/driver"
+	"ride-hail/internal/mylogger"
 
 	dto "ride-hail/internal/driver-location-service/core/domain/dto"
 	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	driven "ride-hail/internal/driver-location-service/core/ports/driven"
-	"ride-hail/internal/driver-location-service/core/ports/driver"
-	"ride-hail/internal/mylogger"
 
+	"github.com/jackc/pgx/v5"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -148,7 +151,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		return
 	}
 	if len(d.wsManager.GetConnectedDrivers()) == 0 {
-		log.Info("No drivers online to handle ride request (sleeping):", req.Ride_id)
+		log.Info("No drivers online to handle ride request (sleeping):", "ride-id", req.Ride_id)
 		time.Sleep(7 * time.Second)
 		requestDelivery.Nack(false, true)
 		return
@@ -319,6 +322,11 @@ func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseM
 func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideStatus")
 	var status websocketdto.RideResponseMessage
+	if len(statusDelivery.Body) == 0 {
+		log.Error("Received empty ride request message", fmt.Errorf("empty ride request message"))
+		statusDelivery.Nack(false, true)
+		return
+	}
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
 		log.Error("Failed to unmarshal the ride response message: ", err)
 		statusDelivery.Nack(false, true)
@@ -327,7 +335,11 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log.Info("Received ride status update:", status.RideID, status)
 	driverID, err := d.driverService.GetDriverIdByRideId(context.Background(), status.RideID)
 	if err != nil {
-		log.Error("Failed to get driver ID by ride ID:", err, status.RideID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Info("Successfully cancelled requested ride (without driver)", "ride-id", status.RideID)
+			statusDelivery.Ack(false)
+		}
+		log.Error("Failed to get driver ID by ride ID:", err, "ride-id", status.RideID)
 		statusDelivery.Nack(false, true)
 		return
 	}
