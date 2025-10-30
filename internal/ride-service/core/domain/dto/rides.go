@@ -3,17 +3,14 @@ package dto
 // API Transfer data
 
 type RidesRequestDto struct {
-	PassengerId string `json:"passenger_id"`
-
-	PickUpLatitude  float64 `json:"pickup_latitude"`
-	PickUpLongitude float64 `json:"pickup_longitude"`
-	PickUpAddress   string  `json:"pickup_address"`
-
-	DestinationLatitude  float64 `json:"destination_latitude"`
-	DestinationLongitude float64 `json:"destination_longitude"`
-	DestinationAddress   string  `json:"destination_address"`
-
-	RideType string `json:"ride_type"`
+	PassengerId          *string  `json:"passenger_id"`
+	PickUpLatitude       *float64 `json:"pickup_latitude"`
+	PickUpLongitude      *float64 `json:"pickup_longitude"`
+	PickUpAddress        *string  `json:"pickup_address"`
+	DestinationLatitude  *float64 `json:"destination_latitude"`
+	DestinationLongitude *float64 `json:"destination_longitude"`
+	DestinationAddress   *string  `json:"destination_address"`
+	RideType             *string  `json:"ride_type"`
 }
 
 type RidesResponseDto struct {

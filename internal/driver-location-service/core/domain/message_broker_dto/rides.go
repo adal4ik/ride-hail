@@ -26,6 +26,6 @@ type RideStatus struct {
 	RideId        string    `json:"ride_id"`
 	Status        string    `json:"status"`
 	Timestamp     time.Time `json:"timestamp"`
-	DriverID      string    `json:"driver_id"`
+	Final_fare    float64   `json:"final_fare,omitempty"`
 	CorrelationID string    `json:"correlation_id"`
 }

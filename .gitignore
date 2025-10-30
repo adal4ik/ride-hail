@@ -17,3 +17,7 @@ vendor/
 .idea/
 .vscode/
 .DS_Store
+
+*.txt
+
+v.json

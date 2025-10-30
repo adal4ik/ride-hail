@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-
 	"ride-hail/internal/ride-service/core/domain/dto"
-	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	"ride-hail/internal/ride-service/core/domain/model"
-	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
+
+	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
+
+	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -261,9 +262,9 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (str
 	}
 
 	// Return driverId only if it's valid
-	if !driverId.Valid {
-		return "", fmt.Errorf("driver id not found")
-	}
+	// if !driverId.Valid {
+	// 	return "", fmt.Errorf("driver id not found")
+	// }
 
 	// Validate business rules
 	if status == "CANCELLED" {

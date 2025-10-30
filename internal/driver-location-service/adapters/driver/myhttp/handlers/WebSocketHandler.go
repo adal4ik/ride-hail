@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ride-hail/internal/driver-location-service/adapters/driven/ws"
+	"ride-hail/internal/driver-location-service/core/domain/dto"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	"ride-hail/internal/driver-location-service/core/ports/driver"
 	"ride-hail/internal/mylogger"
@@ -50,14 +51,13 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 
 	fromDriver := make(chan []byte, 100)
 	toDriver := make(chan []byte, 100)
-
 	if err := h.wsManager.RegisterDriver(r.Context(), driverID, fromDriver, toDriver); err != nil {
 		log.Error("Failed to register driver:", err, driverID)
 		http.Error(w, "Failed to register driver", http.StatusInternalServerError)
 		return
 	}
 	defer h.wsManager.UnregisterDriver(r.Context(), driverID)
-	log.Info("Driver registered:", driverID)
+	log.Info("Driver registered:", "driver-id", driverID)
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -71,7 +71,6 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
-	fmt.Println("Yes Im here")
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
@@ -129,39 +128,49 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 				}
 				continue
 			}
-
-			if err := h.validateMessage(message); err != nil {
+			var userMessageType string
+			if userMessageType, err = h.validateMessage(message); err != nil {
 				h.sendError(conn, "invalid_message", err.Error())
 				log.Warn("Invalid message from driver:", driverID, err)
 				continue
 			}
 
-			select {
-			case incoming <- message:
-				// loginc
-			case <-ctx.Done():
-				return
-			case <-time.After(100 * time.Millisecond):
-				h.sendError(conn, "system_busy", "System is busy, please try again")
+			switch userMessageType {
+			case websocketdto.MessageTypeRideResponse:
+				log.Info("Received ride response from driver:", driverID)
+				incoming <- message
+			case websocketdto.MessageTypeLocationUpdate:
+				log.Info("Received location update:", driverID)
+				var driverMessage dto.DriverMessage
+				driverMessage.DriverID = driverID
+				driverMessage.Message = message
+				h.wsManager.FanIn <- driverMessage
+			default:
+				log.Warn("Unhandled message type from driver:", driverID, messageType)
 			}
+
 		}
 	}
 }
 
 func (h *WebSocketHandler) handleOutgoingMessages(ctx context.Context, driverID string, conn *websocket.Conn, outgoing <-chan []byte) {
+	log := h.log.Action("handleOutgoingMessages")
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case message, ok := <-outgoing:
+			log.Info("Sending message to driver:", driverID)
 			if !ok {
 				return
 			}
 
 			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				log.Error("Error sending message to driver:", err, driverID)
 				return
 			}
+			log.Info("Message sent to driver successfully:", driverID)
 		}
 	}
 }
@@ -213,28 +222,28 @@ func (h *WebSocketHandler) handleAuthentication(driverID string, message []byte)
 	return true
 }
 
-func (h *WebSocketHandler) validateMessage(message []byte) error {
+func (h *WebSocketHandler) validateMessage(message []byte) (string, error) {
 	var baseMsg websocketdto.WebSocketMessage
 	if err := json.Unmarshal(message, &baseMsg); err != nil {
-		return err
+		return "", err
 	}
 
 	switch baseMsg.Type {
 	case websocketdto.MessageTypeRideResponse:
 		var rideResp websocketdto.RideResponseMessage
 		if err := json.Unmarshal(message, &rideResp); err != nil {
-			return err
+			return "", err
 		}
-		return h.validateRideResponse(rideResp)
+		return baseMsg.Type, h.validateRideResponse(rideResp)
 
 	case websocketdto.MessageTypeLocationUpdate:
 		var locUpdate websocketdto.LocationUpdateMessage
 		if err := json.Unmarshal(message, &locUpdate); err != nil {
-			return err
+			return "", err
 		}
-		return h.validateLocationUpdate(locUpdate)
+		return baseMsg.Type, h.validateLocationUpdate(locUpdate)
 	default:
-		return fmt.Errorf("unknown message type: %s", baseMsg.Type)
+		return "", fmt.Errorf("unknown message type: %s", baseMsg.Type)
 	}
 }
 
