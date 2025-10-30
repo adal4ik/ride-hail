@@ -23,15 +23,11 @@ a:
 
 .PHONY: run
 run:
-	@echo "Specify service: make run SERVICE=<service>"
-
-.PHONY: run-service
-run-service:
-ifeq ($(SERVICE),)
+ifeq ($(s),)
 	@echo "Error: No service specified"
 	@exit 1
 endif
-	$(BIN_DIR)/$(BIN_NAME) --mode=$(SERVICE)
+	$(BIN_DIR)/$(BIN_NAME) --mode=$(s)
 
 .PHONY: run-all
 run-all:
@@ -45,3 +41,7 @@ kill-rh:
 .PHONY: help
 help:
 	@echo "Targets: b, u, d, a, run, run-all, run-all-tmux, help"
+
+.PHONY: helper
+helper:
+	go run ./cmd/helper/main.go

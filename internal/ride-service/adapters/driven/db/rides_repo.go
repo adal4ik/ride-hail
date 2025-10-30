@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-
 	"ride-hail/internal/ride-service/core/domain/dto"
-	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	"ride-hail/internal/ride-service/core/domain/model"
-	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
+
+	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
+
+	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -173,7 +174,12 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 	}
 	defer tx.Rollback(ctx) // Safe rollback if not committed
 
-	q := `UPDATE rides SET driver_id = $1 WHERE ride_id = $2`
+	q := `UPDATE 
+			rides 
+		SET 
+			driver_id = $1,
+			status = 'MATCHED'
+		WHERE ride_id = $2`
 	_, err = tx.Exec(ctx, q, driverID, rideID)
 	if err != nil {
 		return "", "", err
@@ -183,7 +189,7 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 		passengerId string = ""
 		rideNumber  string = ""
 	)
-
+	
 	q = `SELECT passenger_id, ride_number FROM rides WHERE ride_id = $1`
 	row := tx.QueryRow(ctx, q, rideID)
 
@@ -256,9 +262,9 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (str
 	}
 
 	// Return driverId only if it's valid
-	if !driverId.Valid {
-		return "", fmt.Errorf("driver id not found")
-	}
+	// if !driverId.Valid {
+	// 	return "", fmt.Errorf("driver id not found")
+	// }
 
 	// Validate business rules
 	if status == "CANCELLED" {
@@ -353,4 +359,24 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 	}
 
 	return passengerId.String, rideNumber.String, driverInfo, nil
+}
+
+func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
+	q := `UPDATE rides SET status = 'CANCELLED' WHERE status IN ('REQUESTED', 'MATCHED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS')`
+	conn := pr.db.conn
+
+	// tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	// if err != nil {
+	// 	return err
+	// }
+
+	_, err := conn.Exec(ctx, q)
+	if err != nil {
+
+		// tx.Rollback(ctx)
+		return  err
+	}
+
+	// return tx.Commit(ctx)
+	return nil
 }

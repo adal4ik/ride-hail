@@ -54,9 +54,9 @@ func (r *RabbitMQ) PublishJSON(ctx context.Context, exchange, routingKey string,
 		return errors.New("amqp closed")
 	}
 	r.log.Action("publish").Info("publishing message to exchange %s with routing key %s", exchange, routingKey)
-	if err := r.ensureExchange(exchange); err != nil {
-		return fmt.Errorf("declare exchange: %w", err)
-	}
+	// if err := r.ensureExchange(exchange); err != nil {
+	// 	return fmt.Errorf("declare exchange: %w", err)
+	// }
 	body, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)

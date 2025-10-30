@@ -3,9 +3,10 @@ package db
 import (
 	"context"
 	"fmt"
+	"ride-hail/internal/driver-location-service/core/domain/model"
 	"time"
 
-	"ride-hail/internal/driver-location-service/core/domain/model"
+	"github.com/jackc/pgx/v5"
 )
 
 type DriverRepository struct {
@@ -85,7 +86,7 @@ func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (mo
 func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string, newLocation model.NewLocation) (model.NewLocationResponse, error) {
 	NewLocationQuery := `
 		INSERT INTO location_history(coord_id, driver_id, latitude, longitude, accuracy_meters, speed_kmh, heading_degrees, ride_id)
-		VALUE (
+		VALUES (
 			(SELECT coord_id FROM coordinates WHERE entity_id = $1),
 			$1,
 			$2,
@@ -93,8 +94,7 @@ func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string
 			$4,
 			$5,
 			$6,
-			$7,
-			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'));
+			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'))
 		)
 	`
 	_, err := dr.db.GetConn().Exec(ctx, NewLocationQuery, driver_id, newLocation.Latitude, newLocation.Longitude, newLocation.Accuracy_meters, newLocation.Speed_kmh, newLocation.Heading_Degrees)
@@ -236,7 +236,6 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 		fmt.Println("Reading rows", dInfo)
 		result = append(result, dInfo)
 	}
-	fmt.Println("Found drivers from DB:", len(result))
 	return result, nil
 }
 
@@ -273,6 +272,65 @@ func (dr *DriverRepository) CheckDriverById(ctx context.Context, driver_id strin
 		return false, err
 	}
 	return exists, nil
+}
+
+func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error) {
+	Query := `
+        SELECT driver_id FROM rides WHERE ride_id = $1;
+    `
+	var driver_id *string // Use a pointer to string
+	err := dr.db.conn.QueryRow(ctx, Query, ride_id).Scan(&driver_id)
+	// Check for errors
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", pgx.ErrNoRows
+		}
+		return "", fmt.Errorf("error querying driver for ride_id %s: %w", ride_id, err)
+	}
+
+	// If driver_id is nil, it means the value was NULL in the database
+	if driver_id == nil {
+		return "", pgx.ErrNoRows
+	}
+
+	return *driver_id, nil // Dereference the pointer to return the driver_id string
+}
+func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error) {
+	Query := `
+		SELECT ride_id FROM rides WHERE driver_id = $1 AND status NOT IN ('CANCELLED', 'COMPLETED');
+	`
+	var ride_id string
+	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&ride_id)
+	if err != nil {
+		return "", err
+
+	}
+	return ride_id, nil
+}
+
+func (dr *DriverRepository) GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error) {
+	Query := `
+		SELECT r.ride_id, u.username, u.user_attrs ,
+		       pc.latitude AS pickup_latitude, pc.longitude AS pickup_longitude, pc.address AS pickup_address
+		FROM rides r	
+		JOIN users u ON r.passenger_id = u.user_id
+		JOIN coordinates pc ON r.pickup_coord_id = pc.coord_id
+		WHERE r.ride_id = $1;
+		`
+	var details model.RideDetails
+	err := dr.db.conn.QueryRow(ctx, Query, ride_id).Scan(
+		&details.Ride_id,
+		&details.PassengerName,
+		&details.PassengerAttrs,
+		&details.PickupLocation.Latitude,
+		&details.PickupLocation.Longitude,
+		&details.PickupLocation.Address,
+	)
+	if err != nil {
+		fmt.Println(err.Error())
+		return model.RideDetails{}, err
+	}
+	return details, nil
 }
 
 /*

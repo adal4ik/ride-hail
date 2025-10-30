@@ -16,4 +16,7 @@ type IDriverRepository interface {
 	CalculateRideDetails(ctx context.Context, driverLocation model.Location, passagerLocation model.Location) (float64, error)
 	UpdateDriverStatus(ctx context.Context, driver_id string, status string) error
 	CheckDriverById(ctx context.Context, driver_id string) (bool, error)
+	GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error)
+	GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error)
+	GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error)
 }

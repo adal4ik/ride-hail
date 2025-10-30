@@ -159,10 +159,22 @@ type VehicleDetail struct {
 // Driver Match Response
 
 type DriverMatchResponse struct {
-	Ride_id                   string     `json:"ride_id"`
-	Driver_id                 string     `json:"driver_id"`
-	Accepted                  bool       `json:"accepted"`
-	Estimated_arrival_minutes int        `json:"estimated_arrival_minutes"`
-	Driver_location           Location   `json:"driver_location"`
-	Driver_info               DriverInfo `json:"driver_info"`
+	Ride_id                   string                `json:"ride_id"`
+	Driver_id                 string                `json:"driver_id"`
+	Accepted                  bool                  `json:"accepted"`
+	Estimated_arrival_minutes int                   `json:"estimated_arrival_minutes"`
+	Driver_location           Location              `json:"driver_location"`
+	Driver_info               DriverInfoForResponse `json:"driver_info"`
+}
+
+type DriverInfoForResponse struct {
+	Name    string        `json:"name"`
+	Vehicle VehicleDetail `json:"vehicle"`
+	Rating  float64       `json:"rating"`
+}
+
+// Driver Message
+type DriverMessage struct {
+	DriverID string
+	Message  []byte
 }
