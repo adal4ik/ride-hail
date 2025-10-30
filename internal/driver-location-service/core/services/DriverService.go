@@ -166,3 +166,18 @@ func (d *DriverService) GetDriverIdByRideId(ctx context.Context, ride_id string)
 	// For example, you might query the database to find the driver associated with the given ride ID.
 	return d.repositories.GetDriverIdByRideId(ctx, ride_id)
 }
+
+func (d *DriverService) CheckDriverStatus(ctx context.Context, driver_id string) (string, error) {
+	return d.repositories.CheckDriverStatus(ctx, driver_id)
+}
+
+func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string) error {
+	ok, err := ds.repositories.HasActiveRide(ctx, driverID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return model.ErrNoActiveRide
+	}
+	return nil
+}

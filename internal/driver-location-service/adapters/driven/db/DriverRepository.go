@@ -295,6 +295,31 @@ func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id str
 	}
 
 	return *driver_id, nil // Dereference the pointer to return the driver_id string
+func (dr *DriverRepository) CheckDriverStatus(ctx context.Context, driver_id string) (string, error) {
+	Query := `
+		SELECT status FROM drivers WHERE driver_id = $1;
+	`
+	var status string
+	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&status)
+	if err != nil {
+		return "", err
+	}
+	return status, nil
+}
+
+func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) (bool, error) {
+	const q = `
+        SELECT EXISTS (
+            SELECT 1
+            FROM rides
+            WHERE driver_id = $1
+            AND status IN ('EN_ROUTE','ARRIVED','IN_PROGRESS')
+        )`
+	var ok bool
+	if err := dr.db.GetConn().QueryRow(ctx, q, driverID).Scan(&ok); err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 /*
