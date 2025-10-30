@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	"ride-hail/internal/ride-service/core/ports"
@@ -189,7 +190,7 @@ func (rr *RidesRepo) ChangeStatusMatch(ctx context.Context, rideID, driverID str
 		passengerId string = ""
 		rideNumber  string = ""
 	)
-	
+
 	q = `SELECT passenger_id, ride_number FROM rides WHERE ride_id = $1`
 	row := tx.QueryRow(ctx, q, rideID)
 
@@ -288,6 +289,7 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (str
 func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.DriverStatusUpdate) (string, string, websocketdto.DriverInfo, error) {
 	q1 := `
     SELECT  
+		r.driver_id,
         r.passenger_id, 
         r.ride_number,
 		d.username,
@@ -314,7 +316,6 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 		passengerId sql.NullString
 		rideNumber  sql.NullString
 	)
-	driverInfo.DriverID = msg.DriverId
 
 	// Start transaction first to maintain consistency
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
@@ -326,6 +327,7 @@ func (rr *RidesRepo) ChangeStatus(ctx context.Context, msg messagebrokerdto.Driv
 	// first get the passenger id
 	row := tx.QueryRow(ctx, q1, msg.RideId)
 	if err := row.Scan(
+		&driverInfo.DriverID,
 		&passengerId,
 		&rideNumber,
 		&driverInfo.Name,
@@ -372,9 +374,8 @@ func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
 
 	_, err := conn.Exec(ctx, q)
 	if err != nil {
-
 		// tx.Rollback(ctx)
-		return  err
+		return err
 	}
 
 	// return tx.Commit(ctx)

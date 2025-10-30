@@ -95,8 +95,7 @@ func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string
 			$4,
 			$5,
 			$6,
-			$7,
-			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'));
+			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'))
 		);
 	`
 	_, err := dr.db.GetConn().Exec(ctx, NewLocationQuery, driver_id, newLocation.Latitude, newLocation.Longitude, newLocation.Accuracy_meters, newLocation.Speed_kmh, newLocation.Heading_Degrees)

@@ -273,7 +273,7 @@ func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.
 		Timestamp:      time.Now().String(),
 	}
 
-	if err := d.broker.PublishJSON(ctx, "location_fanout", "", locationUpdate); err != nil {
+	if err := d.broker.PublishJSON(ctx, "location_fanout", "location", locationUpdate); err != nil {
 		fmt.Printf("Failed to publish location update: %v\n", err)
 	}
 }
@@ -309,6 +309,7 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideStatus")
 	var status messagebrokerdto.RideStatus
 	log.Info("look at me", "body", statusDelivery.Body)
+	defer statusDelivery.Ack(false)
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
 		log.Error("Failed to unmarshal the ride response message: ", err)
 		statusDelivery.Nack(false, false)

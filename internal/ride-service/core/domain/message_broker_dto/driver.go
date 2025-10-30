@@ -35,6 +35,6 @@ type DriverStatusUpdate struct {
 	Status        string  `json:"status"`
 	Timestamp     string  `json:"timestamp"`
 	Final_fare    float64 `json:"final_fare,omitempty"`
-	DriverId      string  `json:"driver_id"`
 	CorrelationID string  `json:"correlation_id"`
+	// DriverId      string  `json:"driver_id"`
 }
