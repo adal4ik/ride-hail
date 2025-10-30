@@ -5,7 +5,7 @@ import "time"
 type Location struct {
 	Lat     float64 `json:"lat"`
 	Lng     float64 `json:"lng"`
-	Address string  `json:"address"`
+	Address string  `json:"addres,omitempty"`
 }
 
 // Driver Match Request → ride_topic exchange → ride.request.{ride_type}
@@ -20,7 +20,6 @@ type Ride struct {
 	TimeoutSeconds      int      `json:"timeout_seconds"`
 	CorrelationID       string   `json:"correlation_id"`
 }
-
 
 // Status Update → ride_topic exchange → ride.status.{status}
 type RideStatus struct {

@@ -160,3 +160,9 @@ func (d *DriverService) UpdateDriverStatus(ctx context.Context, driver_id string
 func (d *DriverService) CheckDriverById(ctx context.Context, driver_id string) (bool, error) {
 	return d.repositories.CheckDriverById(ctx, driver_id)
 }
+
+func (d *DriverService) GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error) {
+	// This is a placeholder implementation. Replace with actual logic to get driver ID by ride ID.
+	// For example, you might query the database to find the driver associated with the given ride ID.
+	return d.repositories.GetDriverIdByRideId(ctx, ride_id)
+}

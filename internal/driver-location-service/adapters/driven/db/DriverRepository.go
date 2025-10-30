@@ -236,7 +236,6 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 		fmt.Println("Reading rows", dInfo)
 		result = append(result, dInfo)
 	}
-	fmt.Println("Found drivers from DB:", len(result))
 	return result, nil
 }
 
@@ -273,6 +272,18 @@ func (dr *DriverRepository) CheckDriverById(ctx context.Context, driver_id strin
 		return false, err
 	}
 	return exists, nil
+}
+
+func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error) {
+	Query := `
+		SELECT driver_id FROM rides WHERE ride_id = $1;
+	`
+	var driver_id string
+	err := dr.db.conn.QueryRow(ctx, Query, ride_id).Scan(&driver_id)
+	if err != nil {
+		return "", err
+	}
+	return driver_id, nil
 }
 
 /*
