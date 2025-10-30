@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/domain/models"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"time"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -55,14 +56,10 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 		return "", "", err
 	}
 
-	hashedPassword, err := hashPassword(regReq.Password)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to hash password: %v", err)
-	}
 	user := models.Driver{
 		Username:      regReq.Username,
 		Email:         regReq.Email,
-		PasswordHash:  hashedPassword,
+		Password:      regReq.Password,
 		LicenseNumber: regReq.LicenseNumber,
 		VehicleType:   regReq.VehicleType,
 		VehicleAttrs:  regReq.VehicleAttrs,
@@ -119,7 +116,7 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverAuthReques
 	}
 
 	// Compare password hashes
-	if !checkPassword(user.PasswordHash, authReq.Password) {
+	if user.Password != authReq.Password {
 		mylog.Debug("Failed to login, unknown password")
 		return "", ErrPasswordUnknown
 	}

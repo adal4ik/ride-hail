@@ -11,7 +11,7 @@ type Driver struct {
 	UpdatedAt     time.Time        `json:"updated_at"`
 	Username      string           `json:"username"`
 	Email         string           `json:"email"`
-	PasswordHash  []byte           `json:"password_hash"`
+	Password      string           `json:"password"`
 	LicenseNumber string           `json:"license_number"`
 	VehicleType   string           `json:"vehicle_type"`
 	VehicleAttrs  *json.RawMessage `json:"vehicle_attrs,omitempty"`
