@@ -150,7 +150,6 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "location", rmMessage); err != nil {
 		log.Error("Failed to Publish location_fanout", err)
 	}
-
 }
 
 func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
@@ -168,7 +167,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		requestDelivery.Nack(false, true)
 		return
 	}
-	log.Info("Processing ride request:", req.Ride_id)
+	log.Info("Processing ride request:", "ride-id", req.Ride_id)
 	ctx := context.Background()
 	allDrivers, err := d.driverService.FindAppropriateDrivers(ctx,
 		req.Pickup_location.Lng,

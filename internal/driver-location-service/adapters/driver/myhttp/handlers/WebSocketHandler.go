@@ -57,7 +57,7 @@ func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.
 		return
 	}
 	defer h.wsManager.UnregisterDriver(r.Context(), driverID)
-	log.Info("Driver registered:", driverID)
+	log.Info("Driver registered:", "driver-id", driverID)
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
