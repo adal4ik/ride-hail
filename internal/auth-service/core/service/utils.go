@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"ride-hail/internal/auth-service/core/domain/dto"
 	"strings"
+
+	"ride-hail/internal/auth-service/core/domain/dto"
 
 	"golang.org/x/crypto/bcrypt"
 )

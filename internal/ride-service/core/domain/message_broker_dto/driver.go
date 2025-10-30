@@ -23,9 +23,18 @@ type RideAcceptance struct {
 	DriverInfo              DriverInfo `json:"driver_info"`
 }
 
+// type DriverStatusUpdate struct {
+// 	DriverId  string `json:"driver_id"`
+// 	Status    string `json:"status"`
+// 	RideId    string `json:"ride_id"`
+// 	Timestamp string `json:"timestamp"`
+// }
+
 type DriverStatusUpdate struct {
-	DriverId  string `json:"driver_id"`
-	Status    string `json:"status"`
-	RideId    string `json:"ride_id"`
-	Timestamp string `json:"timestamp"`
+	RideId        string  `json:"ride_id"`
+	Status        string  `json:"status"`
+	Timestamp     string  `json:"timestamp"`
+	Final_fare    float64 `json:"final_fare,omitempty"`
+	DriverId      string  `json:"driver_id"`
+	CorrelationID string  `json:"correlation_id"`
 }

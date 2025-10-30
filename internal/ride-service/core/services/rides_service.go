@@ -325,21 +325,19 @@ func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string)
 		Message:     "Ride cancelled successfully",
 	}
 
-	if driverId != "" {
-		m2 := messagebrokerdto.RideStatus{
-			RideId:    rideId,
-			Status:    "CANCELLED",
-			Timestamp: cancelledAt,
-			DriverID:  driverId,
-		}
+	m2 := messagebrokerdto.RideStatus{
+		RideId:    rideId,
+		Status:    "CANCELLED",
+		Timestamp: cancelledAt,
+		DriverID:  driverId,
+	}
 
-		ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
-		defer cancel()
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
 
-		err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
-		if err != nil {
-			return dto.RideCancelResponseDto{}, err
-		}
+	err = rs.RidesBroker.PushMessageToStatus(ctx, m2)
+	if err != nil {
+		return dto.RideCancelResponseDto{}, err
 	}
 
 	return res, nil

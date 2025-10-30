@@ -91,7 +91,7 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 	go func() {
 		<-authTimeout.C
 		if !authenticated {
-			log.Warn("Authentication timeout for driver:", driverID)
+			log.Warn("Authentication timeout for driver:", "driver-id", driverID)
 			conn.Close()
 		}
 	}()
@@ -160,17 +160,17 @@ func (h *WebSocketHandler) handleOutgoingMessages(ctx context.Context, driverID 
 		case <-ctx.Done():
 			return
 		case message, ok := <-outgoing:
-			log.Info("Sending message to driver:", driverID)
+			log.Info("Sending message to driver:", "driver-id", driverID)
 			if !ok {
 				return
 			}
 
 			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				log.Error("Error sending message to driver:", err, driverID)
+				log.Error("Error sending message to driver:", err, "driver-id", driverID)
 				return
 			}
-			log.Info("Message sent to driver successfully:", driverID)
+			log.Info("Message sent to driver successfully:", "driver-id", driverID)
 		}
 	}
 }

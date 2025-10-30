@@ -54,9 +54,6 @@ func (r *RabbitMQ) PublishJSON(ctx context.Context, exchange, routingKey string,
 		return errors.New("amqp closed")
 	}
 	r.log.Action("publish").Info("publishing message to exchange %s with routing key %s", exchange, routingKey)
-	if err := r.ensureExchange(exchange); err != nil {
-		return fmt.Errorf("declare exchange: %w", err)
-	}
 	body, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
@@ -75,11 +72,7 @@ func (r *RabbitMQ) Consume(ctx context.Context, queueName, bindingKey string, op
 	if !r.IsAlive() {
 		return nil, errors.New("amqp closed")
 	}
-	// гарантируем exchange ride_topic (мы читаем из него по биндингу)
-	if err := r.ensureExchange(rideExchangeName); err != nil {
-		return nil, fmt.Errorf("declare exchange: %w", err)
-	}
-	// очередь
+
 	if !r.IsAlive() {
 		_, err := r.ch.QueueDeclare(
 			queueName,
@@ -165,10 +158,6 @@ func (r *RabbitMQ) Close() error {
 		}
 	}
 	return nil
-}
-
-func (r *RabbitMQ) ensureExchange(name string) error {
-	return r.ch.ExchangeDeclare(name, "topic", true, false, false, false, nil)
 }
 
 func (r *RabbitMQ) connect() error {

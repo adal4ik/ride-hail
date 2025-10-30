@@ -69,7 +69,7 @@ func NewDistributor(
 		log:            log,
 	}
 
-	go (*distributor).MessageDistributor()
+	// go (*distributor).MessageDistributor()
 	return distributor
 }
 
@@ -155,9 +155,10 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideRequest")
 	var req dto.RideDetails
 
+	defer requestDelivery.Ack(false)
 	if err := json.Unmarshal(requestDelivery.Body, &req); err != nil {
 		fmt.Println("Error unmarshaling ride request:", err)
-		requestDelivery.Nack(false, true)
+		requestDelivery.Nack(false, false)
 		return
 	}
 	if len(d.wsManager.GetConnectedDrivers()) == 0 {
@@ -307,16 +308,17 @@ func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseM
 func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideStatus")
 	var status messagebrokerdto.RideStatus
+	log.Info("look at me", "body", statusDelivery.Body)
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
 		log.Error("Failed to unmarshal the ride response message: ", err)
-		statusDelivery.Nack(false, true)
+		statusDelivery.Nack(false, false)
 		return
 	}
 	log.Info("Received ride status update:", status.RideId, status)
 	driverID, err := d.driverService.GetDriverIdByRideId(context.Background(), status.RideId)
 	if err != nil {
 		log.Error("Failed to get driver ID by ride ID:", err, status.RideId)
-		statusDelivery.Nack(false, true)
+		statusDelivery.Nack(false, false)
 		return
 	}
 	rideDetails, err := d.driverService.GetRideDetailsByRideId(context.Background(), status.RideId)
@@ -333,6 +335,6 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 		Type: websocketdto.MessageTypeRideDetails,
 	}
 	d.wsManager.SendToDriver(context.Background(), driverID, rideDetails)
-	log.Info("Processing ride status update:", status.RideId)
+	log.Info("Processing ride status update:", "ride-id", status.RideId)
 	statusDelivery.Ack(false)
 }
