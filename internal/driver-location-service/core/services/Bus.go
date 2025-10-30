@@ -85,6 +85,7 @@ func (d *Distributor) MessageDistributor() error {
 			go d.handleRideStatus(statusDelivery)
 
 		case driverMsg := <-d.wsManager.GetFanIn():
+			log.Info("Getting message from FanIn....")
 			go d.handleDriverMessage(driverMsg)
 
 		case <-d.ctx.Done():
@@ -146,8 +147,8 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 		Timestamp:      time.Now().String(),
 	}
 
-	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "", rmMessage); err != nil {
-		fmt.Printf("Failed to publish location update: %v\n", err)
+	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "location", rmMessage); err != nil {
+		log.Error("Failed to Publish location_fanout", err)
 	}
 
 }
@@ -157,7 +158,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 	var req dto.RideDetails
 
 	if err := json.Unmarshal(requestDelivery.Body, &req); err != nil {
-		fmt.Println("Error unmarshaling ride request:", err)
+		log.Error("Error Unmarshalling request:", err)
 		requestDelivery.Nack(false, true)
 		return
 	}
@@ -176,7 +177,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 	)
 	if err != nil {
 		log.Error("Failed to find appropriate drivers:", err, req.Ride_id)
-		requestDelivery.Nack(false, true)
+		// requestDelivery.Nack(false, true)
 		return
 	}
 
@@ -222,7 +223,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 		d.wsManager.SendToDriver(context.Background(), driver.DriverId, offer)
 		driverResponse, err := d.wsManager.GetDriverMessages(driver.DriverId)
 		if err != nil {
-			fmt.Printf("Failed to get messages for driver %s: %v\n", driver.DriverId, err)
+			log.Error("Failed to get messages for driver", err, driver.DriverId)
 			continue
 		}
 		select {
@@ -240,7 +241,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 			}
 			return
 		case <-time.After(30 * time.Second):
-			fmt.Println("No driver accepted the ride within timeout")
+			log.Info("No driver accepted the ride within timeout")
 			requestDelivery.Nack(false, true)
 			continue
 		}
@@ -248,6 +249,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 }
 
 func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.LocationUpdateMessage) {
+	log := d.log.Action("handleLocationUpdate")
 	ctx := context.Background()
 	data := dto.NewLocation{
 		Latitude:        update.Latitude,
@@ -258,7 +260,7 @@ func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.
 	}
 	_, err := d.driverService.UpdateLocation(ctx, data, driverID)
 	if err != nil {
-		fmt.Printf("Failed to update driver location: %v\n", err)
+		log.Error("Failed to update driver location", err)
 		return
 	}
 	locationUpdate := messagebrokerdto.LocationUpdate{
@@ -273,8 +275,8 @@ func (d *Distributor) handleLocationUpdate(driverID string, update websocketdto.
 		Timestamp:      time.Now().String(),
 	}
 
-	if err := d.broker.PublishJSON(ctx, "location_fanout", "", locationUpdate); err != nil {
-		fmt.Printf("Failed to publish location update: %v\n", err)
+	if err := d.broker.PublishJSON(ctx, "location_updates", "", locationUpdate); err != nil {
+		log.Error("Failed to publish location update", err)
 	}
 }
 
@@ -301,10 +303,9 @@ func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseM
 	requestDelivery.Ack(false)
 	d.broker.PublishJSON(d.ctx, "driver_topic", fmt.Sprintf("driver.response.%s", driver.DriverId), driverMatch)
 
-	fmt.Printf("Ride %s accepted by driver %s\n", rideDetails.Ride_id, driverMatch.Driver_id)
+	log.Info("Ride accepted by driver", rideDetails.Ride_id, driverMatch.Driver_id)
 }
 
-// / IMPLEMENT
 func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideStatus")
 	var status messagebrokerdto.RideStatus
@@ -321,10 +322,6 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 		return
 	}
 	rideDetails, err := d.driverService.GetRideDetailsByRideId(context.Background(), status.RideId)
-	fmt.Println(
-		"Ride details from the bus:",
-		rideDetails,
-	)
 	if err != nil {
 		log.Error("Failed to get ride details by ride ID:", err, status.RideId)
 		statusDelivery.Nack(false, true)
