@@ -87,7 +87,7 @@ func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (mo
 func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string, newLocation model.NewLocation) (model.NewLocationResponse, error) {
 	NewLocationQuery := `
 		INSERT INTO location_history(coord_id, driver_id, latitude, longitude, accuracy_meters, speed_kmh, heading_degrees, ride_id)
-		VALUES (
+		VALUE (
 			(SELECT coord_id FROM coordinates WHERE entity_id = $1),
 			$1,
 			$2,
@@ -95,7 +95,8 @@ func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string
 			$4,
 			$5,
 			$6,
-			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'))
+			$7,
+			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'));
 		)
 	`
 	_, err := dr.db.GetConn().Exec(ctx, NewLocationQuery, driver_id, newLocation.Latitude, newLocation.Longitude, newLocation.Accuracy_meters, newLocation.Speed_kmh, newLocation.Heading_Degrees)
@@ -311,7 +312,7 @@ func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id s
 
 func (dr *DriverRepository) GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error) {
 	Query := `
-		SELECT r.ride_id, u.username, u.user_attrs ,
+		SELECT r.ride_id, u.username, u.attrs ,
 		       pc.latitude AS pickup_latitude, pc.longitude AS pickup_longitude, pc.address AS pickup_address
 		FROM rides r	
 		JOIN users u ON r.passenger_id = u.user_id

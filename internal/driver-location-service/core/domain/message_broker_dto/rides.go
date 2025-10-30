@@ -1,5 +1,7 @@
 package messagebrokerdto
 
+import "time"
+
 type Location struct {
 	Lat     float64 `json:"lat"`
 	Lng     float64 `json:"lng"`
@@ -21,9 +23,9 @@ type Ride struct {
 
 // Status Update → ride_topic exchange → ride.status.{status}
 type RideStatus struct {
-	RideId        string  `json:"ride_id"`
-	Status        string  `json:"status"`
-	Timestamp     string  `json:"timestamp"`
-	Final_fare    float64 `json:"final_fare,omitempty"`
-	CorrelationID string  `json:"correlation_id"`
+	RideId        string    `json:"ride_id"`
+	Status        string    `json:"status"`
+	Timestamp     time.Time `json:"timestamp"`
+	Final_fare    float64   `json:"final_fare,omitempty"`
+	CorrelationID string    `json:"correlation_id"`
 }

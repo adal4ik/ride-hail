@@ -54,9 +54,9 @@ type LocationUpdateMessage struct {
 	WebSocketMessage
 	Latitude       float64 `json:"latitude"`
 	Longitude      float64 `json:"longitude"`
-	AccuracyMeters float64 `json:"accuracy_meters"`
-	SpeedKmh       float64 `json:"speed_kmh"`
-	HeadingDegrees float64 `json:"heading_degrees"`
+	AccuracyMeters float64 `json:"accuracy_meters,omitempty"`
+	SpeedKmh       float64 `json:"speed_kmh,omitempty"`
+	HeadingDegrees float64 `json:"heading_degrees,omitempty"`
 }
 
 // Ride details after acceptance
