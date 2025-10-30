@@ -199,14 +199,11 @@ func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		JsonError(w, http.StatusInternalServerError, err)
 		log.Error("start ride failed", err, "ride_id", req.Ride_id, "driver_id", driverID)
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	log.Info("ride started", "ride_id", res.Ride_id, "driver_id", driverID, "started_at", res.Started_at)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	_ = json.NewEncoder(w).Encode(res)
+	jsonResponse(w, http.StatusAccepted, res)
 }
 
 func (dh *DriverHandler) CompleteRide(w http.ResponseWriter, r *http.Request) {

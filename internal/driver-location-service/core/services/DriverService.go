@@ -81,6 +81,12 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 	l := ds.log.Action("service.start_ride")
 	l.Info("start", "ride_id", msg.Ride_id, "driver_id", msg.Driver_location.Driver_id)
 
+	dId, err := ds.GetDriverIdByRideId(ctx, msg.Ride_id)
+	if err != nil {
+		return dto.StartRideResponse{}, err
+	}
+
+	msg.Driver_location.Driver_id = dId
 	// 1️⃣ получаем координаты pickup и текущие координаты водителя
 	pickupLat, pickupLng, driverLat, driverLng, err := ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
 	if err != nil {
