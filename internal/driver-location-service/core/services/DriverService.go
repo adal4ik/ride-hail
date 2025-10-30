@@ -166,3 +166,8 @@ func (d *DriverService) GetDriverIdByRideId(ctx context.Context, ride_id string)
 	// For example, you might query the database to find the driver associated with the given ride ID.
 	return d.repositories.GetDriverIdByRideId(ctx, ride_id)
 }
+
+func (d *DriverService) GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error) {
+	// This is a placeholder implementation. Replace with actual logic to get ride ID by driver ID.
+	return d.repositories.GetRideIdByDriverId(ctx, driver_id)
+}

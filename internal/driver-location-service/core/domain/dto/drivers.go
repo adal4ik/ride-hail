@@ -172,3 +172,9 @@ type DriverInfoForResponse struct {
 	Vehicle VehicleDetail `json:"vehicle"`
 	Rating  float64       `json:"rating"`
 }
+
+// Driver Message
+type DriverMessage struct {
+	DriverID string
+	Message  []byte
+}

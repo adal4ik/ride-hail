@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"ride-hail/internal/driver-location-service/core/domain/dto"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 
 	"github.com/gorilla/websocket"
@@ -14,6 +15,7 @@ import (
 
 type WebSocketManager struct {
 	connections map[string]*DriverConnection
+	FanIn       chan dto.DriverMessage
 	mu          sync.RWMutex
 }
 
@@ -31,6 +33,7 @@ type DriverConnection struct {
 func NewWebSocketManager() *WebSocketManager {
 	return &WebSocketManager{
 		connections: make(map[string]*DriverConnection),
+		FanIn:       make(chan dto.DriverMessage, 1000),
 	}
 }
 
@@ -171,4 +174,8 @@ func (m *WebSocketManager) GetDriversCount(ctx context.Context) int {
 	defer m.mu.RUnlock()
 
 	return len(m.connections)
+}
+
+func (m *WebSocketManager) GetFanIn() <-chan dto.DriverMessage {
+	return m.FanIn
 }

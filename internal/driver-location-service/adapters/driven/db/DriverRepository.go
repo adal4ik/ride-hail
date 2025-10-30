@@ -285,6 +285,18 @@ func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id str
 	}
 	return driver_id, nil
 }
+func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error) {
+	Query := `
+		SELECT ride_id FROM rides WHERE driver_id = $1 AND status NOT IN ('CANCELLED', 'COMPLETED');
+	`
+	var ride_id string
+	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&ride_id)
+	if err != nil {
+		return "", err
+
+	}
+	return ride_id, nil
+}
 
 /*
 SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
