@@ -380,3 +380,24 @@ func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
 	// return tx.Commit(ctx)
 	return nil
 }
+
+func (pr *RidesRepo) GetCancelPossibleRides(ctx context.Context) ([]model.Rides, error) {
+	q := `SELECT ride_id FROM rides WHERE status IN ('REQUESTED', 'MATCHED', 'EN_ROUTE', 'ARRIVED');`
+	cn := pr.db.conn 
+
+	rows, err := cn.Query(ctx, q)
+	if err != nil {
+		return []model.Rides{}, err
+	}
+
+	var rides []model.Rides
+	for rows.Next() {
+		var rideId string 
+		if err := rows.Scan(&rideId); err != nil {
+			continue
+		}
+		rides = append(rides, model.Rides{ID: rideId})
+	}
+
+	return rides, nil
+}

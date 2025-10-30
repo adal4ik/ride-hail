@@ -358,7 +358,7 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 	}
 	m2 := messagebrokerdto.RideStatus{
 		RideId:    rideId,
-		Status:    "IN_PROGRESS",
+		Status:    "MATCHED",
 		Timestamp: time.Now().Format(time.RFC3339),
 		DriverID:  driverId,
 	}
@@ -398,7 +398,24 @@ func (rs *RidesService) CancelEveryPossibleRides() error {
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*5)
 	defer cancel()
 
-	err := rs.RidesRepo.CancelEveryPossibleRides(ctx)
+	rides, err := rs.RidesRepo.GetCancelPossibleRides(ctx)
+	if err != nil {
+		log.Error("cannot get possible rides", err)
+		return err
+	}
+	for _, ride := range rides {
+		msg := messagebrokerdto.RideStatus{
+			RideId:    ride.ID,
+			Status:    "CANCELLED",
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		if err := rs.RidesBroker.PushMessageToStatus(ctx, msg); err != nil {
+			log.Error("cannot push cancel message ride", err, "ride-id", msg.RideId)
+			continue
+		}
+	}
+
+	err = rs.RidesRepo.CancelEveryPossibleRides(ctx)
 	if err != nil {
 		log.Error("cannot cancel every rides", err)
 		return err

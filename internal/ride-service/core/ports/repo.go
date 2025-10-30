@@ -26,6 +26,7 @@ type IRidesRepo interface {
 	FindDistanceAndPassengerId(ctx context.Context, longitude, latitude float64, rideId string) (distance float64, passengerId string, err error)
 	CheckDuplicate(ctx context.Context, passengerId string) (count int, err error)
 	CancelEveryPossibleRides(ctx context.Context) error
+	GetCancelPossibleRides(ctx context.Context) ([]model.Rides, error)
 }
 
 type IPassengerRepo interface {
