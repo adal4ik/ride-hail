@@ -56,6 +56,7 @@ func NewDispathcer(ctx context.Context, log mylogger.Logger, passengerRepo ports
 
 func (d *Dispatcher) InitHandler() {
 	d.hander["auth"] = d.eventHandler.AuthHandler
+	d.hander["ride_complete"] = d.eventHandler.RideCompleteHandler
 }
 
 func (d *Dispatcher) WsHandler() http.HandlerFunc {

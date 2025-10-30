@@ -30,4 +30,5 @@ type IRidesRepo interface {
 
 type IPassengerRepo interface {
 	Exist(ctx context.Context, passengerId string) (string, error)
+	CompleteRide(ctx context.Context, rideId string, rating, tips uint) error
 }

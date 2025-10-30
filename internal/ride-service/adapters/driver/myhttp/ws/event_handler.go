@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
+	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -14,12 +14,14 @@ import (
 type EventHandle func(c *Client, e websocketdto.Event) error
 
 type EventHandler struct {
-	accessToken string
+	passengerService ports.IPassengerService
+	accessToken      string
 }
 
-func NewEventHandler(accessToken string) *EventHandler {
+func NewEventHandler(accessToken string, passengerService ports.IPassengerService) *EventHandler {
 	return &EventHandler{
-		accessToken: accessToken,
+		accessToken:      accessToken,
+		passengerService: passengerService,
 	}
 }
 
@@ -54,15 +56,19 @@ func (eh *EventHandler) AuthHandler(client *Client, e websocketdto.Event) error 
 		return fmt.Errorf("different id's")
 	}
 
-	exp, ok := claims["exp"].(float64)
-	if !ok {
-		return fmt.Errorf("no exp")
+	client.cancelAuth()
+
+	return nil
+}
+
+func (eh *EventHandler) RideCompleteHandler(c *Client, e websocketdto.Event) error {
+	eventData := websocketdto.RideComplete{}
+	err := json.Unmarshal(e.Data, &eventData)
+	if err != nil {
+		return err
 	}
 
-	if time.Now().Unix() > int64(exp) {
-		return fmt.Errorf("nigga time is up")
-	}
-	client.cancelAuth()
+	eh.passengerService.CompleteRide(c.passengerId, eventData.RideId, eventData.Rating, eventData.Tips)
 
 	return nil
 }

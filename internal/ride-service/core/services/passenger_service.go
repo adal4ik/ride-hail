@@ -52,3 +52,28 @@ func (ps *PassengerService) IsPassengerExists(passengerId string) (bool, error) 
 	}
 	return true, nil
 }
+
+func (ps *PassengerService) CompleteRide(passengerId, rideId string, rating, tips uint) error {
+	log := ps.mylog.Action("CompleteRide").With("passenger_id", passengerId, "ride_id", rideId)
+
+	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*10)
+	defer cancel()
+
+	if rating > 5 {
+		rating = 5
+	}else if rating < 1 {
+		rating = 1
+	}
+
+	if tips > 1000 {
+		tips = 1000
+	}
+
+	err := ps.PassengerRepo.CompleteRide(ctx, rideId, rating, tips)
+	if err != nil {
+		log.Error("cannot give money for rider", err)
+		return err
+	}
+
+	return nil
+}

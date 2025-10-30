@@ -21,4 +21,5 @@ type IRidesService interface {
 type IPassengerService interface {
 	IsPassengerExists(passengerId string) (bool, error)
 	// output passengerId
+	CompleteRide(passengerId, rideId string, rating, tips uint) error
 }

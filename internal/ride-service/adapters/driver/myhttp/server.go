@@ -185,7 +185,7 @@ func (s *Server) Configure() {
 
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 
-	eventHandle := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
+	eventHandle := ws.NewEventHandler(s.cfg.App.PublicJwtSecret, passengerService)
 	dispatcher := ws.NewDispathcer(s.appCtx, s.mylog, passengerService, eventHandle, &s.wg)
 	dispatcher.InitHandler()
 	s.dispatcher = dispatcher
