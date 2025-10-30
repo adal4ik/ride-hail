@@ -478,7 +478,16 @@ func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate
 		log.Error("Failed to cancel ride", err)
 		return "", websocketdto.Event{}, err
 	}
-
+	if msg.Status == "COMPLETED" {
+		msg := messagebrokerdto.RideStatus{
+			RideId:    msg.RideId,
+			Status:    "COMPLETED",
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		if err := ps.RidesBroker.PushMessageToStatus(ctx, msg); err != nil {
+			log.Error("cannot push cancel message ride", err, "ride-id", msg.RideId)
+		}
+	}
 	data := websocketdto.RideStatusUpdateDto{
 		RideID:        msg.RideId,
 		Status:        msg.Status,
