@@ -3,8 +3,9 @@ package db
 import (
 	"context"
 	"fmt"
-	"ride-hail/internal/driver-location-service/core/domain/model"
 	"time"
+
+	"ride-hail/internal/driver-location-service/core/domain/model"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -295,6 +296,8 @@ func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id str
 	}
 
 	return *driver_id, nil // Dereference the pointer to return the driver_id string
+}
+
 func (dr *DriverRepository) CheckDriverStatus(ctx context.Context, driver_id string) (string, error) {
 	Query := `
 		SELECT status FROM drivers WHERE driver_id = $1;
