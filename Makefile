@@ -44,7 +44,7 @@ help:
 
 .PHONY: helper
 helper:
-	go run ./cmd/helper/main.go
+	go run ./cmd/helper/.
 
 .PHONY: cert
 cert:
