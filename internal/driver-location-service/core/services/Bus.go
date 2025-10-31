@@ -102,6 +102,7 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 		log.Error("Failed to unmarshal message:", err)
 		return
 	}
+	log.Info("Handling driver message")
 	d.driverService.UpdateLocation(context.Background(), dto.NewLocation{
 		Latitude:        LocationUpdate.Latitude,
 		Longitude:       LocationUpdate.Longitude,
@@ -132,6 +133,7 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 		Speed_kmh:       LocationUpdate.SpeedKmh,
 		Heading_Degrees: LocationUpdate.HeadingDegrees,
 	}, msg.DriverID)
+
 	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "location", rmMessage); err != nil {
 		log.Error("Failed to Publish location_fanout", err)
 	}
