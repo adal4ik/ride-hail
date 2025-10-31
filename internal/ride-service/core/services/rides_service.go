@@ -489,6 +489,9 @@ func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate
 		msg.Status = "IN_PROGRESS"
 	case "COMPLETED":
 		msg.Status = "COMPLETED"
+	case "ARRVIED":
+		msg.Status = "ARRVIED"
+
 	default:
 		log.Warn("msg status different", "status", msg.Status)
 	}
