@@ -84,6 +84,8 @@ func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
 		JsonError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	log.Info("Driver is online", "driverID", driverID)
 	jsonResponse(w, http.StatusAccepted, res)
 }
 

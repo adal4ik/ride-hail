@@ -74,6 +74,19 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
+
+	count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
+	if err != nil {
+		log.Error("cannot check for duplication", err)
+		return dto.RidesResponseDto{}, err
+	}
+
+	if count > 0 {
+		return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
+	}
+
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
 	// estimate distance between pick up and destination points
 	distance, err := rs.RidesRepo.GetDistance(ctx, req)
 	if err != nil {
@@ -224,20 +237,6 @@ func validateRideRequest(req dto.RidesRequestDto) error {
 	if err := validatePassengerId(req.PassengerId); err != nil {
 		return fmt.Errorf("invalid passenger id: %v", err)
 	}
-
-	// ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
-	// defer cancel()
-
-	// count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
-
-	// if err != nil {
-	// 	log.Error("cannot check for duplication", err)
-	// 	return dto.RidesResponseDto{}, err
-	// }
-
-	// if count > 0 {
-	// 	return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
-	// }
 
 	if err := validateLatLng(req.PickUpLatitude, req.PickUpLongitude); err != nil {
 		return fmt.Errorf("invalid pickup coords: %v", err)

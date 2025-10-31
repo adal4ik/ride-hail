@@ -67,11 +67,20 @@ type HttpRequest struct {
 		PhoneNumber string `json:"phone"`
 	} `json:"user_attrs"`
 }
+type HttpRequest2 struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
 
 type HttpResponse struct {
 	JWT    string `json:"jwt_access"`
 	Msg    string `json:"msg"`
 	UserId string `json:"driverId"`
+}
+type HttpResponse2 struct {
+	Status    string `json:"status"`
+	SessionId string `json:"session_id"`
+	Message   string `json:"message"`
 }
 
 type Client struct {
@@ -125,7 +134,7 @@ func (c *Client) read() {
 			c.ToDriver <- dataBytes
 			wsLog("✅ Accepted ride offer %s", offer.OfferID)
 
-			go c.LocationUpdate(offer, 30)
+			go c.LocationUpdate(offer, 100)
 
 		default:
 			wsLog("📨 WS message: %+v", data)
@@ -154,27 +163,43 @@ func (c *Client) write() {
 }
 
 func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float64) {
-	// speed = meters per second, e.g. 10.0 (≈ 36 km/h)
-	updateInterval := 5 * time.Second // how often to send updates
-	stepDistance := speed * updateInterval.Seconds()
-
 	current := websocketdto.Location{
 		Latitude:  c.CurrentLat,
 		Longitude: c.CurrentLng,
 	}
 	target := offer.PickupLocation
 
+	c.goToTarget(current, target, speed)
+
+	current2 := websocketdto.Location{
+		Latitude:  c.CurrentLat,
+		Longitude: c.CurrentLng,
+	}
+
+	target2 := offer.DestinationLocation
+
+	c.goToTarget(current2, target2, speed)
+}
+
+func (c *Client) goToTarget(current, target websocketdto.Location, speed float64) {
+	// speed = meters per second, e.g. 10.0 (≈ 36 km/h)
+	updateInterval := 3 * time.Second // how often to send updates
+	stepDistance := speed * updateInterval.Seconds()
+
+	// Calculate the total distance from current to target location
 	totalDistance := distance(current, target)
 	if totalDistance < 1 {
 		wsLog("✅ Already at pickup location.")
 		return
 	}
 
+	// Calculate the number of steps to take based on speed and distance
 	steps := int(totalDistance / stepDistance)
 	if steps < 1 {
 		steps = 1
 	}
 
+	// Calculate the differences in latitude and longitude between target and current location
 	dLat := (target.Latitude - current.Latitude) / float64(steps)
 	dLng := (target.Longitude - current.Longitude) / float64(steps)
 
@@ -184,12 +209,14 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 	ticker := time.NewTicker(updateInterval)
 	defer ticker.Stop()
 
-	for i := 0; i <= steps; i++ {
+	for i := 0; i < steps; i++ {
 		select {
 		case <-ticker.C:
+			// Update current position by adding dLat and dLng to it
 			c.CurrentLat += dLat
 			c.CurrentLng += dLng
 
+			// Send the location update
 			locUpdate := websocketdto.LocationUpdateMessage{
 				WebSocketMessage: websocketdto.WebSocketMessage{
 					Type: websocketdto.MessageTypeLocationUpdate,
@@ -203,28 +230,29 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 			wsLog("📍 Sent location update (%d/%d): lat=%.6f, lng=%.6f",
 				i+1, steps, c.CurrentLat, c.CurrentLng)
 
-			// Stop if we’ve reached (or overshot)
-			if i == steps {
-				wsLog("🏁 Arrived at pickup location (%.6f, %.6f)", c.CurrentLat, c.CurrentLng)
-				return
-			}
 		case <-c.ctx.Done():
 			wsLog("🛑 LocationUpdate stopped (context canceled).")
 			return
 		}
 	}
-}
 
-func moveLinearly(current, target websocketdto.Location, steps int, delay time.Duration) {
-	dLat := (target.Latitude - current.Latitude) / float64(steps)
-	dLng := (target.Longitude - current.Longitude) / float64(steps)
+	// Final step to arrive at the target (precisely).
+	// Ensure we reach the target exactly.
+	c.CurrentLat = target.Latitude
+	c.CurrentLng = target.Longitude
 
-	for i := 0; i <= steps; i++ {
-		newLat := current.Latitude + dLat*float64(i)
-		newLng := current.Longitude + dLng*float64(i)
-		fmt.Printf("Step %d: Lat: %.6f, Lng: %.6f\n", i, newLat, newLng)
-		time.Sleep(delay)
+	// Send the final location update
+	locUpdate := websocketdto.LocationUpdateMessage{
+		WebSocketMessage: websocketdto.WebSocketMessage{
+			Type: websocketdto.MessageTypeLocationUpdate,
+		},
+		Latitude:  c.CurrentLat,
+		Longitude: c.CurrentLng,
 	}
+	dataBytes, _ := json.Marshal(locUpdate)
+	c.ToDriver <- dataBytes
+
+	wsLog("🏁 Arrived at pickup location (%.6f, %.6f)", c.CurrentLat, c.CurrentLng)
 }
 
 // distance calculates the haversine distance between two coordinates in meters
@@ -280,6 +308,48 @@ func main() {
 	json.Unmarshal(data, &response)
 	httpLog("Driver created: %s (JWT: %s)", response.UserId, response.JWT[:15]+"...")
 
+	// second request ==========================================================================
+	HttpRequest2 := HttpRequest2{
+		Latitude:  43.238949,
+		Longitude: 76.889709,
+	}
+	httpLog("Making him online...")
+
+	body2, _ := json.Marshal(&HttpRequest2)
+
+	url := fmt.Sprintf("http://localhost:3001/drivers/%s/online", response.UserId)
+	req0, err := http.NewRequest("POST", url, bytes.NewBuffer(body2))
+	if err != nil {
+		errLog("Error creating request: %v", err)
+		return
+	}
+
+	// Add the JWT token to the Authorization header
+	jwtToken := response.JWT                             // assuming `response.JWT` contains the JWT token
+	req0.Header.Set("Authorization", "Bearer "+jwtToken) // Add the JWT token
+
+	// Set content-type header to application/json
+	req0.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client2 := &http.Client{}
+	resp2, err := client2.Do(req0)
+	if err != nil {
+		errLog("cannot make online driver: %v", err)
+		return
+	}
+	defer resp2.Body.Close()
+
+	// Read the response body
+	data2, _ := io.ReadAll(resp2.Body)
+
+	response2 := HttpResponse2{}
+	json.Unmarshal(data2, &response2)
+
+	// Log the response
+	httpLog("Online info", "msg", response2.Message)
+
+	// WS logic
 	wsURL := fmt.Sprintf("ws://localhost:3001/ws/drivers/%s", response.UserId)
 	wsLog("Connecting to WS: %s", wsURL)
 
@@ -315,7 +385,7 @@ func main() {
 		Token: client.Jwt,
 	})
 	client.ToDriver <- authMsg
-	wsLog("🪪 Auth message sent")
+	wsLog("Auth message sent")
 
 	// Set online
 	locData, _ := json.Marshal(websocketdto.Location{
