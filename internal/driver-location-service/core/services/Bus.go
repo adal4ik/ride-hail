@@ -27,8 +27,6 @@ type Distributor struct {
 	driverService driver.IDriverService
 	// Driver Messages
 	driverMessages chan DriverMessage
-	pendingOffers  map[string]*PendingOffer
-	pendingMu      sync.RWMutex
 	// Tools
 	broker driven.IDriverBroker
 	ctx    context.Context
@@ -65,7 +63,6 @@ func NewDistributor(
 		broker:         broker,
 		driverService:  driverService,
 		driverMessages: make(chan DriverMessage, 1000),
-		pendingOffers:  make(map[string]*PendingOffer),
 		ctx:            ctx,
 		log:            log,
 		wg:             sync.WaitGroup{},
@@ -98,27 +95,6 @@ func (d *Distributor) MessageDistributor() error {
 	}
 }
 
-// func (d *Distributor) RegisterDriverChannel(driverID string, incoming <-chan []byte) {
-// 	go d.handleDriverConnection(driverID, incoming)
-// }
-
-// func (d *Distributor) handleDriverConnection(driverID string, incoming <-chan []byte) {
-// 	for {
-// 		select {
-// 		case <-d.ctx.Done():
-// 			return
-// 		case message, ok := <-incoming:
-// 			if !ok {
-// 				return
-// 			}
-// 			d.driverMessages <- DriverMessage{
-// 				DriverID: driverID,
-// 				Message:  message,
-// 			}
-// 		}
-// 	}
-// }
-
 func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 	log := d.log.Action("handleDriverMessage")
 	var LocationUpdate websocketdto.LocationUpdateMessage
@@ -149,7 +125,13 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 		HeadingDegrees: LocationUpdate.HeadingDegrees,
 		Timestamp:      time.Now().String(),
 	}
-
+	d.driverService.UpdateLocation(d.ctx, dto.NewLocation{
+		Latitude:        LocationUpdate.Latitude,
+		Longitude:       LocationUpdate.Longitude,
+		Accuracy_meters: LocationUpdate.AccuracyMeters,
+		Speed_kmh:       LocationUpdate.SpeedKmh,
+		Heading_Degrees: LocationUpdate.HeadingDegrees,
+	}, msg.DriverID)
 	if err := d.broker.PublishJSON(context.Background(), "location_fanout", "location", rmMessage); err != nil {
 		log.Error("Failed to Publish location_fanout", err)
 	}

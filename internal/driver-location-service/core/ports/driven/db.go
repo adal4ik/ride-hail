@@ -28,4 +28,5 @@ type IDriverRepository interface {
 	PayDriverMoney(ctx context.Context, driver_id string, amount float64) error
 	SetAllOffline() error
 	EndAllSessions() error
+	IsDriverNear(ctx context.Context, driver_id string) (bool, error)
 }

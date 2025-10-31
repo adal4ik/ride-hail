@@ -394,7 +394,7 @@ SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, 
        ) / 1000 as distance_km
 	FROM drivers d
 	JOIN coordinates c ON c.entity_id = d.driver_id
-  		AND c.entity_type = 'DRIVER'
+  		AND$2 c.entity_type = 'DRIVER'
   		AND c.is_current = true
 	WHERE d.status = 'AVAILABLE'
  		AND d.vehicle_type = 'ECONOMY'
@@ -513,7 +513,7 @@ func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string
 	Query := `
 		UPDATE drivers
 		SET total_earnings = total_earnings + $1
-		WHERE driver_id = $2;
+		WHERE driver_id = $2;IsDriverNear(ctx context.Context, driver_id string) (bool, error)
 	`
 	_, err := dr.db.GetConn().Exec(ctx, Query, amount, driver_id)
 	if err != nil {
@@ -549,4 +549,25 @@ func (dr *DriverRepository) EndAllSessions() error {
 	`
 	_, err := dr.db.conn.Exec(context.Background(), Query)
 	return err
+}
+
+func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (bool, error) {
+	Query := `
+		SELECT
+			(
+				SELECT ST_Distance(ST_MakePoint(c_driver.longitude, c_driver.latitude)::geography, ST_MakePoint(c_dest.longitude, c_dest.latitude)::geography) 
+				FROM drivers d
+				JOIN rides r on r.driver_id = d.driver_id
+				JOIN coordinates c_driver on d.driver_id = c_driver.entity_id
+				JOIN coordinates c_dest on r.dest_coord_id = c_dest.coord_id
+				WHERE d.driver_id = $1 AND r.status = 'MATCHED';
+
+			) < 100;
+	`
+	var res bool
+	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&res)
+	if err != nil {
+		return false, err
+	}
+	return res, nil
 }
