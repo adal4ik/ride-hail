@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"ride-hail/internal/auth-service/core/domain/models"
+	"ride-hail/internal/auth-service/core/myerrors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,16 +47,16 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 
 	// First query to insert the user
 	q := `INSERT INTO users (
-	username, email, password_hash, role, user_attrs
+	username, email, password, role, user_attrs
 	) VALUES ($1, $2, $3, $4, $5) RETURNING user_id;`
 	id := ""
-	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role, userAttrs)
+	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.Password, user.Role, userAttrs)
 	if err = row.Scan(&id); err != nil {
 		// Check if it's a Postgres unique violation
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == "23505" { // unique_violation
-				return "", ErrEmailRegistered
+				return "", myerrors.ErrEmailRegistered
 			}
 		}
 		return "", fmt.Errorf("failed to insert user: %v", err)
@@ -76,7 +78,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 			u.username,
 			u.email,
 			u.status,
-			u.password_hash,
+			u.password,
 			u.role,
 			u.user_attrs
 		FROM 
@@ -93,13 +95,13 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 		&u.Username,
 		&u.Email,
 		&u.Status,
-		&u.PasswordHash,
+		&u.Password,
 		&u.Role,
 		&u.UserAttrs,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.User{}, ErrUnknownEmail
+			return models.User{}, myerrors.ErrUnknownEmail
 		}
 		return models.User{}, err
 	}

@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/domain/models"
+	"ride-hail/internal/auth-service/core/myerrors"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"time"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -43,21 +45,17 @@ func (as *AuthService) Register(ctx context.Context, regReq dto.UserRegistration
 		return "", "", err
 	}
 
-	hashedPassword, err := hashPassword(regReq.Password)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to hash password: %v", err)
-	}
 	user := models.User{
-		Username:     regReq.Username,
-		Email:        regReq.Email,
-		PasswordHash: hashedPassword,
-		Role:         regReq.Role,
-		UserAttrs:    regReq.UserAttrs,
+		Username:  regReq.Username,
+		Email:     regReq.Email,
+		Password:  regReq.Password,
+		Role:      regReq.Role,
+		UserAttrs: regReq.UserAttrs,
 	}
 	// add user to db
 	id, err := as.authRepo.Create(ctx, user)
 	if err != nil {
-		if errors.Is(err, db.ErrEmailRegistered) {
+		if errors.Is(err, myerrors.ErrEmailRegistered) {
 			mylog.Warn("Failed to register, email already registered")
 			return "", "", err
 		}
@@ -91,7 +89,7 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.UserAuthRequest) (
 
 	user, err := as.authRepo.GetByEmail(ctx, authReq.Email)
 	if err != nil {
-		if errors.Is(err, ErrUnknownEmail) {
+		if errors.Is(err, myerrors.ErrUnknownEmail) {
 			mylog.Warn("Failed to login, unknown username")
 			return "", err
 		}
@@ -100,9 +98,9 @@ func (as *AuthService) Login(ctx context.Context, authReq dto.UserAuthRequest) (
 	}
 
 	// Compare password hashes
-	if !checkPassword(user.PasswordHash, authReq.Password) {
+	if user.Password != authReq.Password {
 		mylog.Debug("Failed to login, unknown password")
-		return "", ErrPasswordUnknown
+		return "", myerrors.ErrPasswordUnknown
 	}
 
 	AccessTokenString := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

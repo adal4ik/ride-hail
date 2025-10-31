@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"ride-hail/internal/auth-service/core/domain/models"
+	"ride-hail/internal/auth-service/core/myerrors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -38,7 +40,7 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 
 	// Fixed query to insert driver with correct columns
 	q := `INSERT INTO drivers (
-		username, email, password_hash, license_number, vehicle_type, vehicle_attrs, user_attrs
+		username, email, password, license_number, vehicle_type, vehicle_attrs, user_attrs
 	) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING driver_id;`
 
 	id := ""
@@ -58,7 +60,7 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 	row := tx.QueryRow(ctx, q,
 		driver.Username,
 		driver.Email,
-		driver.PasswordHash,
+		driver.Password,
 		driver.LicenseNumber,
 		driver.VehicleType,
 		vehicleAttrs,
@@ -71,9 +73,9 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 				// You can inspect pgErr.ConstraintName if you want to differentiate
 				switch pgErr.ConstraintName {
 				case "drivers_email_key":
-					return "", ErrEmailRegistered
+					return "", myerrors.ErrEmailRegistered
 				case "drivers_license_number_key":
-					return "", ErrDriverLicenseNumberRegistered
+					return "", myerrors.ErrDriverLicenseNumberRegistered
 				default:
 					return "", fmt.Errorf("unique constraint violation on %s", pgErr.ConstraintName)
 				}
@@ -98,7 +100,7 @@ func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driv
 			updated_at,
 			username,
 			email,
-			password_hash,
+			password,
 			license_number,
 			vehicle_type,
 			vehicle_attrs,
@@ -121,7 +123,7 @@ func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driv
 		&d.UpdatedAt,
 		&d.Username,
 		&d.Email,
-		&d.PasswordHash,
+		&d.Password,
 		&d.LicenseNumber,
 		&d.VehicleType,
 		&d.VehicleAttrs,
@@ -134,7 +136,7 @@ func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driv
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.Driver{}, ErrUnknownEmail
+			return models.Driver{}, myerrors.ErrUnknownEmail
 		}
 		return models.Driver{}, fmt.Errorf("failed to get driver by email: %w", err)
 	}

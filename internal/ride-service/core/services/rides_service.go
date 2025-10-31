@@ -328,10 +328,11 @@ func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string)
 
 	if driverId != "" {
 		m2 := messagebrokerdto.RideStatus{
-			RideId:    rideId,
-			Status:    "CANCELLED",
-			Timestamp: cancelledAt,
-			DriverID:  driverId,
+			RideId:     rideId,
+			Status:     "CANCELLED",
+			Timestamp:  cancelledAt,
+			DriverID:   driverId,
+			Final_fare: 100,
 		}
 
 		ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
@@ -358,7 +359,7 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 	}
 	m2 := messagebrokerdto.RideStatus{
 		RideId:    rideId,
-		Status:    "IN_PROGRESS",
+		Status:    "MATCHED",
 		Timestamp: time.Now().Format(time.RFC3339),
 		DriverID:  driverId,
 	}
@@ -398,7 +399,24 @@ func (rs *RidesService) CancelEveryPossibleRides() error {
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*5)
 	defer cancel()
 
-	err := rs.RidesRepo.CancelEveryPossibleRides(ctx)
+	rides, err := rs.RidesRepo.GetCancelPossibleRides(ctx)
+	if err != nil {
+		log.Error("cannot get possible rides", err)
+		return err
+	}
+	for _, ride := range rides {
+		msg := messagebrokerdto.RideStatus{
+			RideId:    ride.ID,
+			Status:    "CANCELLED",
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		if err := rs.RidesBroker.PushMessageToStatus(ctx, msg); err != nil {
+			log.Error("cannot push cancel message ride", err, "ride-id", msg.RideId)
+			continue
+		}
+	}
+
+	err = rs.RidesRepo.CancelEveryPossibleRides(ctx)
 	if err != nil {
 		log.Error("cannot cancel every rides", err)
 		return err
@@ -455,13 +473,35 @@ func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate
 
 	ctx, cancel := context.WithTimeout(ps.ctx, time.Second*15)
 	defer cancel()
-
-	passengerId, rideNumber, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg)
+	switch msg.Status {
+	case "AVAILABLE":
+		msg.Status = "COMPLETED"
+	case "BUSY":
+		msg.Status = "IN_PROGRESS"
+	case "COMPLETED":
+		msg.Status = "COMPLETED"
+	default:
+		log.Warn("msg status different", "status", msg.Status)
+	}
+	log.Info("get update ride status", "status", msg.Status)
+	passengerId, rideNumber, finalFare, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg)
 	if err != nil {
 		log.Error("Failed to cancel ride", err)
 		return "", websocketdto.Event{}, err
 	}
+	if msg.Status == "AVAILABLE"  || msg.Status == "COMPLETED" {
+		log.Info("sending completed", "status", msg.Status)
 
+		msg := messagebrokerdto.RideStatus{
+			RideId:     msg.RideId,
+			Status:     "COMPLETED",
+			Timestamp:  time.Now().Format(time.RFC3339),
+			Final_fare: finalFare,
+		}
+		if err := ps.RidesBroker.PushMessageToStatus(ctx, msg); err != nil {
+			log.Error("cannot push cancel message ride", err, "ride-id", msg.RideId)
+		}
+	}
 	data := websocketdto.RideStatusUpdateDto{
 		RideID:        msg.RideId,
 		Status:        msg.Status,

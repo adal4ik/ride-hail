@@ -43,13 +43,13 @@ func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 		// Convert to integers
 		page, err := strconv.Atoi(pageStr)
 		if err != nil || page < 1 {
-			http.Error(w, "Invalid page parameter", http.StatusBadRequest)
+			JsonError(w, http.StatusBadRequest, fmt.Errorf("Invalid page parameter"))
 			return
 		}
 
 		pageSize, err := strconv.Atoi(pageSizeStr)
 		if err != nil || pageSize < 1 || pageSize > 100 {
-			http.Error(w, "Invalid page_size parameter", http.StatusBadRequest)
+			JsonError(w, http.StatusBadRequest, fmt.Errorf("Invalid page_size parameter"))
 			return
 		}
 

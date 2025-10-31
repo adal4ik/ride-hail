@@ -17,17 +17,18 @@ import (
 )
 
 type WebSocketHandler struct {
-	wsManager *ws.WebSocketManager
-	upgrader  websocket.Upgrader
-	auth      driver.IAuthSerive
-	log       mylogger.Logger
+	wsManager     *ws.WebSocketManager
+	upgrader      websocket.Upgrader
+	auth          driver.IAuthSerive
+	driverService driver.IDriverService
+	log           mylogger.Logger
 }
 
 type AuthService interface {
 	ValidateDriverToken(token string) (string, error)
 }
 
-func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive, log mylogger.Logger) *WebSocketHandler {
+func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive, driver driver.IDriverService, log mylogger.Logger) *WebSocketHandler {
 	return &WebSocketHandler{
 		wsManager: wsManager,
 		upgrader: websocket.Upgrader{
@@ -35,25 +36,38 @@ func NewWebSocketHandler(wsManager *ws.WebSocketManager, auth driver.IAuthSerive
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
-		auth: auth,
-		log:  log,
+		auth:          auth,
+		log:           log,
+		driverService: driver,
 	}
 }
 
 func (h *WebSocketHandler) HandleDriverWebSocket(w http.ResponseWriter, r *http.Request) {
 	log := h.log.Action("HandleDriverWebSocket")
 	driverID := r.PathValue("driver_id")
+	// Checking driver ID
 	if driverID == "" {
 		log.Warn("Driver ID missing in URL")
-		http.Error(w, "Driver ID required", http.StatusBadRequest)
+		JsonError(w, http.StatusBadRequest, fmt.Errorf("Driver ID required"))
 		return
 	}
-
+	// Cheking driver to be not OFFLNE
+	isOffline, err := h.driverService.IsOffline(context.Background(), driverID)
+	if err != nil {
+		log.Error("Failed to check driver status", err, driverID)
+		jsonResponse(w, http.StatusInternalServerError, fmt.Errorf("Failed to check driver status"))
+		return
+	}
+	if isOffline {
+		log.Warn("Driver is OFFLINE", err, driverID)
+		JsonError(w, http.StatusBadRequest, fmt.Errorf("You are not online: cannot connect to websocket"))
+		return
+	}
 	fromDriver := make(chan []byte, 100)
 	toDriver := make(chan []byte, 100)
 	if err := h.wsManager.RegisterDriver(r.Context(), driverID, fromDriver, toDriver); err != nil {
 		log.Error("Failed to register driver:", err, driverID)
-		http.Error(w, "Failed to register driver", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Failed to register driver"))
 		return
 	}
 	defer h.wsManager.UnregisterDriver(r.Context(), driverID)
@@ -115,8 +129,28 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 				continue
 			}
 
+			var userMessageType string
+			if userMessageType, err = h.validateMessage(message); err != nil {
+				h.sendError(conn, "invalid_message", err.Error())
+				log.Warn("Invalid message from driver:", driverID, err)
+				continue
+			}
 			if !authenticated {
-				if authenticated = h.handleAuthentication(driverID, message); authenticated {
+				if userMessageType != websocketdto.MessageTypeAuth {
+					IncorrectMessage := struct {
+						Type    string `json:"type"`
+						Message string `json:"message"`
+					}{
+						Type:    "error",
+						Message: "You need to authorize first",
+					}
+					msg, err := json.Marshal(IncorrectMessage)
+					if err != nil {
+						log.Error("Failed to marshal incorrect message", err)
+						return
+					}
+					conn.WriteMessage(websocket.TextMessage, msg)
+				} else if authenticated = h.handleAuthentication(driverID, message); authenticated {
 					h.wsManager.SetAuthenticated(driverID, true)
 					h.sendAuthSuccess(conn)
 					log.Info("Driver authenticated successfully:", driverID)
@@ -126,12 +160,6 @@ func (h *WebSocketHandler) handleIncomingMessages(ctx context.Context, driverID 
 					conn.Close()
 					return
 				}
-				continue
-			}
-			var userMessageType string
-			if userMessageType, err = h.validateMessage(message); err != nil {
-				h.sendError(conn, "invalid_message", err.Error())
-				log.Warn("Invalid message from driver:", driverID, err)
 				continue
 			}
 
@@ -242,6 +270,8 @@ func (h *WebSocketHandler) validateMessage(message []byte) (string, error) {
 			return "", err
 		}
 		return baseMsg.Type, h.validateLocationUpdate(locUpdate)
+	case websocketdto.MessageTypeAuth:
+		return baseMsg.Type, nil
 	default:
 		return "", fmt.Errorf("unknown message type: %s", baseMsg.Type)
 	}

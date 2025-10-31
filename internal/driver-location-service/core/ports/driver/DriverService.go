@@ -22,4 +22,6 @@ type IDriverService interface {
 	GetDriverIdByRideId(ctx context.Context, ride_id string) (string, error)
 	GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error)
 	GetRideDetailsByRideId(ctx context.Context, ride_id string) (websocketdto.RideDetailsMessage, error)
+	IsOffline(ctx context.Context, driver_id string) (bool, error)
+	PayDriverMoney(ctx context.Context, driver_id string, amount float64) error
 }

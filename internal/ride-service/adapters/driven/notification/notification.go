@@ -219,5 +219,3 @@ func (n *Notification) DriverStatusUpdate(msg amqp091.Delivery) error {
 	msg.Ack(false)
 	return nil
 }
-
-// }

@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"ride-hail/internal/auth-service/core/domain/dto"
 	"strings"
 
-	"golang.org/x/crypto/bcrypt"
+	"ride-hail/internal/auth-service/core/domain/dto"
+	"ride-hail/internal/auth-service/core/myerrors"
 )
 
 const (
@@ -52,8 +52,8 @@ func validateUserRegistration(ctx context.Context, regReq dto.UserRegistrationRe
 
 	if regReq.UserAttrs != nil && len(*regReq.UserAttrs) > 0 {
 		if err := validateUserAttrs(*regReq.UserAttrs); err != nil {
-			if errors.Is(err, ErrInvalidPhoneNumber) {
-				return ErrInvalidPhoneNumber
+			if errors.Is(err, myerrors.ErrInvalidPhoneNumber) {
+				return myerrors.ErrInvalidPhoneNumber
 			}
 			return fmt.Errorf("invalid user attributes: %v", err)
 		}
@@ -67,7 +67,7 @@ func validateUserRegistration(ctx context.Context, regReq dto.UserRegistrationRe
 
 func validateRole(role string) error {
 	if role == "" {
-		return ErrFieldIsEmpty
+		return myerrors.ErrFieldIsEmpty
 	}
 	role = strings.ToUpper(role)
 	if ok := AllowedRoles[role]; !ok {
@@ -90,7 +90,7 @@ func validateUserAttrs(userAttrs json.RawMessage) error {
 	// Ensure "phone" attribute exists and is a valid phone number
 	phone, exists := attrs["phone"].(string)
 	if exists && !isValidPhoneNumber(phone) {
-		return ErrInvalidPhoneNumber
+		return myerrors.ErrInvalidPhoneNumber
 	}
 
 	return nil
@@ -109,7 +109,7 @@ func validateLogin(ctx context.Context, email, password string) error {
 
 func validateName(username string) error {
 	if username == "" {
-		return ErrFieldIsEmpty
+		return myerrors.ErrFieldIsEmpty
 	}
 
 	usernameLen := len(username)
@@ -122,7 +122,7 @@ func validateName(username string) error {
 
 func validateEmail(email string) error {
 	if email == "" {
-		return ErrFieldIsEmpty
+		return myerrors.ErrFieldIsEmpty
 	}
 
 	emailLen := len(email)
@@ -138,7 +138,7 @@ func validateEmail(email string) error {
 
 func validatePassword(password string) error {
 	if password == "" {
-		return ErrFieldIsEmpty
+		return myerrors.ErrFieldIsEmpty
 	}
 
 	passwordLen := len(password)
@@ -146,15 +146,6 @@ func validatePassword(password string) error {
 		return fmt.Errorf("must be in range [%d, %d]", MinPasswordLen, MaxPasswordLen)
 	}
 	return nil
-}
-
-func hashPassword(password string) ([]byte, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), HashFactor)
-	return bytes, err
-}
-
-func checkPassword(hashed []byte, password string) bool {
-	return bcrypt.CompareHashAndPassword(hashed, []byte(password)) == nil
 }
 
 // ================ Driver ================
@@ -204,7 +195,7 @@ func validateDriverRegistration(ctx context.Context, licenseNumber, vehicleType 
 
 func validateLicenseNumber(licenseNumber string) error {
 	if licenseNumber == "" {
-		return ErrFieldIsEmpty
+		return myerrors.ErrFieldIsEmpty
 	}
 
 	licenseLen := len(licenseNumber)
@@ -222,7 +213,7 @@ func validateLicenseNumber(licenseNumber string) error {
 
 func validateVehicleType(vehicleType string) error {
 	if vehicleType == "" {
-		return ErrFieldIsEmpty
+		return myerrors.ErrFieldIsEmpty
 	}
 
 	// Convert to uppercase for consistency with enum

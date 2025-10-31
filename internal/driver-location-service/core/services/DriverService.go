@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"time"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
+	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
 	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
@@ -61,6 +63,7 @@ func (ds *DriverService) GoOffline(ctx context.Context, driver_id string) (dto.D
 }
 
 func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLocation, driver_id string) (dto.NewLocationResponse, error) {
+	l := ds.log.Action("UpdateLocation")
 	var requestDAO model.NewLocation
 	requestDAO.Accuracy_meters = request.Accuracy_meters
 	requestDAO.Heading_Degrees = request.Heading_Degrees
@@ -68,14 +71,36 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	requestDAO.Longitude = request.Longitude
 	requestDAO.Speed_kmh = request.Speed_kmh
 	response, err := ds.repositories.UpdateLocation(ctx, driver_id, requestDAO)
+	l.Info("Updating driver location")
 	if err != nil {
+		l.Error("Failed to  update location", err)
 		return dto.NewLocationResponse{}, err
+	}
+	isNear, err := ds.repositories.IsDriverNear(ctx, driver_id)
+	if err != nil {
+		l.Error("Failed To check is driver near: ", err, "DriverID", driver_id)
+	}
+	l.Info("Driver distance to pickup location:", "Dist", isNear)
+	if isNear <= 100 {
+		rideID, err := ds.GetRideIdByDriverId(ctx, driver_id)
+		if err != nil {
+			l.Error("Failed to get ride id by driver id: ", err, "DriverID", driver_id)
+		}
+		driverStatus := messagebrokerdto.DriverStatus{
+			DriverID:  driver_id,
+			RideID:    rideID,
+			Status:    "ARRIVED",
+			Timestamp: time.Now().String(),
+		}
+		ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", driver_id), driverStatus)
+		l.Info("Driver status send to rabbitmq", driver_id, "STATUS", driverStatus)
 	}
 	var responseDTO dto.NewLocationResponse
 	responseDTO.Coordinate_id = response.Coordinate_id
 	responseDTO.Updated_at = response.Updated_at
 	return responseDTO, nil
 }
+
 func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.StartRideResponse, error) {
 	l := ds.log.Action("service.start_ride")
 	l.Info("start", "ride_id", msg.Ride_id, "driver_id", msg.Driver_location.Driver_id)
@@ -125,18 +150,20 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 	}
 
 	// 5️⃣ Запускаем транзакционный апдейт
-	res, err := ds.repositories.StartRideTx(ctx, model.StartRide{
-		Ride_id: msg.Ride_id,
-		Driver_location: model.DriverCoordinates{
-			Driver_id: driverID,
-			Latitude:  driverLat,
-			Longitude: driverLng,
-		},
-	})
+	res, err := ds.repositories.StartRideTx(ctx, driverID, msg.Ride_id)
 	if err != nil {
 		l.Error("repository.StartRideTx failed", err)
 		return dto.StartRideResponse{}, err
 	}
+	// Driver.statis.{driver_id}
+	driverStatus := messagebrokerdto.DriverStatus{
+		DriverID:  msg.Driver_location.Driver_id,
+		RideID:    msg.Ride_id,
+		Status:    "BUSY",
+		Timestamp: time.Now().String(),
+	}
+	ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", msg.Driver_location.Driver_id), driverStatus)
+	l.Info("Driver status send to rabbitmq", msg.Driver_location.Driver_id)
 
 	l.Info("success", "ride_id", res.Ride_id, "status", res.Status, "started_at", res.Started_at)
 	return dto.StartRideResponse{
@@ -213,7 +240,17 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 		l.Error("repository.CompleteRideTx failed", err)
 		return dto.RideCompleteResponse{}, err
 	}
+	// Driver.statis.{driver_id}
+	driverStatus := messagebrokerdto.DriverStatus{
+		DriverID:  driverID,
+		RideID:    request.Ride_id,
+		Status:    "AVAILABLE",
+		Timestamp: time.Now().String(),
+	}
+	ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", driverID), driverStatus)
+	l.Info("Driver status send to rabbitmq", driverID)
 
+	// <<<<<<< HEAD
 	// 5️⃣ Формируем DTO
 	resp := dto.RideCompleteResponse{
 		Message:       resDAO.Message,
@@ -328,4 +365,24 @@ func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string)
 		return model.ErrNoActiveRide
 	}
 	return nil
+}
+
+func (ds *DriverService) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
+	return ds.repositories.PayDriverMoney(ctx, driver_id, amount)
+}
+
+func (ds *DriverService) GracefullShutdown(ctx context.Context) error {
+	err := ds.repositories.SetAllOffline()
+	if err != nil {
+		return err
+	}
+	err = ds.repositories.EndAllSessions()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *DriverService) IsOffline(ctx context.Context, driver_id string) (bool, error) {
+	return ds.repositories.IsOffline(ctx, driver_id)
 }
