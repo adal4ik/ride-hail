@@ -3,8 +3,9 @@ package db
 import (
 	"context"
 	"fmt"
-	"ride-hail/internal/driver-location-service/core/domain/model"
 	"time"
+
+	"ride-hail/internal/driver-location-service/core/domain/model"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -530,4 +531,20 @@ func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string
 		return err
 	}
 	return nil
+}
+
+func (dr *DriverRepository) SetAllOffline() {
+	Query := `
+		UPDATE drivers
+		SET status = 'OFFLINE';
+	`
+	dr.db.conn.Exec(context.Background(), Query)
+}
+
+func (dr *DriverRepository) EndAllSessions() {
+	Query := `
+		UPDATE driver_sessions
+		SET ended_at = NOW();
+	`
+	dr.db.conn.Exec(context.Background(), Query)
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"ride-hail/internal/config"
@@ -18,15 +19,17 @@ import (
 	"ride-hail/internal/mylogger"
 )
 
+var wg sync.WaitGroup
+
 func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) error {
 	log := mylog.Action("Execute")
 
 	// Context Declaration
-	newCtx, close := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	signalCtx, close := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	defer close()
 
 	// Connecting to Database
-	database, err := db.ConnectDB(newCtx, cfg.DB, mylog)
+	database, err := db.ConnectDB(signalCtx, cfg.DB, mylog)
 	if err != nil {
 		log.Error("Database connection failed: ", err)
 		return err
@@ -40,13 +43,11 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 		log.Error("Broker connection failed: ", err)
 		return err
 	}
-
-	// Declaring channels for ride offers and driver responses
-	// driverResponses := make(map[string]chan dto.DriverResponse)
-	// messageDriver := make(map[string]chan dto.DriverRideOffer)
+	defer broker.Close()
+	log.Info("Successfully connected to message broker")
 
 	// Declaring Consumer
-	consumer := bm.NewConsumer(newCtx, broker, mylog)
+	consumer := bm.NewConsumer(signalCtx, broker, mylog)
 	req, statusMsgs, err := consumer.ListenAll()
 	if err != nil {
 		log.Error("Failed to subscribe for messages", err)
@@ -62,8 +63,10 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	log.Info("All driver-location components are declared")
 
 	// Creating the distributor
-	distributor := services.NewDistributor(newCtx, req, statusMsgs, wbManager, broker, service.DriverService, mylog)
+	wg.Add(1)
+	distributor := services.NewDistributor(signalCtx, req, statusMsgs, wbManager, broker, service.DriverService, mylog)
 	go func() {
+		defer wg.Done()
 		if err := distributor.MessageDistributor(); err != nil {
 			mylog.Error("Message distributor encountered an error", err)
 		}
@@ -78,8 +81,10 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	}
 
 	// Running server
+	wg.Add(1)
 	runErrCh := make(chan error, 1)
 	go func() {
+		defer wg.Done()
 		log.Info("Server is starting on port :" + cfg.Srv.DriverLocationServicePort)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			runErrCh <- err
@@ -87,18 +92,19 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	}()
 	mylog.Info("Server is started successfully")
 
-	// Gracefull Shutdown
+	// Listening for channels
 	select {
-	case <-newCtx.Done():
+	case <-signalCtx.Done():
 		mylog.Info("Shutdown signal received")
-		// return GracefullShutDown(context.Background())
-	case err := <-runErrCh:
+	case err = <-runErrCh:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			mylog.Error("Server failed unexpectedly", err)
-			return err
 		}
-		mylog.Info("Server exited normally")
-		return nil
 	}
-	return nil
+	// Gracefull Shutdown
+	// Pay driver that in route, go offline all drivers, end all driver_sessions
+	log.Info("Shutting down gracefully......")
+	wg.Wait()
+	service.DriverService.GracefullShutdown()
+	return err
 }

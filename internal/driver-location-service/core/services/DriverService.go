@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
-	"time"
 
 	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 
@@ -286,4 +287,9 @@ func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string)
 
 func (ds *DriverService) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
 	return ds.repositories.PayDriverMoney(ctx, driver_id, amount)
+}
+
+func (ds *DriverService) GracefullShutdown() {
+	ds.repositories.SetAllOffline()
+	ds.repositories.EndAllSessions()
 }

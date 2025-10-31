@@ -33,6 +33,7 @@ type Distributor struct {
 	broker driven.IDriverBroker
 	ctx    context.Context
 	log    mylogger.Logger
+	wg     sync.WaitGroup
 }
 
 type DriverMessage struct {
@@ -67,9 +68,8 @@ func NewDistributor(
 		pendingOffers:  make(map[string]*PendingOffer),
 		ctx:            ctx,
 		log:            log,
+		wg:             sync.WaitGroup{},
 	}
-
-	// go (*distributor).MessageDistributor()
 	return distributor
 }
 
@@ -79,43 +79,45 @@ func (d *Distributor) MessageDistributor() error {
 	for {
 		select {
 		case requestDelivery := <-d.rideOffers:
+			d.wg.Add(1)
 			go d.handleRideRequest(requestDelivery)
 
 		case statusDelivery := <-d.rideStatuses:
+			d.wg.Add(1)
 			go d.handleRideStatus(statusDelivery)
 
 		case driverMsg := <-d.wsManager.GetFanIn():
-			log.Info("Getting message from FanIn....")
+			d.wg.Add(1)
 			go d.handleDriverMessage(driverMsg)
 
 		case <-d.ctx.Done():
-			return nil
+			log.Info("Shuting down...")
+			d.wg.Wait()
 		}
 	}
 }
 
-func (d *Distributor) RegisterDriverChannel(driverID string, incoming <-chan []byte) {
-	go d.handleDriverConnection(driverID, incoming)
-}
+// func (d *Distributor) RegisterDriverChannel(driverID string, incoming <-chan []byte) {
+// 	go d.handleDriverConnection(driverID, incoming)
+// }
 
-func (d *Distributor) handleDriverConnection(driverID string, incoming <-chan []byte) {
-	for {
-		select {
-		case <-d.ctx.Done():
-			return
-		case message, ok := <-incoming:
-			if !ok {
-				return
-			}
-			d.driverMessages <- DriverMessage{
-				DriverID: driverID,
-				Message:  message,
-			}
-		}
-	}
-}
+// func (d *Distributor) handleDriverConnection(driverID string, incoming <-chan []byte) {
+// 	for {
+// 		select {
+// 		case <-d.ctx.Done():
+// 			return
+// 		case message, ok := <-incoming:
+// 			if !ok {
+// 				return
+// 			}
+// 			d.driverMessages <- DriverMessage{
+// 				DriverID: driverID,
+// 				Message:  message,
+// 			}
+// 		}
+// 	}
+// }
 
-// IMPLEMENT
 func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 	log := d.log.Action("handleDriverMessage")
 	var LocationUpdate websocketdto.LocationUpdateMessage
@@ -175,8 +177,8 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		req.Ride_type,
 	)
 	if err != nil {
-		log.Error("Failed to find appropriate drivers:", err, "ride-id", req.Ride_id)
-		// requestDelivery.Nack(false, true)
+		log.Error("Failed to get appropriate drivers from db:", err, "ride-id", req.Ride_id)
+		requestDelivery.Nack(false, false)
 		return
 	}
 
@@ -187,7 +189,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		}
 	}
 	log.Info(fmt.Sprintf("Found %d connected drivers for ride %s", len(connectedDrivers), req.Ride_id))
-	go d.sendRideOffers(connectedDrivers, req, requestDelivery)
+	d.sendRideOffers(connectedDrivers, req, requestDelivery)
 }
 
 func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.RideDetails, requestDelivery amqp.Delivery) {
@@ -230,21 +232,23 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 			var response websocketdto.RideResponseMessage
 			if err := json.Unmarshal(data, &response); err != nil {
 				log.Error("Failed to unmarshal driver response:", err, driver.DriverId)
-				requestDelivery.Nack(false, true)
-				continue
+				requestDelivery.Nack(false, false)
+				return
 			}
 			if response.Accepted {
 				d.handleDriverAcceptance(response, rideDetails, requestDelivery, driver)
+				return
 			} else {
-				requestDelivery.Nack(false, true)
+				continue
 			}
-			return
 		case <-time.After(30 * time.Second):
 			log.Info("No driver accepted the ride within timeout")
-			requestDelivery.Nack(false, true)
 			continue
 		}
 	}
+	log.Info("No drivers accepted this ride:", "RideID", rideDetails.Ride_id)
+	time.Sleep(7 * time.Second)
+	requestDelivery.Nack(false, true)
 }
 
 func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseMessage, rideDetails dto.RideDetails, requestDelivery amqp.Delivery, driver dto.DriverInfo) {
