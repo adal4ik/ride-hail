@@ -163,7 +163,7 @@ func (c *Client) read() {
 			c.ToDriver <- dataBytes
 			wsLog("✅ Accepted ride offer %s", offer.OfferID)
 
-			go c.LocationUpdate(offer, 1000)
+			go c.LocationUpdate(offer, 500)
 
 		default:
 			wsLog("📨 WS message: %+v", data)
@@ -282,35 +282,35 @@ func (c *Client) goToTarget(current, target websocketdto.Location, speed float64
 	wsLog("🚗 Moving to pickup: distance=%.2fm, steps=%d, Δlat=%.6f, Δlng=%.6f",
 		totalDistance, steps, dLat, dLng)
 
-	ticker := time.NewTicker(updateInterval)
-	defer ticker.Stop()
+	// ticker := time.NewTicker(updateInterval)
+	// defer ticker.Stop()
 
-	for i := 0; i < steps; i++ {
-		select {
-		case <-ticker.C:
-			// Update current position by adding dLat and dLng to it
-			c.CurrentLat += dLat
-			c.CurrentLng += dLng
+	// for i := 0; i < steps; i++ {
+	// 	select {
+	// 	case <-ticker.C:
+	// 		// Update current position by adding dLat and dLng to it
+	// 		c.CurrentLat += dLat
+	// 		c.CurrentLng += dLng
 
-			// Send the location update
-			locUpdate := websocketdto.LocationUpdateMessage{
-				WebSocketMessage: websocketdto.WebSocketMessage{
-					Type: websocketdto.MessageTypeLocationUpdate,
-				},
-				Latitude:  c.CurrentLat,
-				Longitude: c.CurrentLng,
-			}
-			dataBytes, _ := json.Marshal(locUpdate)
-			c.ToDriver <- dataBytes
+	// 		// Send the location update
+	// 		locUpdate := websocketdto.LocationUpdateMessage{
+	// 			WebSocketMessage: websocketdto.WebSocketMessage{
+	// 				Type: websocketdto.MessageTypeLocationUpdate,
+	// 			},
+	// 			Latitude:  c.CurrentLat,
+	// 			Longitude: c.CurrentLng,
+	// 		}
+	// 		dataBytes, _ := json.Marshal(locUpdate)
+	// 		c.ToDriver <- dataBytes
 
-			wsLog("📍 Sent location update (%d/%d): lat=%.6f, lng=%.6f",
-				i+1, steps, c.CurrentLat, c.CurrentLng)
+	// 		wsLog("📍 Sent location update (%d/%d): lat=%.6f, lng=%.6f",
+	// 			i+1, steps, c.CurrentLat, c.CurrentLng)
 
-		case <-c.ctx.Done():
-			wsLog("🛑 LocationUpdate stopped (context canceled).")
-			return
-		}
-	}
+	// 	case <-c.ctx.Done():
+	// 		wsLog("🛑 LocationUpdate stopped (context canceled).")
+	// 		return
+	// 	}
+	// }
 
 	// Final step to arrive at the target (precisely).
 	// Ensure we reach the target exactly.
@@ -394,8 +394,8 @@ func main() {
 
 	// second request ==========================================================================
 	HttpRequest2 := HttpRequest2{
-		Latitude:  43.238949,
-		Longitude: 76.889709,
+		Latitude:  43.283859,
+		Longitude: 76.999909,
 	}
 	httpLog("Making him online...")
 
