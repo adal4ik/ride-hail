@@ -57,7 +57,7 @@ func (us *UserService) Register(ctx context.Context, regReq dto.UserRegistration
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return "", "", fmt.Errorf("Internal error, please try again later")
+			return "", "", myerrors.ErrDBConnClosedMsg
 		}
 		if errors.Is(err, myerrors.ErrEmailRegistered) {
 			mylog.Error("Failed to register, email already registered", err)
@@ -95,7 +95,7 @@ func (us *UserService) Login(ctx context.Context, authReq dto.UserAuthRequest) (
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return "", fmt.Errorf("Internal error, please try again later")
+			return "", myerrors.ErrDBConnClosedMsg
 		}
 		if errors.Is(err, myerrors.ErrUnknownEmail) {
 			mylog.Error("Failed to login, unknown email", err)

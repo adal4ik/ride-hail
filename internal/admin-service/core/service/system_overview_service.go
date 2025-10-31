@@ -32,7 +32,7 @@ func (ds *SystemOverviewService) GetSystemOverview(ctx context.Context) (dto.Sys
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return dto.SystemOverview{}, fmt.Errorf("Internal error, please try again later")
+			return dto.SystemOverview{}, myerrors.ErrDBConnClosedMsg
 		}
 
 		return dto.SystemOverview{}, fmt.Errorf("Failed to get metrics: %v", err)
@@ -41,7 +41,7 @@ func (ds *SystemOverviewService) GetSystemOverview(ctx context.Context) (dto.Sys
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return dto.SystemOverview{}, fmt.Errorf("Internal error, please try again later")
+			return dto.SystemOverview{}, myerrors.ErrDBConnClosedMsg
 		}
 
 		return dto.SystemOverview{}, fmt.Errorf("Failed to get driver distribution: %v", err)
@@ -50,7 +50,7 @@ func (ds *SystemOverviewService) GetSystemOverview(ctx context.Context) (dto.Sys
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return dto.SystemOverview{}, fmt.Errorf("Internal error, please try again later")
+			return dto.SystemOverview{}, myerrors.ErrDBConnClosedMsg
 		}
 
 		return dto.SystemOverview{}, fmt.Errorf("Failed to get hotspots: %v", err)

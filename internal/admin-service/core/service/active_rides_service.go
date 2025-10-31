@@ -32,7 +32,7 @@ func (as *ActiveDrivesService) GetActiveRides(ctx context.Context, page, pageSiz
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return dto.ActiveDrives{}, fmt.Errorf("Internal error, please try again later")
+			return dto.ActiveDrives{}, myerrors.ErrDBConnClosedMsg
 		}
 
 		return dto.ActiveDrives{}, fmt.Errorf("Failed to get active rides: %v", err)

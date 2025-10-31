@@ -72,7 +72,7 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return "", "", fmt.Errorf("Internal error, please try again later")
+			return "", "", myerrors.ErrDBConnClosedMsg
 		}
 		if errors.Is(err, myerrors.ErrEmailRegistered) {
 			mylog.Error("Failed to register, email already registered", err)
@@ -111,7 +111,7 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverAuthReques
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			mylog.Error("Failed to connect to connect to db", err)
-			return "", fmt.Errorf("Internal error, please try again later")
+			return "", myerrors.ErrDBConnClosedMsg
 		}
 		if errors.Is(err, myerrors.ErrUnknownEmail) {
 			mylog.Error("Failed to login, unknown email", err)
