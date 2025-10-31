@@ -15,3 +15,7 @@ CREATE TABLE IF NOT EXISTS drivers (
     is_verified BOOLEAN DEFAULT false,
     user_attrs JSONB DEFAULT '{}'::JSONB
 );
+
+-- Create index for status queries
+CREATE INDEX idx_drivers_status ON drivers(status);
+

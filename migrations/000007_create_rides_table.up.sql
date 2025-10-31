@@ -20,3 +20,6 @@ CREATE TABLE IF NOT EXISTS rides (
   pickup_coord_id UUID REFERENCES coordinates (coord_id),
   destination_coord_id UUID REFERENCES coordinates (coord_id)
 );
+
+-- Create index for status queries
+CREATE INDEX idx_rides_status ON rides(status);

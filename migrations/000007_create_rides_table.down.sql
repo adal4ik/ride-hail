@@ -1,1 +1,3 @@
 DROP TABLE IF EXISTS rides;
+
+DROP INDEX IF EXISTS idx_rides_status;
