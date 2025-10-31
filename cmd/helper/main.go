@@ -122,6 +122,10 @@ type Client struct {
 }
 
 func (c *Client) read() {
+	defer func() {
+		close(c.ToDriver) // tell writer to stop
+		wsLog("read loop ended, closing writer")
+	}()
 	for {
 		_, payload, err := c.conn.ReadMessage()
 		if err != nil {
