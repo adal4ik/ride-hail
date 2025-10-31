@@ -52,6 +52,8 @@ type Loggerconfig struct {
 
 type App struct {
 	PublicJwtSecret string `yaml:"public_jwt"`
+	CertPath        string `yaml:"cert_path"`
+	CertKeyPath     string `yaml:"cert_key_path"`
 }
 
 func New() (*Config, error) {
@@ -110,6 +112,8 @@ func New() (*Config, error) {
 		},
 		App: &App{
 			PublicJwtSecret: getEnv("PUBLIC_JWT", "default-public-secret"),
+			CertPath: getEnv("CERT_PATH", "gay"),
+			CertKeyPath: getEnv("CERT_KEY_PATH", "gay"),
 		},
 	}
 
