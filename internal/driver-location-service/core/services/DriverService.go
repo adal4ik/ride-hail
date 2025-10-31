@@ -319,3 +319,7 @@ func (ds *DriverService) GracefullShutdown(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (ds *DriverService) IsOffline(ctx context.Context, driver_id string) (bool, error) {
+	return ds.repositories.IsOffline(ctx, driver_id)
+}

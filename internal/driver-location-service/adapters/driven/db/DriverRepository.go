@@ -571,3 +571,17 @@ func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) 
 	}
 	return res, nil
 }
+
+func (dr *DriverRepository) IsOffline(ctx context.Context, driver_id string) (bool, error) {
+	Query := `
+		SELECT status = 'OFFLINE'
+		FROM drivers
+		WHERE driver_id = $1;
+	`
+	var isOffline bool
+	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&isOffline)
+	if err != nil {
+		return false, err
+	}
+	return isOffline, err
+}
