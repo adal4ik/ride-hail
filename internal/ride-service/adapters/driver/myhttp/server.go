@@ -2,6 +2,7 @@ package myhttp
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -88,10 +89,21 @@ func (s *Server) Run() error {
 	// Configure routes and handlers
 	s.Configure()
 
+	cert, err := tls.LoadX509KeyPair(s.cfg.App.CertPath, s.cfg.App.CertKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to load TLS cert/key: %w", err)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+
 	s.mu.Lock()
 	s.srv = &http.Server{
-		Addr:    fmt.Sprintf(":%v", s.cfg.Srv.RideServicePort),
-		Handler: s.mux,
+		Addr:      fmt.Sprintf(":%v", s.cfg.Srv.RideServicePort),
+		Handler:   s.mux,
+		TLSConfig: tlsConfig,
 	}
 	s.mu.Unlock()
 
@@ -116,10 +128,12 @@ func (s *Server) Stop(ctx context.Context) error {
 		Data: []byte(`{"text":"shutting server lmao XD, now it is your problem XDXDXD"}`),
 	}
 	log.Info("sending broadcast message...")
-	s.dispatcher.BroadCast(msg)
+	if s.dispatcher != nil {
+		s.dispatcher.BroadCast(msg)
+	}
 	log.Info("sent broadcast message...")
 	s.dispathcerCancel()
-	
+
 	// make rides that have status like
 	//   'REQUESTED'
 	//   'MATCHED'
@@ -129,9 +143,11 @@ func (s *Server) Stop(ctx context.Context) error {
 	//
 	// to 'CANCELLED'
 	log.Info("cancel everything...")
-	err := s.rideService.CancelEveryPossibleRides()
-	if err != nil {
-		log.Error("cannot cancel", err)
+	if s.rideService != nil {
+		err := s.rideService.CancelEveryPossibleRides()
+		if err != nil {
+			log.Error("cannot cancel", err)
+		}
 	}
 	log.Info("cancelled everything...")
 	s.wg.Wait()
@@ -162,7 +178,7 @@ func (s *Server) startHTTPServer() error {
 	errCh := make(chan error, 1)
 
 	go func() {
-		if err := s.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := s.srv.ListenAndServeTLS(s.cfg.App.CertPath, s.cfg.App.CertKeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		} else {
 			errCh <- nil

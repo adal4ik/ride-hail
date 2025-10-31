@@ -21,3 +21,7 @@ vendor/
 *.txt
 
 v.json
+
+# cert file
+*.crt
+*.key
