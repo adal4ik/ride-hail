@@ -158,7 +158,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 
 	if err := json.Unmarshal(requestDelivery.Body, &req); err != nil {
 		log.Error("Error Unmarshalling request:", err)
-		requestDelivery.Nack(false, true)
+		requestDelivery.Nack(false, false)
 		return
 	}
 	if len(d.wsManager.GetConnectedDrivers()) == 0 {
@@ -175,7 +175,7 @@ func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
 		req.Ride_type,
 	)
 	if err != nil {
-		log.Error("Failed to find appropriate drivers:", err, req.Ride_id)
+		log.Error("Failed to find appropriate drivers:", err, "ride-id", req.Ride_id)
 		// requestDelivery.Nack(false, true)
 		return
 	}
@@ -276,7 +276,7 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	var status messagebrokerdto.RideStatus
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
 		log.Error("Failed to unmarshal the ride response message: ", err)
-		statusDelivery.Nack(false, true)
+		statusDelivery.Nack(false, false)
 		return
 	}
 	log.Info("Received ride status update:", status.RideId, status)

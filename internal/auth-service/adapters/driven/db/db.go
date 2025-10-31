@@ -12,12 +12,11 @@ import (
 )
 
 type DB struct {
-	ctx          context.Context
-	cfg          *config.DBconfig
-	mylog        mylogger.Logger
-	conn         *pgx.Conn
-	reconnecting bool
-	mu           *sync.Mutex
+	ctx   context.Context
+	cfg   *config.DBconfig
+	mylog mylogger.Logger
+	conn  *pgx.Conn
+	mu    *sync.Mutex
 }
 
 // Start initializes and returns a new DB instance with a single connection

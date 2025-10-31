@@ -21,12 +21,13 @@ func NewDriverRepository(db *DataBase) *DriverRepository {
 func (dr *DriverRepository) GoOnline(ctx context.Context, coord model.DriverCoordinates) (string, error) {
 	InsertCoordQuery := `
 		INSERT INTO coordinates(entity_id, entity_type, address, latitude, longitude)
-		VALUES ($1, 'DRIVER', 'Car', $2, $3);
-	`
+			VALUES ($1, 'DRIVER', 'Car', $2, $3);
+		`
 	_, err := dr.db.GetConn().Exec(ctx, InsertCoordQuery, coord.Driver_id, coord.Latitude, coord.Longitude)
 	if err != nil {
 		return "", err
 	}
+
 	UpdateDriverStatus := `
 		UPDATE drivers
 		SET status = 'AVAILABLE'

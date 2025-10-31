@@ -6,10 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"ride-hail/internal/auth-service/core/domain/dto"
 	"strings"
 
-	"golang.org/x/crypto/bcrypt"
+	"ride-hail/internal/auth-service/core/domain/dto"
 )
 
 const (
@@ -146,15 +145,6 @@ func validatePassword(password string) error {
 		return fmt.Errorf("must be in range [%d, %d]", MinPasswordLen, MaxPasswordLen)
 	}
 	return nil
-}
-
-func hashPassword(password string) ([]byte, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), HashFactor)
-	return bytes, err
-}
-
-func checkPassword(hashed []byte, password string) bool {
-	return bcrypt.CompareHashAndPassword(hashed, []byte(password)) == nil
 }
 
 // ================ Driver ================
