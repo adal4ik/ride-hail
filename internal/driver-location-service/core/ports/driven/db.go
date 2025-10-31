@@ -27,7 +27,9 @@ type IDriverRepository interface {
 	GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error)
 	PayDriverMoney(ctx context.Context, driver_id string, amount float64) error
 	SetAllOffline() error
+	IsEnRoute(ctx context.Context, driverID string) (bool, error)
 	EndAllSessions() error
+	HasRide(ctx context.Context, driverID string) (bool, error)
 	IsDriverNear(ctx context.Context, driver_id string) (float64, error)
 	IsOffline(ctx context.Context, driver_id string) (bool, error)
 }

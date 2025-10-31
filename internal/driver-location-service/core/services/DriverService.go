@@ -114,20 +114,18 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 	}
 
 	// 1️⃣ Проверка: есть ли активная поездка
-	active, err := ds.repositories.HasActiveRide(ctx, driverID)
+	active, err := ds.repositories.IsEnRoute(ctx, driverID)
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			l.Error("Failed to connect to connect to db", err)
 			return dto.StartRideResponse{}, myerrors.ErrDBConnClosedMsg
 		}
-		l.Error("get coords failed", err)
-		return dto.StartRideResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
 		l.Error("check active ride failed", err)
 		return dto.StartRideResponse{}, fmt.Errorf("failed to check active rides: %w", err)
 	}
-	if active {
+	if !active {
 		l.Warn("driver already has an active ride", "driver_id", driverID)
-		return dto.StartRideResponse{}, fmt.Errorf("driver already has an active ride")
+		return dto.StartRideResponse{}, fmt.Errorf("Error you don not have a ride")
 	}
 
 	// 2️⃣ Проверяем, что поездка действительно назначена этому водителю
@@ -362,7 +360,7 @@ func (d *DriverService) CheckDriverStatus(ctx context.Context, driver_id string)
 }
 
 func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string) error {
-	ok, err := ds.repositories.HasActiveRide(ctx, driverID)
+	ok, err := ds.repositories.HasRide(ctx, driverID)
 	if err != nil {
 		if errors.Is(err, myerrors.ErrDBConnClosed) {
 			return myerrors.ErrDBConnClosedMsg

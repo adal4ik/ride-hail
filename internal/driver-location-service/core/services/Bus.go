@@ -78,14 +78,14 @@ func (d *Distributor) MessageDistributor() error {
 		case requestDelivery := <-d.rideOffers:
 			if !d.broker.IsAlive() {
 				log.Info("RabbitMq aman bol!")
-				return nil
+				continue
 			}
 			d.wg.Add(1)
 			go d.handleRideRequest(requestDelivery)
 
 		case statusDelivery := <-d.rideStatuses:
 			if !d.broker.IsAlive() {
-				return nil
+				continue
 			}
 			d.wg.Add(1)
 			go d.handleRideStatus(statusDelivery)
@@ -248,7 +248,6 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 }
 
 func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseMessage, rideDetails dto.RideDetails, requestDelivery amqp.Delivery, driver dto.DriverInfo) {
-	defer d.wg.Done()
 	log := d.log.Action("handleDriverAcceptance")
 	_ = log
 	driverMatch := dto.DriverMatchResponse{

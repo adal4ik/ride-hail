@@ -466,10 +466,47 @@ func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) 
             SELECT 1
             FROM rides
             WHERE driver_id = $1
-            AND status IN ('ARRIVED','IN_PROGRESS')
+            AND status IN ('IN_PROGRESS')
         )`
 	var ok bool
 	if err := dr.db.GetConn().QueryRow(ctx, q, driverID).Scan(&ok); err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return false, err2
+		}
+		return false, err
+	}
+	return ok, nil
+}
+
+func (dr *DriverRepository) IsEnRoute(ctx context.Context, driverID string) (bool, error) {
+	const q = `
+        SELECT status = 'EN_ROUTE'
+		FROM drivers
+		WHERE driver_id = $1;
+		`
+
+	var ok bool
+	if err := dr.db.GetConn().QueryRow(ctx, q, driverID).Scan(&ok); err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return false, err2
+		}
+		return false, err
+	}
+	return ok, nil
+}
+
+func (dr *DriverRepository) HasRide(ctx context.Context, driverID string) (bool, error) {
+	Query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM drivers
+			WHERE status != 'AVAILABLE' and driver_id = $1
+		);
+	`
+	var ok bool
+	if err := dr.db.GetConn().QueryRow(ctx, Query, driverID).Scan(&ok); err != nil {
 		// Check if the database is alive
 		if err2 := dr.db.IsAlive(); err2 != nil {
 			return false, err2
@@ -619,14 +656,14 @@ func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string
 	Query := `
 		UPDATE drivers
 		SET total_earnings = total_earnings + $1
-		WHERE driver_id = $2;IsDriverNear(ctx context.Context, driver_id string) (bool, error)
+		WHERE driver_id = $2;
 	`
 	_, err = tx.Exec(ctx, Query, amount, driver_id)
 	if err != nil {
 		return err
 	}
 
-	SessionQuery := `aled, publishin
+	SessionQuery := `
 	UPDATE driver_sessions
 	SET total_rides = total_rides + 1,
 	total_earnings = total_earnings + $1
