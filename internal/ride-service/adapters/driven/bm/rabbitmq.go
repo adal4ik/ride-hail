@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
+
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/core/ports"
-	"sync"
-	"time"
 
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 

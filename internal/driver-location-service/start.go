@@ -84,8 +84,8 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	// Defining the rounter
 	mux := myhttp.Router(handler, cfg)
 	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%v", cfg.Srv.DriverLocationServicePort),
-		Handler: mux,
+		Addr:      fmt.Sprintf(":%v", cfg.Srv.DriverLocationServicePort),
+		Handler:   mux,
 		TLSConfig: tlsConfig,
 	}
 

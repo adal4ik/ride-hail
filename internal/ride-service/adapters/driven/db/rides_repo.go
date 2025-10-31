@@ -269,14 +269,13 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (mod
 
 	// Use sql.NullString or pointers to handle NULL values
 
-
 	// Start transaction first to maintain consistency
 	tx, err := rr.db.conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return model.Rides{}, err
 	}
 	defer tx.Rollback(ctx) // Safe rollback if not committed
-	
+
 	var ride model.Rides
 	// Perform SELECT within the same transaction
 	row := tx.QueryRow(ctx, q1, rideId)

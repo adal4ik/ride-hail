@@ -5,10 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"os/signal"
+	"syscall"
+
 	"ride-hail/internal/auth-service/adapters/driver/myhttp"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"syscall"
 )
 
 func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) error {

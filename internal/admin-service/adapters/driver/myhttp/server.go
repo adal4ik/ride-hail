@@ -66,8 +66,8 @@ func (s *Server) Run() error {
 	}
 	s.mu.Lock()
 	s.srv = &http.Server{
-		Addr:    fmt.Sprintf(":%v", s.cfg.Srv.AdminServicePort),
-		Handler: s.mux,
+		Addr:      fmt.Sprintf(":%v", s.cfg.Srv.AdminServicePort),
+		Handler:   s.mux,
 		TLSConfig: tlsConfig,
 	}
 	s.mu.Unlock()
