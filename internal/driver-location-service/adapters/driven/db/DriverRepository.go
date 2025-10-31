@@ -599,7 +599,7 @@ func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string
 	Query := `
 		UPDATE drivers
 		SET total_earnings = total_earnings + $1
-		WHERE driver_id = $2;
+		WHERE driver_id = $2;IsDriverNear(ctx context.Context, driver_id string) (bool, error)
 	`
 	_, err = tx.Exec(ctx, Query, amount, driver_id)
 	if err != nil {
@@ -617,4 +617,57 @@ func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (dr *DriverRepository) SetAllOffline() error {
+	Query := `
+		UPDATE drivers
+		SET status = 'OFFLINE';
+	`
+	_, err := dr.db.conn.Exec(context.Background(), Query)
+	return err
+}
+
+func (dr *DriverRepository) EndAllSessions() error {
+	Query := `
+		UPDATE driver_sessions
+		SET ended_at = NOW();
+	`
+	_, err := dr.db.conn.Exec(context.Background(), Query)
+	return err
+}
+
+func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (bool, error) {
+	Query := `
+		SELECT
+			(
+				SELECT ST_Distance(ST_MakePoint(c_driver.longitude, c_driver.latitude)::geography, ST_MakePoint(c_dest.longitude, c_dest.latitude)::geography) 
+				FROM drivers d
+				JOIN rides r on r.driver_id = d.driver_id
+				JOIN coordinates c_driver on d.driver_id = c_driver.entity_id
+				JOIN coordinates c_dest on r.dest_coord_id = c_dest.coord_id
+				WHERE d.driver_id = $1 AND r.status = 'MATCHED';
+
+			) < 100;
+	`
+	var res bool
+	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&res)
+	if err != nil {
+		return false, err
+	}
+	return res, nil
+}
+
+func (dr *DriverRepository) IsOffline(ctx context.Context, driver_id string) (bool, error) {
+	Query := `
+		SELECT status = 'OFFLINE'
+		FROM drivers
+		WHERE driver_id = $1;
+	`
+	var isOffline bool
+	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&isOffline)
+	if err != nil {
+		return false, err
+	}
+	return isOffline, err
 }

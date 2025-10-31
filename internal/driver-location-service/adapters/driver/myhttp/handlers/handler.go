@@ -14,6 +14,6 @@ type Handlers struct {
 func New(service *services.Service, log mylogger.Logger, wsManager *ws.WebSocketManager) *Handlers {
 	return &Handlers{
 		DriverHandler:    NewDriverHandler(service.DriverService, log),
-		WebSocketHandler: NewWebSocketHandler(wsManager, service.AuthService, log),
+		WebSocketHandler: NewWebSocketHandler(wsManager, service.AuthService, service.DriverService, log),
 	}
 }

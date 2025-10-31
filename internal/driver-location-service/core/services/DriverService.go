@@ -67,6 +67,7 @@ func (ds *DriverService) GoOffline(ctx context.Context, driver_id string) (dto.D
 }
 
 func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLocation, driver_id string) (dto.NewLocationResponse, error) {
+	l := ds.log.Action("UpdateLocation")
 	var requestDAO model.NewLocation
 	requestDAO.Accuracy_meters = request.Accuracy_meters
 	requestDAO.Heading_Degrees = request.Heading_Degrees
@@ -76,6 +77,24 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	response, err := ds.repositories.UpdateLocation(ctx, driver_id, requestDAO)
 	if err != nil {
 		return dto.NewLocationResponse{}, err
+	}
+	isNear, err := ds.repositories.IsDriverNear(ctx, driver_id)
+	if err != nil {
+		l.Error("Failed To check is driver near: ", err, "DriverID", driver_id)
+	}
+	if isNear {
+		rideID, err := ds.GetRideIdByDriverId(ctx, driver_id)
+		if err != nil {
+			l.Error("Failed to get ride id by driver id: ", err, "DriverID", driver_id)
+		}
+		driverStatus := messagebrokerdto.DriverStatus{
+			DriverID:  driver_id,
+			RideID:    rideID,
+			Status:    "ARRIVED",
+			Timestamp: time.Now().String(),
+		}
+		ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", driver_id), driverStatus)
+		l.Info("Driver status send to rabbitmq", driver_id, "STATUS", driverStatus)
 	}
 	var responseDTO dto.NewLocationResponse
 	responseDTO.Coordinate_id = response.Coordinate_id
@@ -314,4 +333,20 @@ func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string)
 
 func (ds *DriverService) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
 	return ds.repositories.PayDriverMoney(ctx, driver_id, amount)
+}
+
+func (ds *DriverService) GracefullShutdown(ctx context.Context) error {
+	err := ds.repositories.SetAllOffline()
+	if err != nil {
+		return err
+	}
+	err = ds.repositories.EndAllSessions()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *DriverService) IsOffline(ctx context.Context, driver_id string) (bool, error) {
+	return ds.repositories.IsOffline(ctx, driver_id)
 }
