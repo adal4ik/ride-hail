@@ -29,23 +29,14 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 	tx, err := dr.db.conn.Begin(ctx)
 	if err != nil {
 		// Check if the database is alive
-		if err := dr.db.IsAlive(); err != nil {
-			return "", err
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return "", err2
 		}
 		return "", fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	// Ensure that we roll back in case of any error
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
-
-	// Check if the database is alive
-	if err := dr.db.IsAlive(); err != nil {
-		return "", err
-	}
+	defer tx.Rollback(ctx)
 
 	// Fixed query to insert driver with correct columns
 	q := `INSERT INTO drivers (
@@ -102,11 +93,6 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 }
 
 func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driver, error) {
-	// Check if the database is alive
-	if err := dr.db.IsAlive(); err != nil {
-		return models.Driver{}, err
-	}
-
 	q := `
 		SELECT 
 			driver_id,
@@ -149,6 +135,10 @@ func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driv
 		&d.UserAttrs,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return models.Driver{}, err2
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.Driver{}, myerrors.ErrUnknownEmail
 		}

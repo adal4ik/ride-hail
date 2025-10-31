@@ -29,23 +29,14 @@ func (ur *UserRepo) Create(ctx context.Context, user models.User) (string, error
 	tx, err := ur.db.conn.Begin(ctx)
 	if err != nil {
 		// Check if the database is alive
-		if err := ur.db.IsAlive(); err != nil {
-			return "", err
+		if err2 := ur.db.IsAlive(); err2 != nil {
+			return "", err2
 		}
 		return "", fmt.Errorf("failed to begin transaction: %v", err)
 	}
 
 	// Ensure that we roll back in case of any error
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
-
-	// Check if the database is alive
-	if err := ur.db.IsAlive(); err != nil {
-		return "", err
-	}
+	defer tx.Rollback(ctx)
 
 	var userAttrs interface{}
 	if user.UserAttrs != nil {
@@ -70,20 +61,11 @@ func (ur *UserRepo) Create(ctx context.Context, user models.User) (string, error
 		}
 		return "", fmt.Errorf("failed to insert user: %v", err)
 	}
-	// Commit the transaction
-	if err = tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("failed to commit transaction: %v", err)
-	}
 
-	return id, nil
+	return id, tx.Commit(ctx)
 }
 
 func (ur *UserRepo) GetByEmail(ctx context.Context, name string) (models.User, error) {
-	// Check if the database is alive
-	if err := ur.db.IsAlive(); err != nil {
-		return models.User{}, err
-	}
-
 	q := `
 		SELECT 
 			u.user_id,
@@ -114,6 +96,10 @@ func (ur *UserRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 		&u.UserAttrs,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := ur.db.IsAlive(); err2 != nil {
+			return models.User{}, err2
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.User{}, myerrors.ErrUnknownEmail
 		}

@@ -3,9 +3,10 @@ package ws
 import (
 	"context"
 	"encoding/json"
-	"ride-hail/internal/mylogger"
 	"sync"
 	"time"
+
+	"ride-hail/internal/mylogger"
 
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
@@ -29,7 +30,7 @@ type Client struct {
 	dispatcher  *Dispatcher
 	egress      chan websocketdto.Event
 	passengerId string
-	wg *sync.WaitGroup
+	wg          *sync.WaitGroup
 	cancelAuth  context.CancelFunc
 }
 
@@ -42,7 +43,7 @@ func NewClient(ctx context.Context, log mylogger.Logger, conn *websocket.Conn, d
 		egress:      make(chan websocketdto.Event),
 		passengerId: passengerId,
 		cancelAuth:  cancelAuth,
-		wg: wg,
+		wg:          wg,
 	}
 }
 

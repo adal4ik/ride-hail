@@ -3,12 +3,15 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
+	"ride-hail/internal/driver-location-service/core/myerrors"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
-	"time"
 
 	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 
@@ -86,6 +89,10 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 
 	d, err := ds.repositories.GetDestinationAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.StartRideResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		l.Error("get coords failed", err)
 		return dto.StartRideResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
 	}
@@ -128,12 +135,20 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 
 	dId, err := ds.GetDriverIdByRideId(ctx, request.Ride_id)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.RideCompleteResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		return dto.RideCompleteResponse{}, err
 	}
 
 	request.FinalLocation.Driver_id = dId
 	d, err := ds.repositories.GetDestinationAndDriverCoords(ctx, request.Ride_id, request.FinalLocation.Driver_id)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.RideCompleteResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		l.Error("get destination/driver coords failed", err)
 		return dto.RideCompleteResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
 	}
@@ -156,6 +171,10 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 
 	resDAO, err := ds.repositories.CompleteRideTx(ctx, reqDAO)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.RideCompleteResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		l.Error("repository.CompleteRideTx failed", err)
 		return dto.RideCompleteResponse{}, err
 	}
@@ -183,6 +202,9 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]dto.DriverInfo, error) {
 	drivers, err := ds.repositories.FindDrivers(ctx, longtitude, latitude, vehicleType)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			return []dto.DriverInfo{}, myerrors.ErrDBConnClosedMsg
+		}
 		fmt.Println("Service Error Arrived ", err)
 		return []dto.DriverInfo{}, err
 	}
@@ -249,6 +271,9 @@ func (d *DriverService) GetRideDetailsByRideId(ctx context.Context, ride_id stri
 	fmt.Println("Ride Details Model: ", rideDetailsModel)
 	fmt.Println("User phone", string(rideDetailsModel.PassengerAttrs))
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			return websocketdto.RideDetailsMessage{}, myerrors.ErrDBConnClosedMsg
+		}
 		return websocketdto.RideDetailsMessage{}, err
 	}
 	var rideDetails websocketdto.RideDetailsMessage
@@ -276,6 +301,9 @@ func (d *DriverService) CheckDriverStatus(ctx context.Context, driver_id string)
 func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string) error {
 	ok, err := ds.repositories.HasActiveRide(ctx, driverID)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			return myerrors.ErrDBConnClosedMsg
+		}
 		return err
 	}
 	if !ok {

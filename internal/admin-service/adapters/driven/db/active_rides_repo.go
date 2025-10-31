@@ -16,11 +16,6 @@ func NewActiveDrivesRepo(db *DB) *ActiveDrivesRepo {
 }
 
 func (ar *ActiveDrivesRepo) GetActiveRides(ctx context.Context, page, pageSize int) (int, []dto.Ride, error) {
-	// Check if the database is alive
-	if err := ar.db.IsAlive(); err != nil {
-		return 0, nil, err
-	}
-
 	// Count active rides
 	countQuery := `
     SELECT COUNT(*)
@@ -31,6 +26,10 @@ func (ar *ActiveDrivesRepo) GetActiveRides(ctx context.Context, page, pageSize i
 	totalCount := 0
 	err := ar.db.conn.QueryRow(ctx, countQuery).Scan(&totalCount)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := ar.db.IsAlive(); err2 != nil {
+			return 0, nil, err2
+		}
 		return 0, nil, fmt.Errorf("failed to get total count: %v", err)
 	}
 
