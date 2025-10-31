@@ -19,20 +19,32 @@ func NewDriverRepository(db *DataBase) *DriverRepository {
 }
 
 func (dr *DriverRepository) GoOnline(ctx context.Context, coord model.DriverCoordinates) (string, error) {
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return "", err2
+		}
+		return "", err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
 	InsertCoordQuery := `
 		INSERT INTO coordinates(entity_id, entity_type, address, latitude, longitude)
-		VALUES ($1, 'DRIVER', 'Car', $2, $3);
-	`
-	_, err := dr.db.GetConn().Exec(ctx, InsertCoordQuery, coord.Driver_id, coord.Latitude, coord.Longitude)
+			VALUES ($1, 'DRIVER', 'Car', $2, $3);
+		`
+	_, err = tx.Exec(ctx, InsertCoordQuery, coord.Driver_id, coord.Latitude, coord.Longitude)
 	if err != nil {
 		return "", err
 	}
+
 	UpdateDriverStatus := `
 		UPDATE drivers
 		SET status = 'AVAILABLE'
 		WHERE driver_id = $1;
 	`
-	_, err = dr.db.GetConn().Exec(ctx, UpdateDriverStatus, coord.Driver_id)
+	_, err = tx.Exec(ctx, UpdateDriverStatus, coord.Driver_id)
 	if err != nil {
 		return "", err
 	}
@@ -43,11 +55,22 @@ func (dr *DriverRepository) GoOnline(ctx context.Context, coord model.DriverCoor
 	`
 
 	var session_id string
-	dr.db.GetConn().QueryRow(ctx, CreateQuery, coord.Driver_id).Scan(&session_id)
-	return session_id, err
+	tx.QueryRow(ctx, CreateQuery, coord.Driver_id).Scan(&session_id)
+	return session_id, tx.Commit(ctx)
 }
 
 func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (model.DriverOfflineResponse, error) {
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return model.DriverOfflineResponse{}, err2
+		}
+		return model.DriverOfflineResponse{}, err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
 	var results model.DriverOfflineResponse
 	// Getting the summaries
 	SelectQuery := `
@@ -55,7 +78,7 @@ func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (mo
 		FROM driver_sessions
 		WHERE driver_id = $1;
 	`
-	err := dr.db.GetConn().QueryRow(ctx, SelectQuery, driver_id).Scan(
+	err = tx.QueryRow(ctx, SelectQuery, driver_id).Scan(
 		&results.Session_id,
 		&results.Session_summary.Duration_hours,
 		&results.Session_summary.Rides_completed,
@@ -70,7 +93,7 @@ func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (mo
 		SET ended_at = NOW()
 		WHERE driver_id = $1;
 	`
-	_, err = dr.db.GetConn().Exec(ctx, UpdateQuery, driver_id)
+	_, err = tx.Exec(ctx, UpdateQuery, driver_id)
 	if err != nil {
 		return model.DriverOfflineResponse{}, err
 	}
@@ -80,11 +103,26 @@ func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (mo
 		SET status = 'OFFLINE'
 		WHERE driver_id = $1;
 	`
-	_, err = dr.db.GetConn().Exec(ctx, UpdateStatusQuery, driver_id)
-	return results, err
+	_, err = tx.Exec(ctx, UpdateStatusQuery, driver_id)
+	if err != nil {
+		return model.DriverOfflineResponse{}, err
+	}
+
+	return results, tx.Commit(ctx)
 }
 
 func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string, newLocation model.NewLocation) (model.NewLocationResponse, error) {
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return model.NewLocationResponse{}, err2
+		}
+		return model.NewLocationResponse{}, err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
 	NewLocationQuery := `
 		INSERT INTO location_history(coord_id, driver_id, latitude, longitude, accuracy_meters, speed_kmh, heading_degrees, ride_id)
 		VALUES (
@@ -98,7 +136,7 @@ func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string
 			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'))
 		)
 	`
-	_, err := dr.db.GetConn().Exec(ctx, NewLocationQuery, driver_id, newLocation.Latitude, newLocation.Longitude, newLocation.Accuracy_meters, newLocation.Speed_kmh, newLocation.Heading_Degrees)
+	_, err = tx.Exec(ctx, NewLocationQuery, driver_id, newLocation.Latitude, newLocation.Longitude, newLocation.Accuracy_meters, newLocation.Speed_kmh, newLocation.Heading_Degrees)
 	if err != nil {
 		return model.NewLocationResponse{}, err
 	}
@@ -111,20 +149,33 @@ func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string
 		WHERE entity_id = $3
 		RETURNING coord_id, updated_at;
 	`
-	err = dr.db.GetConn().QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &response.Updated_at)
+	var t time.Time
+	err = dr.db.GetConn().QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &t)
 	if err != nil {
 		return model.NewLocationResponse{}, err
 	}
+	response.Updated_at = t.String()
 	return response, nil
 }
 
 func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.StartRide) (model.StartRideResponse, error) {
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return model.StartRideResponse{}, err2
+		}
+		return model.StartRideResponse{}, err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
 	UpdateRideStatusQuery := `
 		UPDATE rides
 		SET status = 'IN_PROGRESS'
 		WHERE ride_id = $1;
 	`
-	_, err := dr.db.GetConn().Exec(ctx, UpdateRideStatusQuery, requestData.Ride_id)
+	_, err = tx.Exec(ctx, UpdateRideStatusQuery, requestData.Ride_id)
 	if err != nil {
 		return model.StartRideResponse{}, err
 	}
@@ -133,7 +184,7 @@ func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.Sta
 		SET status = 'BUSY'
 		WHERE driver_id = $1;
 	`
-	_, err = dr.db.GetConn().Exec(ctx, UpdateDriverStatusQuery, requestData.Driver_location.Driver_id)
+	_, err = tx.Exec(ctx, UpdateDriverStatusQuery, requestData.Driver_location.Driver_id)
 	if err != nil {
 		return model.StartRideResponse{}, err
 	}
@@ -142,55 +193,20 @@ func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.Sta
 	response.Ride_id = requestData.Ride_id
 	response.Status = "BUSY"
 	response.Started_at = time.Now().String()
-	return response, nil
+	return response, tx.Commit(ctx)
 }
 
-func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide) (model.StartRideResponse, error) {
-	conn := dr.db.GetConn()
-	tx, err := conn.Begin(ctx)
+func (dr *DriverRepository) StartRideTx(ctx context.Context, driverID, rideID string) (model.StartRideResponse, error) {
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return model.StartRideResponse{}, err
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		} else {
-			_ = tx.Commit(ctx)
-		}
-	}()
-
-	// Проверка статуса
-	const qCheck = `
-		SELECT status
-		FROM rides
-		WHERE ride_id = $1 AND driver_id = $2
-		FOR UPDATE;
-	`
-	var current string
-	if err = tx.QueryRow(ctx, qCheck, req.Ride_id, req.Driver_location.Driver_id).Scan(&current); err != nil {
-		if err == pgx.ErrNoRows {
-			return model.StartRideResponse{}, fmt.Errorf("ride not found for this driver")
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return model.StartRideResponse{}, err2
 		}
 		return model.StartRideResponse{}, err
 	}
-
-	switch current {
-	case "ARRIVED", "EN_ROUTE", "MATCHED":
-	default:
-		return model.StartRideResponse{}, fmt.Errorf("invalid status transition from %s", current)
-	}
-
-	// Обновляем ride
-	const qRide = `
-		UPDATE rides
-		SET status = 'IN_PROGRESS',
-		    started_at = NOW(),
-		    updated_at = NOW()
-		WHERE ride_id = $1;
-	`
-	if _, err = tx.Exec(ctx, qRide, req.Ride_id); err != nil {
-		return model.StartRideResponse{}, err
-	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
 
 	// Обновляем driver
 	const qDriver = `
@@ -199,22 +215,19 @@ func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide
 		    updated_at = NOW()
 		WHERE driver_id = $1;
 	`
-	if _, err = tx.Exec(ctx, qDriver, req.Driver_location.Driver_id); err != nil {
+	if _, err = tx.Exec(ctx, qDriver, driverID); err != nil {
 		return model.StartRideResponse{}, err
 	}
 
 	resp := model.StartRideResponse{
-		Ride_id:    req.Ride_id,
+		Ride_id:    rideID,
 		Status:     "BUSY",
 		Started_at: time.Now().Format(time.RFC3339),
 	}
-	return resp, nil
+	return resp, tx.Commit(ctx)
 }
 
-func (dr *DriverRepository) GetDestinationAndDriverCoords(
-	ctx context.Context,
-	rideID, driverID string,
-) (float64, error) {
+func (dr *DriverRepository) GetDestinationAndDriverCoords(ctx context.Context, rideID, driverID string) (float64, error) {
 	const q = `
 		SELECT ST_Distance(ST_MakePoint(c_dest.latitude, c_dest.longitude),
 		       ST_MakePoint(c_driver.latitude, c_driver.longitude)) / 1000 as distance_km
@@ -230,6 +243,10 @@ func (dr *DriverRepository) GetDestinationAndDriverCoords(
 		&d,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return 0, err2
+		}
 		return 0, err
 	}
 	return d, nil
@@ -258,6 +275,11 @@ func (dr *DriverRepository) FindDrivers(ctx context.Context, longtitude, latitud
 	`
 	rows, err := dr.db.GetConn().Query(ctx, Query, longtitude, latitude, vehicleType)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return nil, err2
+		}
+
 		fmt.Println("Repository Error Arrived ", err)
 		return []model.DriverInfo{}, err
 	}
@@ -283,19 +305,38 @@ func (dr *DriverRepository) CalculateRideDetails(ctx context.Context, driverLoca
 	distance := 0.0
 	err := row.Scan(&distance)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return 0, err2
+		}
 		return 0.0, err
 	}
 	return distance, nil
 }
 
 func (dr *DriverRepository) UpdateDriverStatus(ctx context.Context, driver_id string, status string) error {
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return err2
+		}
+		return err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
 	UpdateDriverStatusQuery := `
 		UPDATE drivers
 		SET status = $1
 		WHERE driver_id = $2;
 	`
-	_, err := dr.db.GetConn().Exec(ctx, UpdateDriverStatusQuery, status, driver_id)
-	return err
+	_, err = tx.Exec(ctx, UpdateDriverStatusQuery, status, driver_id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (dr *DriverRepository) CheckDriverById(ctx context.Context, driver_id string) (bool, error) {
@@ -305,6 +346,10 @@ func (dr *DriverRepository) CheckDriverById(ctx context.Context, driver_id strin
 	var exists bool
 	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&exists)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return false, err2
+		}
 		return false, err
 	}
 	return exists, nil
@@ -318,6 +363,11 @@ func (dr *DriverRepository) GetDriverIdByRideId(ctx context.Context, ride_id str
 	err := dr.db.conn.QueryRow(ctx, Query, ride_id).Scan(&driver_id)
 	// Check for errors
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return "", err2
+		}
+
 		if err == pgx.ErrNoRows {
 			return "", pgx.ErrNoRows
 		}
@@ -339,6 +389,10 @@ func (dr *DriverRepository) GetRideIdByDriverId(ctx context.Context, driver_id s
 	var ride_id string
 	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&ride_id)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return "", err2
+		}
 		return "", err
 	}
 	return ride_id, nil
@@ -363,7 +417,10 @@ func (dr *DriverRepository) GetRideDetailsByRideId(ctx context.Context, ride_id 
 		&details.PickupLocation.Address,
 	)
 	if err != nil {
-		fmt.Println(err.Error())
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return model.RideDetails{}, err2
+		}
 		return model.RideDetails{}, err
 	}
 	return details, nil
@@ -376,6 +433,10 @@ func (dr *DriverRepository) CheckDriverStatus(ctx context.Context, driver_id str
 	var status string
 	err := dr.db.conn.QueryRow(ctx, Query, driver_id).Scan(&status)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return "", err2
+		}
 		return "", err
 	}
 	return status, nil
@@ -391,6 +452,10 @@ func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) 
         )`
 	var ok bool
 	if err := dr.db.GetConn().QueryRow(ctx, q, driverID).Scan(&ok); err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return false, err2
+		}
 		return false, err
 	}
 	return ok, nil
@@ -412,51 +477,31 @@ func (dr *DriverRepository) GetPickupAndDriverCoords(ctx context.Context, rideID
 		&pickupLat, &pickupLng, &driverLat, &driverLng,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return 0, 0, 0, 0, err2
+		}
 		return 0, 0, 0, 0, err
 	}
 
 	return pickupLat, pickupLng, driverLat, driverLng, nil
 }
 
-/*
-SELECT d.driver_id, d.email, d.username, d.vehicle_attrs, d.rating, c.latitude, c.longitude,
-       ST_Distance(
-         ST_MakePoint(c.longitude, c.latitude)::geography,
-         ST_MakePoint(76.88970, 43.238949)::geography
-       ) / 1000 as distance_km
-	FROM drivers d
-	JOIN coordinates c ON c.entity_id = d.driver_id
-  		AND c.entity_type = 'DRIVER'
-  		AND c.is_current = true
-	WHERE d.status = 'AVAILABLE'
- 		AND d.vehicle_type = 'ECONOMY'
-  		AND ST_DWithin(
-        	ST_MakePoint(c.longitude, c.latitude)::geography,
-        	ST_MakePoint(76.88970, 43.238949)::geography,
-        	5000  -- 5km radius
-      	)
-	ORDER BY distance_km, d.rating DESC
-	LIMIT 10;
-
-*/
-
 func (dr *DriverRepository) CompleteRide(ctx context.Context, requestData model.RideCompleteForm) (model.RideCompleteResponse, error) {
 	return dr.CompleteRideTx(ctx, requestData)
 }
 
 func (dr *DriverRepository) CompleteRideTx(ctx context.Context, requestData model.RideCompleteForm) (model.RideCompleteResponse, error) {
-	conn := dr.db.GetConn()
-	tx, err := conn.Begin(ctx)
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return model.RideCompleteResponse{}, err2
+		}
 		return model.RideCompleteResponse{}, err
 	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		} else {
-			_ = tx.Commit(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx) // Safe rollback if not committed
 
 	// 1) убеждаемся, что ride принадлежит этому водителю и сейчас IN_PROGRESS
 	const qCheck = `
@@ -538,29 +583,89 @@ func (dr *DriverRepository) CompleteRideTx(ctx context.Context, requestData mode
 		Status:        "AVAILABLE",
 		DriverEarning: earning,
 		CompletedAt:   time.Now().Format(time.RFC3339),
-	}, nil
+	}, tx.Commit(ctx)
 }
 
 func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
+	conn := dr.db.conn
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		// Check if the database is alive
+		if err2 := dr.db.IsAlive(); err2 != nil {
+			return err2
+		}
+		return err
+	}
+	defer tx.Rollback(ctx) // Safe rollback if not committed
+
 	Query := `
 		UPDATE drivers
 		SET total_earnings = total_earnings + $1
-		WHERE driver_id = $2;
+		WHERE driver_id = $2;IsDriverNear(ctx context.Context, driver_id string) (bool, error)
 	`
-	_, err := dr.db.GetConn().Exec(ctx, Query, amount, driver_id)
+	_, err = tx.Exec(ctx, Query, amount, driver_id)
 	if err != nil {
 		return err
 	}
 
-	SessionQuery := `
+	SessionQuery := `aled, publishin
 	UPDATE driver_sessions
 	SET total_rides = total_rides + 1,
 	total_earnings = total_earnings + $1
 	WHERE driver_id = $2 AND ended_at = NULL;
 	`
-	_, err = dr.db.GetConn().Exec(ctx, SessionQuery, amount, driver_id)
+	_, err = tx.Exec(ctx, SessionQuery, amount, driver_id)
 	if err != nil {
 		return err
 	}
-	return nil
+	return tx.Commit(ctx)
+}
+
+func (dr *DriverRepository) SetAllOffline() error {
+	Query := `
+		UPDATE drivers
+		SET status = 'OFFLINE';
+	`
+	_, err := dr.db.conn.Exec(context.Background(), Query)
+	return err
+}
+
+func (dr *DriverRepository) EndAllSessions() error {
+	Query := `
+		UPDATE driver_sessions
+		SET ended_at = NOW();
+	`
+	_, err := dr.db.conn.Exec(context.Background(), Query)
+	return err
+}
+
+func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (int, error) {
+	Query := `
+				SELECT ST_Distance(ST_MakePoint(c_driver.longitude, c_driver.latitude)::geography, ST_MakePoint(c_dest.longitude, c_dest.latitude)::geography) 
+				FROM drivers d
+				JOIN rides r on r.driver_id = d.driver_id
+				JOIN coordinates c_driver on d.driver_id = c_driver.entity_id
+				JOIN coordinates c_dest on r.pickup_coord_id = c_dest.coord_id
+				WHERE d.driver_id = $1 AND r.status = 'EN_ROUTE';
+	`
+	var res float64
+	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&res)
+	if err != nil {
+		return 1000000, err
+	}
+	return int(res), nil
+}
+
+func (dr *DriverRepository) IsOffline(ctx context.Context, driver_id string) (bool, error) {
+	Query := `
+		SELECT status = 'OFFLINE'
+		FROM drivers
+		WHERE driver_id = $1;
+	`
+	var isOffline bool
+	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&isOffline)
+	if err != nil {
+		return false, err
+	}
+	return isOffline, err
 }

@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
+
 	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/auth-service/core/service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"sync"
-	"time"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -121,9 +122,9 @@ func (s *Server) startHTTPServer() error {
 // Configure sets up the HTTP handlers for various APIs including Market Data, Data Mode control, and Health checks.
 func (s *Server) Configure() {
 	// Repositories and services
-	authRepo := db.NewAuthRepo(s.ctx, s.db)
-	authService := service.NewAuthService(s.ctx, s.cfg, authRepo, s.mylog)
-	authHandler := handle.NewAuthHandler(authService, s.mylog)
+	authRepo := db.NewUserRepo(s.ctx, s.db)
+	authService := service.NewUserService(s.ctx, s.cfg, authRepo, s.mylog)
+	authHandler := handle.NewUserHandler(authService, s.mylog)
 
 	s.mux.Handle("POST /user/register", authHandler.Register())
 	s.mux.Handle("POST /user/login", authHandler.Login())

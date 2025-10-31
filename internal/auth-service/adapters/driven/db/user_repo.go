@@ -4,37 +4,39 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"ride-hail/internal/auth-service/core/domain/models"
+	"ride-hail/internal/auth-service/core/myerrors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type AuthRepo struct {
+type UserRepo struct {
 	ctx context.Context
 	db  *DB
 }
 
-func NewAuthRepo(ctx context.Context, db *DB) *AuthRepo {
-	return &AuthRepo{
+func NewUserRepo(ctx context.Context, db *DB) *UserRepo {
+	return &UserRepo{
 		ctx: ctx,
 		db:  db,
 	}
 }
 
-func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error) {
+func (ur *UserRepo) Create(ctx context.Context, user models.User) (string, error) {
 	// Start a new transaction
-	tx, err := ar.db.conn.Begin(ctx)
+	tx, err := ur.db.conn.Begin(ctx)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := ur.db.IsAlive(); err2 != nil {
+			return "", err2
+		}
 		return "", fmt.Errorf("failed to begin transaction: %v", err)
 	}
 
 	// Ensure that we roll back in case of any error
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	var userAttrs interface{}
 	if user.UserAttrs != nil {
@@ -45,29 +47,25 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 
 	// First query to insert the user
 	q := `INSERT INTO users (
-	username, email, password_hash, role, user_attrs
+	username, email, password, role, user_attrs
 	) VALUES ($1, $2, $3, $4, $5) RETURNING user_id;`
 	id := ""
-	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.PasswordHash, user.Role, userAttrs)
+	row := tx.QueryRow(ctx, q, user.Username, user.Email, user.Password, user.Role, userAttrs)
 	if err = row.Scan(&id); err != nil {
 		// Check if it's a Postgres unique violation
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == "23505" { // unique_violation
-				return "", ErrEmailRegistered
+				return "", myerrors.ErrEmailRegistered
 			}
 		}
 		return "", fmt.Errorf("failed to insert user: %v", err)
 	}
-	// Commit the transaction
-	if err = tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("failed to commit transaction: %v", err)
-	}
 
-	return id, nil
+	return id, tx.Commit(ctx)
 }
 
-func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, error) {
+func (ur *UserRepo) GetByEmail(ctx context.Context, name string) (models.User, error) {
 	q := `
 		SELECT 
 			u.user_id,
@@ -76,7 +74,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 			u.username,
 			u.email,
 			u.status,
-			u.password_hash,
+			u.password,
 			u.role,
 			u.user_attrs
 		FROM 
@@ -86,20 +84,24 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 	`
 
 	var u models.User
-	err := ar.db.conn.QueryRow(ctx, q, name).Scan(
+	err := ur.db.conn.QueryRow(ctx, q, name).Scan(
 		&u.UserId,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 		&u.Username,
 		&u.Email,
 		&u.Status,
-		&u.PasswordHash,
+		&u.Password,
 		&u.Role,
 		&u.UserAttrs,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := ur.db.IsAlive(); err2 != nil {
+			return models.User{}, err2
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.User{}, ErrUnknownEmail
+			return models.User{}, myerrors.ErrUnknownEmail
 		}
 		return models.User{}, err
 	}

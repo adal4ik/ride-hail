@@ -2,19 +2,12 @@ package ports
 
 import (
 	"context"
+
 	"ride-hail/internal/ride-service/core/domain/dto"
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
-
-	"github.com/jackc/pgx/v5"
 )
-
-type IDB interface {
-	GetConn() *pgx.Conn
-	IsAlive() error
-	Close() error
-}
 
 type IRidesRepo interface {
 	CreateRide(context.Context, model.Rides) (string, error)

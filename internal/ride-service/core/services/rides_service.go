@@ -14,6 +14,7 @@ import (
 	"ride-hail/internal/ride-service/core/domain/dto"
 	"ride-hail/internal/ride-service/core/domain/model"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
+	"ride-hail/internal/ride-service/core/myerrors"
 	"ride-hail/internal/ride-service/core/ports"
 
 	messagebrokerdto "ride-hail/internal/ride-service/core/domain/message_broker_dto"
@@ -73,9 +74,26 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
+
+	count, err := rs.RidesRepo.CheckDuplicate(ctx, *req.PassengerId)
+	if err != nil {
+		log.Error("cannot check for duplication", err)
+		return dto.RidesResponseDto{}, err
+	}
+
+	if count > 0 {
+		return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
+	}
+
+	ctx, cancel = context.WithTimeout(rs.ctx, time.Second*15)
+	defer cancel()
 	// estimate distance between pick up and destination points
 	distance, err := rs.RidesRepo.GetDistance(ctx, req)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return dto.RidesResponseDto{}, myerrors.ErrDBConnClosedMsg
+		}
 		log.Error("cannot get distance between two points", err)
 		return dto.RidesResponseDto{}, err
 	}
@@ -83,6 +101,10 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	// only for ride-number
 	numberOfRides, err := rs.RidesRepo.GetNumberRides(ctx)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return dto.RidesResponseDto{}, myerrors.ErrDBConnClosedMsg
+		}
 		log.Error("cannot get number of rides", err)
 		return dto.RidesResponseDto{}, err
 	}
@@ -152,6 +174,10 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	defer cancel()
 	ride_id, err := rs.RidesRepo.CreateRide(ctx, m)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return dto.RidesResponseDto{}, myerrors.ErrDBConnClosedMsg
+		}
 		return dto.RidesResponseDto{}, err
 	}
 
@@ -211,20 +237,6 @@ func validateRideRequest(req dto.RidesRequestDto) error {
 	if err := validatePassengerId(req.PassengerId); err != nil {
 		return fmt.Errorf("invalid passenger id: %v", err)
 	}
-
-	// ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
-	// defer cancel()
-
-	// count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
-
-	// if err != nil {
-	// 	log.Error("cannot check for duplication", err)
-	// 	return dto.RidesResponseDto{}, err
-	// }
-
-	// if count > 0 {
-	// 	return dto.RidesResponseDto{}, fmt.Errorf("cannot create duplicated ride")
-	// }
 
 	if err := validateLatLng(req.PickUpLatitude, req.PickUpLongitude); err != nil {
 		return fmt.Errorf("invalid pickup coords: %v", err)
@@ -312,6 +324,10 @@ func (rs *RidesService) CancelRide(req dto.RidesCancelRequestDto, rideId string)
 
 	ride, err := rs.RidesRepo.CancelRide(ctx, rideId, req.Reason)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return dto.RideCancelResponseDto{}, myerrors.ErrDBConnClosedMsg
+		}
 		log.Error("Failed to cancel ride", err)
 		return dto.RideCancelResponseDto{}, err
 	}
@@ -358,6 +374,10 @@ func (rs *RidesService) SetStatusMatch(rideId, driverId string) (string, string,
 	passengerId, rideNumber, err := rs.RidesRepo.ChangeStatusMatch(ctx, rideId, driverId)
 	if err != nil {
 		// TODO: add handle error
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return "", "", myerrors.ErrDBConnClosedMsg
+		}
 		return "", "", err
 	}
 	m2 := messagebrokerdto.RideStatus{
@@ -385,6 +405,10 @@ func (rs *RidesService) EstimateDistance(rideId string, longitude, latitude, spe
 
 	distance, passengerId, err := rs.RidesRepo.FindDistanceAndPassengerId(ctx, longitude, latitude, rideId)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return "", "", 0, myerrors.ErrDBConnClosedMsg
+		}
 		log.Error("cannot get user or something", err)
 		return "", "", 0.0, err
 	}
@@ -404,6 +428,11 @@ func (rs *RidesService) CancelEveryPossibleRides() error {
 
 	rides, err := rs.RidesRepo.GetCancelPossibleRides(ctx)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return myerrors.ErrDBConnClosedMsg
+		}
+
 		log.Error("cannot get possible rides", err)
 		return err
 	}
@@ -427,6 +456,11 @@ func (rs *RidesService) CancelEveryPossibleRides() error {
 
 	err = rs.RidesRepo.CancelEveryPossibleRides(ctx)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return myerrors.ErrDBConnClosedMsg
+		}
+
 		log.Error("cannot cancel every rides", err)
 		return err
 	}
@@ -498,6 +532,11 @@ func (ps *RidesService) UpdateRideStatus(msg messagebrokerdto.DriverStatusUpdate
 	log.Info("get update ride status", "status", msg.Status)
 	passengerId, rideNumber, finalFare, driverInfo, err := ps.RidesRepo.ChangeStatus(ctx, msg)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return "", websocketdto.Event{}, myerrors.ErrDBConnClosedMsg
+		}
+
 		log.Error("Failed to cancel ride", err)
 		return "", websocketdto.Event{}, err
 	}

@@ -12,3 +12,7 @@ CREATE TABLE IF NOT EXISTS coordinates (
   duration_minutes INTEGER CHECK (duration_minutes >= 0),
   is_current BOOLEAN DEFAULT true
 );
+
+-- Create indexes for performance
+CREATE INDEX idx_coordinates_entity ON coordinates(entity_id, entity_type);
+CREATE INDEX idx_coordinates_current ON coordinates(entity_id, entity_type) WHERE is_current = true;

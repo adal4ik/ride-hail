@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     username TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     role roles DEFAULT 'PASSENGER',
     status user_status DEFAULT 'ACTIVE',
     user_attrs JSONB DEFAULT '{}'::JSONB

@@ -5,14 +5,13 @@ import (
 	"fmt"
 
 	"ride-hail/internal/admin-service/core/domain/dto"
-	"ride-hail/internal/admin-service/core/ports"
 )
 
 type SystemOverviewRepo struct {
-	db ports.IDB
+	db *DB
 }
 
-func NewSystemOverviewRepo(db ports.IDB) *SystemOverviewRepo {
+func NewSystemOverviewRepo(db *DB) *SystemOverviewRepo {
 	return &SystemOverviewRepo{db: db}
 }
 
@@ -47,7 +46,7 @@ func (sr *SystemOverviewRepo) GetMetrics(ctx context.Context) (dto.MetricsParams
     `
 
 	// Execute queries
-	err := sr.db.GetConn().QueryRow(ctx, q1).Scan(
+	err := sr.db.conn.QueryRow(ctx, q1).Scan(
 		&metrics.ActiveRides,
 		&metrics.TotalRidesToday,
 		&metrics.TotalRevenueToday,
@@ -56,14 +55,23 @@ func (sr *SystemOverviewRepo) GetMetrics(ctx context.Context) (dto.MetricsParams
 		&metrics.CancellationRate,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := sr.db.IsAlive(); err2 != nil {
+			return dto.MetricsParams{}, err2
+		}
+
 		return dto.MetricsParams{}, fmt.Errorf("failed to get ride metrics: %v", err)
 	}
 
-	err = sr.db.GetConn().QueryRow(ctx, q2).Scan(
+	err = sr.db.conn.QueryRow(ctx, q2).Scan(
 		&metrics.AvailableDrivers,
 		&metrics.BusyDrivers,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := sr.db.IsAlive(); err2 != nil {
+			return dto.MetricsParams{}, err2
+		}
 		return dto.MetricsParams{}, fmt.Errorf("failed to get driver metrics: %v", err)
 	}
 
@@ -81,12 +89,16 @@ func (sr *SystemOverviewRepo) GetDriverDistribution(ctx context.Context) (dto.Dr
     `
 
 	// Execute queries
-	err := sr.db.GetConn().QueryRow(ctx, q).Scan(
+	err := sr.db.conn.QueryRow(ctx, q).Scan(
 		&driverDistribution.Economy,
 		&driverDistribution.Premium,
 		&driverDistribution.XL,
 	)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := sr.db.IsAlive(); err2 != nil {
+			return dto.DriverDistributionParams{}, err2
+		}
 		return dto.DriverDistributionParams{}, fmt.Errorf("failed to get driver distribution: %v", err)
 	}
 
@@ -134,8 +146,12 @@ func (sr *SystemOverviewRepo) GetHotspots(ctx context.Context) ([]dto.HotspotsPa
 	LIMIT 10;
     `
 
-	rows, err := sr.db.GetConn().Query(ctx, q)
+	rows, err := sr.db.conn.Query(ctx, q)
 	if err != nil {
+		// Check if the database is alive
+		if err2 := sr.db.IsAlive(); err2 != nil {
+			return nil, err2
+		}
 		return nil, fmt.Errorf("failed to query hotspots: %w", err)
 	}
 	defer rows.Close()

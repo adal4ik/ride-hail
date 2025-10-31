@@ -8,25 +8,25 @@ import (
 	"net/http"
 	"time"
 
-	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
-	"ride-hail/internal/auth-service/core/service"
+	"ride-hail/internal/auth-service/core/myerrors"
+	"ride-hail/internal/auth-service/core/ports/driver"
 	"ride-hail/internal/mylogger"
 )
 
-type AuthHandler struct {
-	authService *service.AuthService
+type UserHandler struct {
+	authService driver.IUserService
 	mylog       mylogger.Logger
 }
 
-func NewAuthHandler(authService *service.AuthService, mylog mylogger.Logger) *AuthHandler {
-	return &AuthHandler{
+func NewUserHandler(authService driver.IUserService, mylog mylogger.Logger) *UserHandler {
+	return &UserHandler{
 		authService: authService,
 		mylog:       mylog,
 	}
 }
 
-func (ah *AuthHandler) Register() http.HandlerFunc {
+func (ah *UserHandler) Register() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var regReq dto.UserRegistrationRequest
 
@@ -44,7 +44,7 @@ func (ah *AuthHandler) Register() http.HandlerFunc {
 
 		userId, accessToken, err := ah.authService.Register(ctx, regReq)
 		if err != nil {
-			if errors.Is(err, db.ErrEmailRegistered) {
+			if errors.Is(err, myerrors.ErrEmailRegistered) {
 				JsonError(w, http.StatusConflict, err)
 				return
 			}
@@ -61,7 +61,7 @@ func (ah *AuthHandler) Register() http.HandlerFunc {
 	}
 }
 
-func (ah *AuthHandler) Login() http.HandlerFunc {
+func (ah *UserHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var authReq dto.UserAuthRequest
 

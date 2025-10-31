@@ -3,17 +3,21 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
-	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
 	"ride-hail/internal/driver-location-service/core/domain/model"
-	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
+	"ride-hail/internal/driver-location-service/core/myerrors"
 	"ride-hail/internal/driver-location-service/core/ports/driven"
-	ports "ride-hail/internal/driver-location-service/core/ports/driven"
 	"ride-hail/internal/mylogger"
+
+	messagebrokerdto "ride-hail/internal/driver-location-service/core/domain/message_broker_dto"
+
+	websocketdto "ride-hail/internal/driver-location-service/core/domain/websocket_dto"
+
+	ports "ride-hail/internal/driver-location-service/core/ports/driven"
 )
 
 const maxPickupDistanceMeters = 100.0
@@ -63,6 +67,7 @@ func (ds *DriverService) GoOffline(ctx context.Context, driver_id string) (dto.D
 }
 
 func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLocation, driver_id string) (dto.NewLocationResponse, error) {
+	l := ds.log.Action("UpdateLocation")
 	var requestDAO model.NewLocation
 	requestDAO.Accuracy_meters = request.Accuracy_meters
 	requestDAO.Heading_Degrees = request.Heading_Degrees
@@ -70,8 +75,29 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	requestDAO.Longitude = request.Longitude
 	requestDAO.Speed_kmh = request.Speed_kmh
 	response, err := ds.repositories.UpdateLocation(ctx, driver_id, requestDAO)
+	l.Info("Updating driver location")
 	if err != nil {
+		l.Error("Failed to  update location", err)
 		return dto.NewLocationResponse{}, err
+	}
+	isNear, err := ds.repositories.IsDriverNear(ctx, driver_id)
+	if err != nil {
+		l.Error("Failed To check is driver near: ", err, "DriverID", driver_id)
+	}
+	l.Info("Driver distance to pickup location:", isNear)
+	if isNear <= 100 {
+		rideID, err := ds.GetRideIdByDriverId(ctx, driver_id)
+		if err != nil {
+			l.Error("Failed to get ride id by driver id: ", err, "DriverID", driver_id)
+		}
+		driverStatus := messagebrokerdto.DriverStatus{
+			DriverID:  driver_id,
+			RideID:    rideID,
+			Status:    "ARRIVED",
+			Timestamp: time.Now().String(),
+		}
+		ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", driver_id), driverStatus)
+		l.Info("Driver status send to rabbitmq", driver_id, "STATUS", driverStatus)
 	}
 	var responseDTO dto.NewLocationResponse
 	responseDTO.Coordinate_id = response.Coordinate_id
@@ -83,50 +109,38 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 	l := ds.log.Action("service.start_ride")
 	l.Info("start", "ride_id", msg.Ride_id, "driver_id", msg.Driver_location.Driver_id)
 
-	dId, err := ds.GetDriverIdByRideId(ctx, msg.Ride_id)
+	d, err := ds.repositories.GetDestinationAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
 	if err != nil {
-		return dto.StartRideResponse{}, err
-	}
-
-	msg.Driver_location.Driver_id = dId
-	// 1️⃣ получаем координаты pickup и текущие координаты водителя
-	pickupLat, pickupLng, driverLat, driverLng, err := ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, msg.Driver_location.Driver_id)
-	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.StartRideResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		l.Error("get coords failed", err)
 		return dto.StartRideResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
 	}
-
-	dist := haversineMeters(pickupLat, pickupLng, driverLat, driverLng)
-	l.Info("distance calculated", "meters", fmt.Sprintf("%.2f", dist))
+	l.Info("distance calculated", "meters", fmt.Sprintf("%.2f", d))
 
 	// 2️⃣ проверяем порог
-	if dist > maxPickupDistanceMeters {
-		l.Warn("driver too far from pickup", "distance_m", fmt.Sprintf("%.2f", dist))
-		return dto.StartRideResponse{}, fmt.Errorf("driver too far from pickup (%.1fm > %.0fm)", dist, maxPickupDistanceMeters)
+	if d > maxPickupDistanceMeters {
+		l.Warn("driver too far from pickup", "distance_m", fmt.Sprintf("%.2f", d))
+		return dto.StartRideResponse{}, fmt.Errorf("driver too far from pickup (%.1fm > %.0fm)", d, maxPickupDistanceMeters)
 	}
 
 	// 3️⃣ запускаем транзакционный апдейт
-	res, err := ds.repositories.StartRideTx(ctx, model.StartRide{
-		Ride_id: msg.Ride_id,
-		Driver_location: model.DriverCoordinates{
-			Driver_id: msg.Driver_location.Driver_id,
-			Latitude:  driverLat,
-			Longitude: driverLng,
-		},
-	})
+	res, err := ds.repositories.StartRideTx(ctx, msg.Driver_location.Driver_id, msg.Ride_id)
 	if err != nil {
 		l.Error("repository.StartRideTx failed", err)
 		return dto.StartRideResponse{}, err
 	}
 	// Driver.statis.{driver_id}
 	driverStatus := messagebrokerdto.DriverStatus{
-		DriverID:  dId,
+		DriverID:  msg.Driver_location.Driver_id,
 		RideID:    msg.Ride_id,
 		Status:    "BUSY",
 		Timestamp: time.Now().String(),
 	}
-	ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", dId), driverStatus)
-	l.Info("Driver status send to rabbitmq", dId)
+	ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", msg.Driver_location.Driver_id), driverStatus)
+	l.Info("Driver status send to rabbitmq", msg.Driver_location.Driver_id)
 
 	l.Info("success", "ride_id", res.Ride_id, "status", res.Status, "started_at", res.Started_at)
 	return dto.StartRideResponse{
@@ -137,48 +151,35 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 	}, nil
 }
 
-// Haversine formula: расстояние между двумя точками в метрах
-func haversineMeters(lat1, lng1, lat2, lng2 float64) float64 {
-	const R = 6371000.0 // радиус Земли в м
-	toRad := func(x float64) float64 { return x * (math.Pi / 180.0) }
-
-	dLat := toRad(lat2 - lat1)
-	dLng := toRad(lng2 - lng1)
-	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
-		math.Cos(toRad(lat1))*math.Cos(toRad(lat2))*math.Sin(dLng/2)*math.Sin(dLng/2)
-	return 2 * R * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-}
-
-// select c1.latitude, c1.longitude, c2.latitude, c2.longitude FROM rides r JOIN coordinates c1 ON c1.coord_id = r.pickup_coord_id JOIN coordinates c2 ON c2.coord_id = r.destination_coord_id WHERE r.ride_id = $1;
-
 func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompleteForm) (dto.RideCompleteResponse, error) {
 	l := ds.log.Action("service.complete_ride")
 	l.Info("start", "ride_id", request.Ride_id)
 
 	dId, err := ds.GetDriverIdByRideId(ctx, request.Ride_id)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.RideCompleteResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		return dto.RideCompleteResponse{}, err
 	}
 
 	request.FinalLocation.Driver_id = dId
-	// 1) тянем координаты точки назначения и текущие координаты водителя
 	d, err := ds.repositories.GetDestinationAndDriverCoords(ctx, request.Ride_id, request.FinalLocation.Driver_id)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.RideCompleteResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		l.Error("get destination/driver coords failed", err)
 		return dto.RideCompleteResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
 	}
-
-	// 2) считаем расстояние
-	// dist := haversineMeters(destLat, destLng, driverLat, driverLng)
-
-	// l.Info("distance to destination", "meters", fmt.Sprintf("%.2f", dist))
 
 	if d > maxCompleteDistanceMeters {
 		l.Warn("too far to complete", "distance_m", fmt.Sprintf("%.2f", d))
 		return dto.RideCompleteResponse{}, fmt.Errorf("driver too far from destination (%.1fm > %.0fm)", d, maxCompleteDistanceMeters)
 	}
 
-	// 3) транзакционно завершаем
 	reqDAO := model.RideCompleteForm{
 		Ride_id:          request.Ride_id,
 		ActualDistancekm: request.ActualDistancekm,
@@ -192,6 +193,10 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 
 	resDAO, err := ds.repositories.CompleteRideTx(ctx, reqDAO)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			l.Error("Failed to connect to connect to db", err)
+			return dto.RideCompleteResponse{}, myerrors.ErrDBConnClosedMsg
+		}
 		l.Error("repository.CompleteRideTx failed", err)
 		return dto.RideCompleteResponse{}, err
 	}
@@ -205,7 +210,6 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 	ds.broker.PublishJSON(context.Background(), "driver_topic", fmt.Sprintf("driver.status.%s", dId), driverStatus)
 	l.Info("Driver status send to rabbitmq", dId)
 
-	// 4) маппим ответ
 	resp := dto.RideCompleteResponse{
 		Message:       resDAO.Message,
 		Ride_id:       resDAO.Ride_id,
@@ -220,6 +224,9 @@ func (ds *DriverService) CompleteRide(ctx context.Context, request dto.RideCompl
 func (ds *DriverService) FindAppropriateDrivers(ctx context.Context, longtitude, latitude float64, vehicleType string) ([]dto.DriverInfo, error) {
 	drivers, err := ds.repositories.FindDrivers(ctx, longtitude, latitude, vehicleType)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			return []dto.DriverInfo{}, myerrors.ErrDBConnClosedMsg
+		}
 		fmt.Println("Service Error Arrived ", err)
 		return []dto.DriverInfo{}, err
 	}
@@ -286,6 +293,9 @@ func (d *DriverService) GetRideDetailsByRideId(ctx context.Context, ride_id stri
 	fmt.Println("Ride Details Model: ", rideDetailsModel)
 	fmt.Println("User phone", string(rideDetailsModel.PassengerAttrs))
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			return websocketdto.RideDetailsMessage{}, myerrors.ErrDBConnClosedMsg
+		}
 		return websocketdto.RideDetailsMessage{}, err
 	}
 	var rideDetails websocketdto.RideDetailsMessage
@@ -313,6 +323,9 @@ func (d *DriverService) CheckDriverStatus(ctx context.Context, driver_id string)
 func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string) error {
 	ok, err := ds.repositories.HasActiveRide(ctx, driverID)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			return myerrors.ErrDBConnClosedMsg
+		}
 		return err
 	}
 	if !ok {
@@ -323,4 +336,20 @@ func (ds *DriverService) RequireActiveRide(ctx context.Context, driverID string)
 
 func (ds *DriverService) PayDriverMoney(ctx context.Context, driver_id string, amount float64) error {
 	return ds.repositories.PayDriverMoney(ctx, driver_id, amount)
+}
+
+func (ds *DriverService) GracefullShutdown(ctx context.Context) error {
+	err := ds.repositories.SetAllOffline()
+	if err != nil {
+		return err
+	}
+	err = ds.repositories.EndAllSessions()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ds *DriverService) IsOffline(ctx context.Context, driver_id string) (bool, error) {
+	return ds.repositories.IsOffline(ctx, driver_id)
 }

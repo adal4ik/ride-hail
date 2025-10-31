@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"time"
 
-	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
-	"ride-hail/internal/auth-service/core/service"
+	"ride-hail/internal/auth-service/core/myerrors"
+	"ride-hail/internal/auth-service/core/ports/driver"
 	"ride-hail/internal/mylogger"
 )
 
 type DriverHandler struct {
-	driverService *service.DriverService
+	driverService driver.IDriverService
 	mylog         mylogger.Logger
 }
 
-func NewDriverHandler(driverService *service.DriverService, mylog mylogger.Logger) *DriverHandler {
+func NewDriverHandler(driverService driver.IDriverService, mylog mylogger.Logger) *DriverHandler {
 	return &DriverHandler{
 		driverService: driverService,
 		mylog:         mylog,
@@ -44,7 +44,7 @@ func (ah *DriverHandler) Register() http.HandlerFunc {
 
 		userId, accessToken, err := ah.driverService.Register(ctx, regReq)
 		if err != nil {
-			if errors.Is(err, db.ErrEmailRegistered) || errors.Is(err, db.ErrDriverLicenseNumberRegistered) {
+			if errors.Is(err, myerrors.ErrEmailRegistered) || errors.Is(err, myerrors.ErrDriverLicenseNumberRegistered) {
 				JsonError(w, http.StatusConflict, err)
 				return
 			}

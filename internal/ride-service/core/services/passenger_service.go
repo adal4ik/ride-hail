@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/core/myerrors"
 	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/jackc/pgx/v5"
@@ -40,6 +41,11 @@ func (ps *PassengerService) IsPassengerExists(passengerId string) (bool, error) 
 	defer cancel()
 	roles, err := ps.PassengerRepo.Exist(ctx, passengerId)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			log.Error("Failed to connect to connect to db", err)
+			return false, myerrors.ErrDBConnClosedMsg
+		}
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil
 		}
@@ -47,7 +53,7 @@ func (ps *PassengerService) IsPassengerExists(passengerId string) (bool, error) 
 		return false, err
 	}
 
-	if !(roles == "PASSENGER" || roles == "ADMIN") {
+	if roles != "PASSENGER" {
 		return false, fmt.Errorf("you are not a passenger")
 	}
 	return true, nil

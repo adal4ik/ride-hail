@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
+
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 	"ride-hail/internal/ride-service/adapters/driven/bm"
@@ -16,8 +19,6 @@ import (
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 	"ride-hail/internal/ride-service/core/ports"
 	"ride-hail/internal/ride-service/core/services"
-	"sync"
-	"time"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -69,7 +70,7 @@ func (s *Server) Run() error {
 	mylog := s.mylog.Action("server_started").With("port", s.cfg.Srv.RideServicePort)
 
 	// Initialize database connection
-	db, err := db.New(s.appCtx, s.cfg.DB, mylog)
+	db, err := db.Start(s.ctx, s.cfg.DB, mylog)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}

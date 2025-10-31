@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"ride-hail/internal/driver-location-service/core/domain/dto"
@@ -46,19 +47,19 @@ func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
 	ok, err := dh.driverService.CheckDriverById(ctx, driverID)
 	if err != nil {
 		log.Error("check driver failed", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Internal Server Error"))
 		return
 	}
 	if !ok {
 		log.Info("driver not found")
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+		JsonError(w, http.StatusForbidden, fmt.Errorf("Forbidden: driver mismatch"))
 		return
 	}
 
 	current, err := dh.driverService.CheckDriverStatus(ctx, driverID)
 	if err != nil {
 		log.Error("check status failed", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Internal Server Error"))
 		return
 	}
 	if current == DriverStatusOnline {
@@ -83,6 +84,8 @@ func (dh *DriverHandler) GoOnline(w http.ResponseWriter, r *http.Request) {
 		JsonError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	log.Info("Driver is online", "driverID", driverID)
 	jsonResponse(w, http.StatusAccepted, res)
 }
 
@@ -95,19 +98,19 @@ func (dh *DriverHandler) GoOffline(w http.ResponseWriter, r *http.Request) {
 	ok, err := dh.driverService.CheckDriverById(ctx, driverID)
 	if err != nil {
 		log.Error("check driver failed", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Internal Server Error"))
 		return
 	}
 	if !ok {
 		log.Info("driver not found")
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+		JsonError(w, http.StatusForbidden, fmt.Errorf("Forbidden: driver mismatch"))
 		return
 	}
 
 	current, err := dh.driverService.CheckDriverStatus(ctx, driverID)
 	if err != nil {
 		log.Error("check status failed", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Internal Server Error"))
 		return
 	}
 	if current == DriverStatusOffline {
@@ -134,20 +137,21 @@ func (dh *DriverHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) 
 	driverID := r.PathValue("driver_id")
 	if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err != nil {
 		log.Error("Failed to check the driver: ", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Internal Server Error"))
+
 		return
 	} else if !ok {
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+		JsonError(w, http.StatusForbidden, fmt.Errorf("Forbidden: driver mismatch"))
 		return
 	}
 
 	// ✅ единственная новая строка логики:
 	if err := dh.driverService.RequireActiveRide(ctx, driverID); err != nil {
 		if errors.Is(err, model.ErrNoActiveRide) {
-			http.Error(w, "Bad Request: no active ride to update location", http.StatusBadRequest)
+			JsonError(w, http.StatusBadRequest, fmt.Errorf("Bad Request: no active ride to update location"))
 			return
 		}
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Internal Server Error"))
 		return
 	}
 
@@ -176,12 +180,12 @@ func (dh *DriverHandler) StartRide(w http.ResponseWriter, r *http.Request) {
 	ok, err := dh.driverService.CheckDriverById(ctx, driverID)
 	if err != nil {
 		log.Error("check driver failed", err, "driver_id", driverID)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		JsonError(w, http.StatusInternalServerError, fmt.Errorf("Internal Server Error"))
 		return
 	}
 	if !ok {
 		log.Warn("driver not found", "driver_id", driverID)
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+		JsonError(w, http.StatusForbidden, fmt.Errorf("Forbidden: driver mismatch"))
 		return
 	}
 
@@ -214,11 +218,11 @@ func (dh *DriverHandler) CompleteRide(w http.ResponseWriter, r *http.Request) {
 	driverID := r.PathValue("driver_id")
 	if ok, err := dh.driverService.CheckDriverById(ctx, driverID); err == nil && !ok {
 		log.Info("Driver not found")
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+		JsonError(w, http.StatusForbidden, fmt.Errorf("Forbidden: driver mismatch"))
 		return
 	} else if err != nil {
 		log.Error("Failed to check the driver: ", err)
-		http.Error(w, "Forbidden: driver mismatch", http.StatusForbidden)
+		JsonError(w, http.StatusForbidden, fmt.Errorf("Forbidden: driver mismatch"))
 		return
 	}
 
