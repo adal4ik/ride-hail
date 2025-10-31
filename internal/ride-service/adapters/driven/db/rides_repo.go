@@ -277,12 +277,18 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (mod
 	defer tx.Rollback(ctx) // Safe rollback if not committed
 
 	var ride model.Rides
+
 	// Perform SELECT within the same transaction
 	row := tx.QueryRow(ctx, q1, rideId)
-	if err := row.Scan(&ride.DriverId, &ride.Status, &ride.FinalFare); err != nil {
+
+	var driverId *string
+	if err := row.Scan(&driverId, &ride.Status, &ride.FinalFare); err != nil {
 		return model.Rides{}, fmt.Errorf("failed to fetch ride details: %w", err)
 	}
 
+	if driverId != nil {
+		ride.DriverId = *driverId
+	}
 	// Validate business rules
 	if ride.Status == "CANCELLED" {
 		return model.Rides{}, fmt.Errorf("ride already cancelled")
