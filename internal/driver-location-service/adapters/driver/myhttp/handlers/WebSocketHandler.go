@@ -270,6 +270,8 @@ func (h *WebSocketHandler) validateMessage(message []byte) (string, error) {
 			return "", err
 		}
 		return baseMsg.Type, h.validateLocationUpdate(locUpdate)
+	case websocketdto.MessageTypeAuth:
+		return baseMsg.Type, nil
 	default:
 		return "", fmt.Errorf("unknown message type: %s", baseMsg.Type)
 	}
