@@ -12,7 +12,7 @@ import (
 type IRidesRepo interface {
 	CreateRide(context.Context, model.Rides) (string, error)
 	CancelRide(context.Context, string, string) (model.Rides, error)
-	ChangeStatus(context.Context, messagebrokerdto.DriverStatusUpdate) (string, string,float64, websocketdto.DriverInfo, error)
+	ChangeStatus(context.Context, messagebrokerdto.DriverStatusUpdate) (string, string, float64, websocketdto.DriverInfo, error)
 	GetDistance(context.Context, dto.RidesRequestDto) (float64, error)
 	GetNumberRides(context.Context) (int64, error)
 	ChangeStatusMatch(context.Context, string, string) (string, string, error)

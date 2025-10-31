@@ -21,8 +21,8 @@ type Rides struct {
 	CancellationReason    string
 	EstimatedFare         float64
 	FinalFare             float64
-	PickupCoordinate      Coordinates 
-	DestinationCoordinate Coordinates 
+	PickupCoordinate      Coordinates
+	DestinationCoordinate Coordinates
 }
 
 type Coordinates struct {

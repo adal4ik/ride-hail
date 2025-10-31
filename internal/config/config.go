@@ -112,8 +112,8 @@ func New() (*Config, error) {
 		},
 		App: &App{
 			PublicJwtSecret: getEnv("PUBLIC_JWT", "default-public-secret"),
-			CertPath: getEnv("CERT_PATH", "gay"),
-			CertKeyPath: getEnv("CERT_KEY_PATH", "gay"),
+			CertPath:        getEnv("CERT_PATH", "gay"),
+			CertKeyPath:     getEnv("CERT_KEY_PATH", "gay"),
 		},
 	}
 

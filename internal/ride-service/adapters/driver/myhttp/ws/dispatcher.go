@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"ride-hail/internal/mylogger"
-	"ride-hail/internal/ride-service/core/ports"
 	"sync"
 	"time"
+
+	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/core/ports"
 
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
@@ -32,25 +33,25 @@ var websocketUpgrader = websocket.Upgrader{
 type ClientList map[string]*Client
 
 type Dispatcher struct {
-	ctx context.Context
+	ctx              context.Context
 	PassengerService ports.IPassengerService
 	eventHandler     *EventHandler
 	hander           map[string]EventHandle
 	clients          ClientList
 	sync.RWMutex
-	wg *sync.WaitGroup
+	wg  *sync.WaitGroup
 	log mylogger.Logger
 }
 
 func NewDispathcer(ctx context.Context, log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader *EventHandler, wg *sync.WaitGroup) *Dispatcher {
 	return &Dispatcher{
-		ctx: ctx,
+		ctx:              ctx,
 		clients:          make(ClientList),
 		hander:           make(map[string]EventHandle),
 		PassengerService: passengerRepo,
 		log:              log,
 		eventHandler:     eventHader,
-		wg: wg,
+		wg:               wg,
 	}
 }
 

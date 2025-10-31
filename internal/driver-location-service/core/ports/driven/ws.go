@@ -2,6 +2,7 @@ package driven
 
 import (
 	"context"
+
 	"ride-hail/internal/driver-location-service/core/domain/dto"
 )
 

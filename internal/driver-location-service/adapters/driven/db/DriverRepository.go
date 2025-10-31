@@ -112,49 +112,67 @@ func (dr *DriverRepository) GoOffline(ctx context.Context, driver_id string) (mo
 }
 
 func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string, newLocation model.NewLocation) (model.NewLocationResponse, error) {
+	// Get a fresh connection from the pool (if you're using pooling)
 	conn := dr.db.conn
+
+	// Start a new transaction
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		// Check if the database is alive
+		// Handle connection errors
 		if err2 := dr.db.IsAlive(); err2 != nil {
-			return model.NewLocationResponse{}, err2
+			return model.NewLocationResponse{}, fmt.Errorf("database is down: %v", err2)
 		}
-		return model.NewLocationResponse{}, err
+		return model.NewLocationResponse{}, fmt.Errorf("failed to start transaction: %v", err)
 	}
-	defer tx.Rollback(ctx) // Safe rollback if not committed
+	// Ensure the transaction is rolled back if not committed
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
 
+	// First Query: Insert a new location record
 	NewLocationQuery := `
-		INSERT INTO location_history(coord_id, driver_id, latitude, longitude, accuracy_meters, speed_kmh, heading_degrees, ride_id)
-		VALUES (
-			(SELECT coord_id FROM coordinates WHERE entity_id = $1),
-			$1,
-			$2,
-			$3,
-			$4,
-			$5,
-			$6,
-			(SELECT ride_id FROM rides WHERE driver_id = $1 AND status not in ('CANCELLED', 'COMPLETED'))
-		)
-	`
+        INSERT INTO location_history(coord_id, driver_id, latitude, longitude, accuracy_meters, speed_kmh, heading_degrees, ride_id)
+        VALUES (
+            (SELECT coord_id FROM coordinates WHERE entity_id = $1),
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            (SELECT ride_id FROM rides WHERE driver_id = $1 AND status NOT IN ('CANCELLED', 'COMPLETED'))
+        )
+    `
 	_, err = tx.Exec(ctx, NewLocationQuery, driver_id, newLocation.Latitude, newLocation.Longitude, newLocation.Accuracy_meters, newLocation.Speed_kmh, newLocation.Heading_Degrees)
 	if err != nil {
-		return model.NewLocationResponse{}, err
+		return model.NewLocationResponse{}, fmt.Errorf("failed to insert location history: %v", err)
 	}
-	var response model.NewLocationResponse
+
+	// Second Query: Update the coordinates
 	CoordinatesQuery := `
-		UPDATE coordinates
-		SET latitude = $1, 
-			longitude = $2,
-			updated_at = NOW()
-		WHERE entity_id = $3
-		RETURNING coord_id, updated_at;
-	`
+        UPDATE coordinates
+        SET latitude = $1, 
+            longitude = $2,
+            updated_at = NOW()
+        WHERE entity_id = $3
+        RETURNING coord_id, updated_at;
+    `
 	var t time.Time
-	err = dr.db.GetConn().QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &t)
+	var response model.NewLocationResponse
+	err = tx.QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &t)
 	if err != nil {
-		return model.NewLocationResponse{}, err
+		return model.NewLocationResponse{}, fmt.Errorf("failed to update coordinates: %v", err)
 	}
+
 	response.Updated_at = t.String()
+
+	// Commit the transaction
+	if err := tx.Commit(ctx); err != nil {
+		return model.NewLocationResponse{}, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
 	return response, nil
 }
 
@@ -448,7 +466,7 @@ func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) 
             SELECT 1
             FROM rides
             WHERE driver_id = $1
-            AND status IN ('EN_ROUTE','ARRIVED','IN_PROGRESS')
+            AND status IN ('ARRIVED','IN_PROGRESS')
         )`
 	var ok bool
 	if err := dr.db.GetConn().QueryRow(ctx, q, driverID).Scan(&ok); err != nil {
@@ -639,21 +657,21 @@ func (dr *DriverRepository) EndAllSessions() error {
 	return err
 }
 
-func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (int, error) {
+func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (float64, error) {
 	Query := `
 				SELECT ST_Distance(ST_MakePoint(c_driver.longitude, c_driver.latitude)::geography, ST_MakePoint(c_dest.longitude, c_dest.latitude)::geography) 
 				FROM drivers d
 				JOIN rides r on r.driver_id = d.driver_id
 				JOIN coordinates c_driver on d.driver_id = c_driver.entity_id
 				JOIN coordinates c_dest on r.pickup_coord_id = c_dest.coord_id
-				WHERE d.driver_id = $1 AND r.status = 'EN_ROUTE';
+				WHERE d.driver_id = $1 AND (r.status = 'EN_ROUTE' OR r.status = 'ARRIVED');
 	`
 	var res float64
 	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&res)
 	if err != nil {
 		return 1000000, err
 	}
-	return int(res), nil
+	return res, nil
 }
 
 func (dr *DriverRepository) IsOffline(ctx context.Context, driver_id string) (bool, error) {
