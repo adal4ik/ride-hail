@@ -2,7 +2,6 @@ package handle
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -29,7 +28,7 @@ func (dh *SystemOverviewHandler) GetSystemOverview() http.HandlerFunc {
 
 		systemOverview, err := dh.systemOverviewService.GetSystemOverview(ctx)
 		if err != nil {
-			JsonError(w, http.StatusBadRequest, fmt.Errorf("failed to get system overview: %v", err))
+			JsonError(w, http.StatusBadRequest, err)
 			return
 		}
 

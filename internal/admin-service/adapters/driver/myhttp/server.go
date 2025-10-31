@@ -5,15 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
+
 	"ride-hail/internal/admin-service/adapters/driven/db"
 	"ride-hail/internal/admin-service/adapters/driver/myhttp/handle"
 	"ride-hail/internal/admin-service/adapters/driver/myhttp/middleware"
-	"ride-hail/internal/admin-service/core/ports"
 	"ride-hail/internal/admin-service/core/service"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
-	"sync"
-	"time"
 )
 
 var ErrServerClosed = errors.New("Server closed")
@@ -25,7 +25,7 @@ type Server struct {
 	cfg    *config.Config
 	srv    *http.Server
 	mylog  mylogger.Logger
-	db     ports.IDB
+	db     *db.DB
 	ctx    context.Context
 	appCtx context.Context
 	mu     sync.Mutex

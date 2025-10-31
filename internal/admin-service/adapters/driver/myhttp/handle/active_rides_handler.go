@@ -48,14 +48,14 @@ func (dh *ActiveDrivesHandler) GetActiveRides() http.HandlerFunc {
 		}
 
 		pageSize, err := strconv.Atoi(pageSizeStr)
-		if err != nil || pageSize < 1 || pageSize > 100 {
+		if err != nil || pageSize < 1 {
 			JsonError(w, http.StatusBadRequest, fmt.Errorf("Invalid page_size parameter"))
 			return
 		}
 
 		activeRides, err := dh.activeDrivesService.GetActiveRides(ctx, page, pageSize)
 		if err != nil {
-			JsonError(w, http.StatusInternalServerError, fmt.Errorf("failed to get active rides: %v", err))
+			JsonError(w, http.StatusInternalServerError, err)
 			return
 		}
 

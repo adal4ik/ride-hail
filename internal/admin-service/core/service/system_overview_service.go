@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"ride-hail/internal/admin-service/core/domain/dto"
+	"ride-hail/internal/admin-service/core/myerrors"
 	"ride-hail/internal/admin-service/core/ports"
 	"ride-hail/internal/mylogger"
 )
@@ -25,16 +27,32 @@ func NewSystemOverviewService(ctx context.Context, mylog mylogger.Logger, system
 }
 
 func (ds *SystemOverviewService) GetSystemOverview(ctx context.Context) (dto.SystemOverview, error) {
+	mylog := ds.mylog.Action("GetSystemOverview")
 	metrics, err := ds.systemOverviewRepo.GetMetrics(ctx)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			mylog.Error("Failed to connect to connect to db", err)
+			return dto.SystemOverview{}, fmt.Errorf("Internal error, please try again later")
+		}
+
 		return dto.SystemOverview{}, fmt.Errorf("Failed to get metrics: %v", err)
 	}
 	driverDistribution, err := ds.systemOverviewRepo.GetDriverDistribution(ctx)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			mylog.Error("Failed to connect to connect to db", err)
+			return dto.SystemOverview{}, fmt.Errorf("Internal error, please try again later")
+		}
+
 		return dto.SystemOverview{}, fmt.Errorf("Failed to get driver distribution: %v", err)
 	}
 	hotspots, err := ds.systemOverviewRepo.GetHotspots(ctx)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			mylog.Error("Failed to connect to connect to db", err)
+			return dto.SystemOverview{}, fmt.Errorf("Internal error, please try again later")
+		}
+
 		return dto.SystemOverview{}, fmt.Errorf("Failed to get hotspots: %v", err)
 	}
 

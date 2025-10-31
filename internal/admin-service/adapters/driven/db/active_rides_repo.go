@@ -5,18 +5,22 @@ import (
 	"fmt"
 
 	"ride-hail/internal/admin-service/core/domain/dto"
-	"ride-hail/internal/admin-service/core/ports"
 )
 
 type ActiveDrivesRepo struct {
-	db ports.IDB
+	db *DB
 }
 
-func NewActiveDrivesRepo(db ports.IDB) *ActiveDrivesRepo {
+func NewActiveDrivesRepo(db *DB) *ActiveDrivesRepo {
 	return &ActiveDrivesRepo{db: db}
 }
 
 func (ar *ActiveDrivesRepo) GetActiveRides(ctx context.Context, page, pageSize int) (int, []dto.Ride, error) {
+	// Check if the database is alive
+	if err := ar.db.IsAlive(); err != nil {
+		return 0, nil, err
+	}
+
 	// Count active rides
 	countQuery := `
     SELECT COUNT(*)
@@ -25,7 +29,7 @@ func (ar *ActiveDrivesRepo) GetActiveRides(ctx context.Context, page, pageSize i
     `
 
 	totalCount := 0
-	err := ar.db.GetConn().QueryRow(ctx, countQuery).Scan(&totalCount)
+	err := ar.db.conn.QueryRow(ctx, countQuery).Scan(&totalCount)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to get total count: %v", err)
 	}
@@ -66,7 +70,7 @@ func (ar *ActiveDrivesRepo) GetActiveRides(ctx context.Context, page, pageSize i
     `
 
 	offset := (page - 1) * pageSize
-	rows, err := ar.db.GetConn().Query(ctx, query, pageSize, offset)
+	rows, err := ar.db.conn.Query(ctx, query, pageSize, offset)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to query active rides: %v", err)
 	}

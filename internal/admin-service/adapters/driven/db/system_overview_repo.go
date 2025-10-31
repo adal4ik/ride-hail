@@ -5,18 +5,22 @@ import (
 	"fmt"
 
 	"ride-hail/internal/admin-service/core/domain/dto"
-	"ride-hail/internal/admin-service/core/ports"
 )
 
 type SystemOverviewRepo struct {
-	db ports.IDB
+	db *DB
 }
 
-func NewSystemOverviewRepo(db ports.IDB) *SystemOverviewRepo {
+func NewSystemOverviewRepo(db *DB) *SystemOverviewRepo {
 	return &SystemOverviewRepo{db: db}
 }
 
 func (sr *SystemOverviewRepo) GetMetrics(ctx context.Context) (dto.MetricsParams, error) {
+	// Check if the database is alive
+	if err := sr.db.IsAlive(); err != nil {
+		return dto.MetricsParams{}, err
+	}
+
 	var metrics dto.MetricsParams
 
 	// Query 1: Main metrics
@@ -47,7 +51,7 @@ func (sr *SystemOverviewRepo) GetMetrics(ctx context.Context) (dto.MetricsParams
     `
 
 	// Execute queries
-	err := sr.db.GetConn().QueryRow(ctx, q1).Scan(
+	err := sr.db.conn.QueryRow(ctx, q1).Scan(
 		&metrics.ActiveRides,
 		&metrics.TotalRidesToday,
 		&metrics.TotalRevenueToday,
@@ -59,7 +63,7 @@ func (sr *SystemOverviewRepo) GetMetrics(ctx context.Context) (dto.MetricsParams
 		return dto.MetricsParams{}, fmt.Errorf("failed to get ride metrics: %v", err)
 	}
 
-	err = sr.db.GetConn().QueryRow(ctx, q2).Scan(
+	err = sr.db.conn.QueryRow(ctx, q2).Scan(
 		&metrics.AvailableDrivers,
 		&metrics.BusyDrivers,
 	)
@@ -71,6 +75,11 @@ func (sr *SystemOverviewRepo) GetMetrics(ctx context.Context) (dto.MetricsParams
 }
 
 func (sr *SystemOverviewRepo) GetDriverDistribution(ctx context.Context) (dto.DriverDistributionParams, error) {
+	// Check if the database is alive
+	if err := sr.db.IsAlive(); err != nil {
+		return dto.DriverDistributionParams{}, err
+	}
+
 	driverDistribution := dto.DriverDistributionParams{}
 	q := `
     SELECT 
@@ -81,7 +90,7 @@ func (sr *SystemOverviewRepo) GetDriverDistribution(ctx context.Context) (dto.Dr
     `
 
 	// Execute queries
-	err := sr.db.GetConn().QueryRow(ctx, q).Scan(
+	err := sr.db.conn.QueryRow(ctx, q).Scan(
 		&driverDistribution.Economy,
 		&driverDistribution.Premium,
 		&driverDistribution.XL,
@@ -94,6 +103,11 @@ func (sr *SystemOverviewRepo) GetDriverDistribution(ctx context.Context) (dto.Dr
 }
 
 func (sr *SystemOverviewRepo) GetHotspots(ctx context.Context) ([]dto.HotspotsParams, error) {
+	// Check if the database is alive
+	if err := sr.db.IsAlive(); err != nil {
+		return nil, err
+	}
+
 	q := `
     WITH ride_coordinates AS (
 		-- Get pickup coordinates for active rides (including REQUESTED since they need drivers)
@@ -134,7 +148,7 @@ func (sr *SystemOverviewRepo) GetHotspots(ctx context.Context) ([]dto.HotspotsPa
 	LIMIT 10;
     `
 
-	rows, err := sr.db.GetConn().Query(ctx, q)
+	rows, err := sr.db.conn.Query(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query hotspots: %w", err)
 	}

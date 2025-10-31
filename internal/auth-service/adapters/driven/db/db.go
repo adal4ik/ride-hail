@@ -14,22 +14,20 @@ import (
 )
 
 type DB struct {
-	ctx        context.Context
-	cfg        *config.DBconfig
-	mylog      mylogger.Logger
-	conn       *pgx.Conn
-	mu         *sync.Mutex
-	maxRetries int // Maximum number of retries for reconnecting
+	ctx   context.Context
+	cfg   *config.DBconfig
+	mylog mylogger.Logger
+	conn  *pgx.Conn
+	mu    *sync.Mutex
 }
 
 // Start initializes and returns a new DB instance with a single connection
 func Start(ctx context.Context, dbCfg *config.DBconfig, mylog mylogger.Logger) (*DB, error) {
 	d := &DB{
-		cfg:        dbCfg,
-		ctx:        ctx,
-		mylog:      mylog,
-		mu:         &sync.Mutex{},
-		maxRetries: 5, // Set a maximum retry limit
+		cfg:   dbCfg,
+		ctx:   ctx,
+		mylog: mylog,
+		mu:    &sync.Mutex{},
 	}
 
 	// Attempt to connect with retries
@@ -69,7 +67,7 @@ func (d *DB) IsAlive() error {
 // connect establishes a new connection with retry logic
 func (d *DB) connect() error {
 	var lastErr error
-	for i := 0; i < d.maxRetries; i++ {
+	for i := 0; i < d.cfg.MaxRetries; i++ {
 		// Build connection string
 		connStr := fmt.Sprintf(
 			"postgres://%v:%v@%v:%v/%v?sslmode=disable",
@@ -99,5 +97,5 @@ func (d *DB) connect() error {
 	}
 
 	// Return the last error after all retries have failed
-	return fmt.Errorf("failed to connect to the database after %d attempts: %w", d.maxRetries, lastErr)
+	return fmt.Errorf("failed to connect to the database after %d attempts: %w", d.cfg.MaxRetries, lastErr)
 }

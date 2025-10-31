@@ -17,23 +17,26 @@ type Config struct {
 }
 
 type DBconfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	Database string `yaml:"database"`
+	Host       string `yaml:"host"`
+	Port       int    `yaml:"port"`
+	User       string `yaml:"user"`
+	Password   string `yaml:"password"`
+	Database   string `yaml:"database"`
+	MaxRetries int    `yaml:"max_retries"`
 }
 
 type RabbitMqconfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	VHost    string `yaml:"vhost"`
+	Host       string `yaml:"host"`
+	Port       int    `yaml:"port"`
+	User       string `yaml:"user"`
+	Password   string `yaml:"password"`
+	VHost      string `yaml:"vhost"`
+	MaxRetries int    `yaml:"max_retries"`
 }
 
 type WebSocketconfig struct {
-	Port int `yaml:"port"`
+	Port       int `yaml:"port"`
+	MaxRetries int `yaml:"max_retries"`
 }
 
 type Serviceconfig struct {
@@ -48,8 +51,7 @@ type Loggerconfig struct {
 }
 
 type App struct {
-	PublicJwtSecret  string `yaml:"public_jwt"`
-	PrivateJwtSecret string `yaml:"private_jwt"`
+	PublicJwtSecret string `yaml:"public_jwt"`
 }
 
 func New() (*Config, error) {
@@ -78,21 +80,24 @@ func New() (*Config, error) {
 
 	cnf := &Config{
 		DB: &DBconfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnvInt("DB_PORT", 5432),
-			User:     getEnv("DB_USER", "ridehail_user"),
-			Password: getEnv("DB_PASSWORD", "ridehail_pass"),
-			Database: getEnv("DB_NAME", "ridehail_db"),
+			Host:       getEnv("DB_HOST", "localhost"),
+			Port:       getEnvInt("DB_PORT", 5432),
+			User:       getEnv("DB_USER", "ridehail_user"),
+			Password:   getEnv("DB_PASSWORD", "ridehail_pass"),
+			Database:   getEnv("DB_NAME", "ridehail_db"),
+			MaxRetries: getEnvInt("DB_MAX_RETRIES", 5),
 		},
 		RabbitMq: &RabbitMqconfig{
-			Host:     getEnv("RABBITMQ_HOST", "localhost"),
-			Port:     getEnvInt("RABBITMQ_PORT", 5672),
-			User:     getEnv("RABBITMQ_USER", "admin"),
-			Password: getEnv("RABBITMQ_PASSWORD", "admin"),
-			VHost:    getEnv("RABBITMQ_VHOST", "fake-taxi"),
+			Host:       getEnv("RABBITMQ_HOST", "localhost"),
+			Port:       getEnvInt("RABBITMQ_PORT", 5672),
+			User:       getEnv("RABBITMQ_USER", "admin"),
+			Password:   getEnv("RABBITMQ_PASSWORD", "admin"),
+			VHost:      getEnv("RABBITMQ_VHOST", "fake-taxi"),
+			MaxRetries: getEnvInt("RABBITMQ_MAX_RETRIES", 5),
 		},
 		WS: &WebSocketconfig{
-			Port: getEnvInt("WS_PORT", 8080),
+			Port:       getEnvInt("WS_PORT", 8080),
+			MaxRetries: getEnvInt("WS_MAX_RETRIES", 5),
 		},
 		Srv: &Serviceconfig{
 			RideServicePort:           getEnv("RIDE_SERVICE_PORT", "3000"),
@@ -104,8 +109,7 @@ func New() (*Config, error) {
 			Level: getEnv("LOG_LEVEL", "INFO"),
 		},
 		App: &App{
-			PublicJwtSecret:  getEnv("PUBLIC_JWT", "default-public-secret"),
-			PrivateJwtSecret: getEnv("PRIVATE_JWT", "default-private-secret"),
+			PublicJwtSecret: getEnv("PUBLIC_JWT", "default-public-secret"),
 		},
 	}
 
