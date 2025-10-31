@@ -28,6 +28,10 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 	// Start a new transaction
 	tx, err := dr.db.conn.Begin(ctx)
 	if err != nil {
+		// Check if the database is alive
+		if err := dr.db.IsAlive(); err != nil {
+			return "", err
+		}
 		return "", fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
@@ -37,6 +41,11 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 			_ = tx.Rollback(ctx)
 		}
 	}()
+
+	// Check if the database is alive
+	if err := dr.db.IsAlive(); err != nil {
+		return "", err
+	}
 
 	// Fixed query to insert driver with correct columns
 	q := `INSERT INTO drivers (
@@ -93,6 +102,11 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 }
 
 func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driver, error) {
+	// Check if the database is alive
+	if err := dr.db.IsAlive(); err != nil {
+		return models.Driver{}, err
+	}
+
 	q := `
 		SELECT 
 			driver_id,

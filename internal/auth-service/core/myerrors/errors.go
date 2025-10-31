@@ -10,4 +10,6 @@ var (
 
 	ErrEmailRegistered               = errors.New("email already registered")
 	ErrDriverLicenseNumberRegistered = errors.New("driver licence number is already registered")
+
+	ErrDBConnClosed = errors.New("failed to connect to db")
 )

@@ -12,22 +12,26 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type AuthRepo struct {
+type UserRepo struct {
 	ctx context.Context
 	db  *DB
 }
 
-func NewAuthRepo(ctx context.Context, db *DB) *AuthRepo {
-	return &AuthRepo{
+func NewUserRepo(ctx context.Context, db *DB) *UserRepo {
+	return &UserRepo{
 		ctx: ctx,
 		db:  db,
 	}
 }
 
-func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error) {
+func (ur *UserRepo) Create(ctx context.Context, user models.User) (string, error) {
 	// Start a new transaction
-	tx, err := ar.db.conn.Begin(ctx)
+	tx, err := ur.db.conn.Begin(ctx)
 	if err != nil {
+		// Check if the database is alive
+		if err := ur.db.IsAlive(); err != nil {
+			return "", err
+		}
 		return "", fmt.Errorf("failed to begin transaction: %v", err)
 	}
 
@@ -37,6 +41,11 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 			_ = tx.Rollback(ctx)
 		}
 	}()
+
+	// Check if the database is alive
+	if err := ur.db.IsAlive(); err != nil {
+		return "", err
+	}
 
 	var userAttrs interface{}
 	if user.UserAttrs != nil {
@@ -69,7 +78,12 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 	return id, nil
 }
 
-func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, error) {
+func (ur *UserRepo) GetByEmail(ctx context.Context, name string) (models.User, error) {
+	// Check if the database is alive
+	if err := ur.db.IsAlive(); err != nil {
+		return models.User{}, err
+	}
+
 	q := `
 		SELECT 
 			u.user_id,
@@ -88,7 +102,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 	`
 
 	var u models.User
-	err := ar.db.conn.QueryRow(ctx, q, name).Scan(
+	err := ur.db.conn.QueryRow(ctx, q, name).Scan(
 		&u.UserId,
 		&u.CreatedAt,
 		&u.UpdatedAt,

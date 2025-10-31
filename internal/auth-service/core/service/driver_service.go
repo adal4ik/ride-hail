@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/domain/models"
 	"ride-hail/internal/auth-service/core/myerrors"
+	"ride-hail/internal/auth-service/core/ports/driven"
+
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 
@@ -19,14 +20,14 @@ import (
 type DriverService struct {
 	ctx        context.Context
 	cfg        *config.Config
-	driverRepo *db.DriverRepo
+	driverRepo driven.IDriverRepo
 	mylog      mylogger.Logger
 }
 
 func NewDriverService(
 	ctx context.Context,
 	cfg *config.Config,
-	driverRepo *db.DriverRepo,
+	driverRepo driven.IDriverRepo,
 	mylogger mylogger.Logger,
 ) *DriverService {
 	return &DriverService{
@@ -69,12 +70,12 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 	// add user to db
 	id, err := ds.driverRepo.Create(ctx, user)
 	if err != nil {
-		if errors.Is(err, myerrors.ErrEmailRegistered) {
-			mylog.Warn("Failed to register, email already registered")
-			return "", "", err
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			mylog.Error("Failed to connect to connect to db", err)
+			return "", "", fmt.Errorf("Internal error, please try again later")
 		}
-		if errors.Is(err, myerrors.ErrDriverLicenseNumberRegistered) {
-			mylog.Warn("Failed to register, driver licence number already registered")
+		if errors.Is(err, myerrors.ErrEmailRegistered) {
+			mylog.Error("Failed to register, email already registered", err)
 			return "", "", err
 		}
 
@@ -108,10 +109,15 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverAuthReques
 
 	user, err := ds.driverRepo.GetByEmail(ctx, authReq.Email)
 	if err != nil {
+		if errors.Is(err, myerrors.ErrDBConnClosed) {
+			mylog.Error("Failed to connect to connect to db", err)
+			return "", fmt.Errorf("Internal error, please try again later")
+		}
 		if errors.Is(err, myerrors.ErrUnknownEmail) {
-			mylog.Warn("Failed to login, unknown username")
+			mylog.Error("Failed to login, unknown email", err)
 			return "", err
 		}
+
 		mylog.Error("Failed to get driver by id", err)
 		return "", fmt.Errorf("cannot get user from db: %w", err)
 	}
@@ -129,12 +135,12 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverAuthReques
 		"exp":      time.Now().Add(time.Hour * 27 * 7).Unix(),
 	})
 
-	accesssTokenString, err := AccessTokenString.SignedString([]byte(ds.cfg.App.PublicJwtSecret))
+	accessTokenString, err := AccessTokenString.SignedString([]byte(ds.cfg.App.PublicJwtSecret))
 	if err != nil {
 		mylog.Error("error to create jwt token", err)
 		return "", err
 	}
 
 	mylog.Info("User login successfully")
-	return accesssTokenString, nil
+	return accessTokenString, nil
 }
