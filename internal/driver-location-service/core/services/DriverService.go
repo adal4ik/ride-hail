@@ -82,7 +82,7 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	if err != nil {
 		l.Error("Failed To check is driver near: ", err, "DriverID", driver_id)
 	}
-	l.Info("Driver distance to pickup location:", isNear)
+	l.Info("Driver distance to pickup location:", "Dist", isNear)
 	if isNear <= 100 {
 		rideID, err := ds.GetRideIdByDriverId(ctx, driver_id)
 		if err != nil {

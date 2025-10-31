@@ -553,7 +553,7 @@ func (dr *DriverRepository) EndAllSessions() error {
 	return err
 }
 
-func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (int, error) {
+func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (float64, error) {
 	Query := `
 				SELECT ST_Distance(ST_MakePoint(c_driver.longitude, c_driver.latitude)::geography, ST_MakePoint(c_dest.longitude, c_dest.latitude)::geography) 
 				FROM drivers d
@@ -567,7 +567,7 @@ func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) 
 	if err != nil {
 		return 1000000, err
 	}
-	return int(res), nil
+	return res, nil
 }
 
 func (dr *DriverRepository) IsOffline(ctx context.Context, driver_id string) (bool, error) {
