@@ -30,6 +30,14 @@ const (
 	Gray   = "\033[90m"
 )
 
+// Configuration constants for rate limiting
+const (
+	LocationUpdateInterval = 3 * time.Second        // How often to send location updates
+	DBWriteDelay           = 100 * time.Millisecond // Delay after DB operations
+	HTTPRequestDelay       = 200 * time.Millisecond // Delay between HTTP requests
+	InitialConnectDelay    = 1 * time.Second        // Delay after initial connection
+)
+
 func info(msg string, args ...interface{}) {
 	log.Printf(Green+"[INFO] "+Reset+msg, args...)
 }
@@ -96,10 +104,21 @@ type HttpResponse2 struct {
 	Message   string `json:"message"`
 }
 type HttpResponse3 struct {
-	Ride_id          string   `json:"ride_id"`
-	FinalLocation    Location `json:"final_location"`
-	ActualDistancekm float64  `json:"actual_distance_km"`
-	ActualDurationm  float64  `json:"actual_duration_minutes"`
+	Message        string  `json:"message"`
+	RideID         string  `json:"ride_id"`
+	Status         string  `json:"status"`
+	CompletedAt    string  `json:"completed_at"`
+	DriverEarnings float64 `json:"driver_earnings"`
+}
+type HttpRequest4 struct {
+	RideID         string   `json:"ride_id"`
+	DriverLocation Location `json:"driver_location"`
+}
+type HttpResponse4 struct {
+	RideID    string `json:"ride_id"`
+	Status    string `json:"status"`
+	StartedAt string `json:"started_at"`
+	Message   string `json:"message"`
 }
 
 type Location struct {
@@ -163,6 +182,8 @@ func (c *Client) read() {
 			c.ToDriver <- dataBytes
 			wsLog("✅ Accepted ride offer %s", offer.OfferID)
 
+			// Add small delay before starting location updates
+			time.Sleep(DBWriteDelay)
 			go c.LocationUpdate(offer, 500)
 
 		default:
@@ -184,6 +205,8 @@ func (c *Client) write() {
 				return
 			}
 			wsLog("➡️ Sent message from driver %s: %s", c.DriverId, string(msg))
+			// Small delay after sending message to prevent overwhelming
+			time.Sleep(50 * time.Millisecond)
 		case <-c.ctx.Done():
 			wsLog("context cancelled, stopping writer")
 			return
@@ -200,14 +223,79 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 
 	c.goToTarget(current, target, speed)
 
+	info("arrived to pickup location", "lat", c.CurrentLat, "lng", c.CurrentLng)
+
+	// Add delay before starting ride
+	time.Sleep(DBWriteDelay * 2)
+
+	// START RIDE - Fixed implementation
+	startReq := HttpRequest4{
+		RideID: offer.RideID,
+		DriverLocation: Location{
+			Latitude:  c.CurrentLat,
+			Longitude: c.CurrentLng,
+		},
+	}
+
+	body0, err := json.Marshal(&startReq)
+	if err != nil {
+		errLog("Error marshaling start ride request: %v", err)
+		return
+	}
+
+	httpLog("Starting ride %s...", offer.RideID)
+	// Create HTTP request with proper headers
+	startURL := fmt.Sprintf("https://localhost:3001/drivers/%s/start", c.DriverId)
+	req0, err := http.NewRequest("POST", startURL, bytes.NewBuffer(body0))
+	if err != nil {
+		errLog("Error creating start ride request: %v", err)
+		return
+	} // Add authorization header
+	req0.Header.Set("Authorization", "Bearer "+c.Jwt)
+	req0.Header.Set("Content-Type", "application/json")
+
+	// Add delay before HTTP request
+	time.Sleep(HTTPRequestDelay)
+
+	client0 := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		Timeout: 10 * time.Second, // Add timeout
+	}
+
+	resp0, err := client0.Do(req0)
+	if err != nil {
+		errLog("Cannot start ride: %v", err)
+		return
+	}
+	defer resp0.Body.Close()
+
+	data0, _ := io.ReadAll(resp0.Body)
+
+	response0 := HttpResponse4{}
+	json.Unmarshal(data0, &response0)
+
+	httpLog(fmt.Sprint("Ride started: %s", response0.Message))
+
+	// Delay between HTTP requests
+	time.Sleep(HTTPRequestDelay)
+
+	// Add delay before starting next leg
+	time.Sleep(DBWriteDelay)
+
 	current2 := websocketdto.Location{
 		Latitude:  c.CurrentLat,
 		Longitude: c.CurrentLng,
 	}
-
 	target2 := offer.DestinationLocation
 
 	c.goToTarget(current2, target2, speed)
+
+	info("arrived to destination location", "lat", c.CurrentLat, "lng", c.CurrentLng)
+
+	// Add delay before completing ride
+	time.Sleep(DBWriteDelay)
 
 	HttpRequest3 := HttpRequest3{
 		RideId: offer.RideID,
@@ -218,49 +306,50 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 		ActualDist: 5.5,
 		ActualDur:  16,
 	}
-	httpLog("Making him online...")
+	httpLog("Completing ride...")
 
 	body3, _ := json.Marshal(&HttpRequest3)
 
 	url := fmt.Sprintf("https://localhost:3001/drivers/%s/complete", c.DriverId)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body3))
 	if err != nil {
-		errLog("Error creating request: %v", err)
+		errLog("Error creating request", "err", err)
 		return
 	}
 
 	jwtToken := c.Jwt
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
-	// Set content-type header to application/json
 	req.Header.Set("Content-Type", "application/json")
 
-	// Send the request
+	// Add delay before HTTP request
+	time.Sleep(HTTPRequestDelay)
+
 	client := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		errLog("cannot complete the drive: %v", err)
+		errLog("cannot complete the drive", "err", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	// Read the response body
-	data, _ := io.ReadAll(resp.Body)
+	// Add delay after HTTP request
+	time.Sleep(DBWriteDelay)
 
+	data, _ := io.ReadAll(resp.Body)
 	response := HttpResponse3{}
 	json.Unmarshal(data, &response)
 
-	// Log the response
-	httpLog("Completion info", "msg", response.Ride_id)
+	httpLog("Completion info", "msg", response.Message, "s", response.Status)
+	fmt.Printf("🏁 Ride completed: ID=%s, Earnings=%.2f\n", response.RideID, response.DriverEarnings)
 }
 
 func (c *Client) goToTarget(current, target websocketdto.Location, speed float64) {
 	// speed = meters per second, e.g. 10.0 (≈ 36 km/h)
-	updateInterval := 3 * time.Second // how often to send updates
-	stepDistance := speed * updateInterval.Seconds()
+	stepDistance := speed * LocationUpdateInterval.Seconds()
 
 	// Calculate the total distance from current to target location
 	totalDistance := distance(current, target)
@@ -282,38 +371,41 @@ func (c *Client) goToTarget(current, target websocketdto.Location, speed float64
 	wsLog("🚗 Moving to pickup: distance=%.2fm, steps=%d, Δlat=%.6f, Δlng=%.6f",
 		totalDistance, steps, dLat, dLng)
 
-	// ticker := time.NewTicker(updateInterval)
-	// defer ticker.Stop()
+	// Use the configured interval for location updates
+	ticker := time.NewTicker(LocationUpdateInterval)
+	defer ticker.Stop()
 
-	// for i := 0; i < steps; i++ {
-	// 	select {
-	// 	case <-ticker.C:
-	// 		// Update current position by adding dLat and dLng to it
-	// 		c.CurrentLat += dLat
-	// 		c.CurrentLng += dLng
+	for i := 0; i < steps; i++ {
+		select {
+		case <-ticker.C:
+			// Update current position by adding dLat and dLng to it
+			c.CurrentLat += dLat
+			c.CurrentLng += dLng
 
-	// 		// Send the location update
-	// 		locUpdate := websocketdto.LocationUpdateMessage{
-	// 			WebSocketMessage: websocketdto.WebSocketMessage{
-	// 				Type: websocketdto.MessageTypeLocationUpdate,
-	// 			},
-	// 			Latitude:  c.CurrentLat,
-	// 			Longitude: c.CurrentLng,
-	// 		}
-	// 		dataBytes, _ := json.Marshal(locUpdate)
-	// 		c.ToDriver <- dataBytes
+			// Send the location update
+			locUpdate := websocketdto.LocationUpdateMessage{
+				WebSocketMessage: websocketdto.WebSocketMessage{
+					Type: websocketdto.MessageTypeLocationUpdate,
+				},
+				Latitude:  c.CurrentLat,
+				Longitude: c.CurrentLng,
+			}
+			dataBytes, _ := json.Marshal(locUpdate)
+			c.ToDriver <- dataBytes
 
-	// 		wsLog("📍 Sent location update (%d/%d): lat=%.6f, lng=%.6f",
-	// 			i+1, steps, c.CurrentLat, c.CurrentLng)
+			wsLog("📍 Sent location update (%d/%d): lat=%.6f, lng=%.6f",
+				i+1, steps, c.CurrentLat, c.CurrentLng)
 
-	// 	case <-c.ctx.Done():
-	// 		wsLog("🛑 LocationUpdate stopped (context canceled).")
-	// 		return
-	// 	}
-	// }
+			// Small delay after sending update to prevent overwhelming the system
+			time.Sleep(DBWriteDelay)
 
-	// Final step to arrive at the target (precisely).
-	// Ensure we reach the target exactly.
+		case <-c.ctx.Done():
+			wsLog("🛑 LocationUpdate stopped (context canceled).")
+			return
+		}
+	}
+
+	// Final step to arrive at the target (precisely)
 	c.CurrentLat = target.Latitude
 	c.CurrentLng = target.Longitude
 
@@ -322,11 +414,17 @@ func (c *Client) goToTarget(current, target websocketdto.Location, speed float64
 		WebSocketMessage: websocketdto.WebSocketMessage{
 			Type: websocketdto.MessageTypeLocationUpdate,
 		},
-		Latitude:  c.CurrentLat,
-		Longitude: c.CurrentLng,
+		Latitude:       c.CurrentLat,
+		Longitude:      c.CurrentLng,
+		AccuracyMeters: 5.0,
+		SpeedKmh:       45.0,
+		HeadingDegrees: 90.0,
 	}
 	dataBytes, _ := json.Marshal(locUpdate)
 	c.ToDriver <- dataBytes
+
+	// Delay after final update
+	time.Sleep(DBWriteDelay)
 
 	wsLog("🏁 Arrived at pickup location (%.6f, %.6f)", c.CurrentLat, c.CurrentLng)
 }
@@ -372,14 +470,15 @@ func main() {
 	body, _ := json.Marshal(&HttpRequest)
 	httpLog("Registering driver...")
 
-	// Create an HTTP client with InsecureSkipVerify set to true
+	// Add initial delay
+	time.Sleep(InitialConnectDelay)
+
 	client0 := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 
-	// Make the POST request
 	resp, err := client0.Post("https://localhost:3010/driver/register", "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		log.Fatalf("Cannot register driver: %v", err)
@@ -391,6 +490,9 @@ func main() {
 	response := HttpResponse{}
 	json.Unmarshal(data, &response)
 	httpLog("Driver created: %s (JWT: %s)", response.UserId, response.JWT[:15]+"...")
+
+	// Delay between HTTP requests
+	time.Sleep(HTTPRequestDelay)
 
 	// second request ==========================================================================
 	HttpRequest2 := HttpRequest2{
@@ -408,17 +510,16 @@ func main() {
 		return
 	}
 
-	// Add the JWT token to the Authorization header
-	jwtToken := response.JWT                             // assuming `response.JWT` contains the JWT token
-	req0.Header.Set("Authorization", "Bearer "+jwtToken) // Add the JWT token
-
-	// Set content-type header to application/json
+	jwtToken := response.JWT
+	req0.Header.Set("Authorization", "Bearer "+jwtToken)
 	req0.Header.Set("Content-Type", "application/json")
 
-	// Send the request
+	// Delay before HTTP request
+	time.Sleep(HTTPRequestDelay)
+
 	client2 := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 	resp2, err := client2.Do(req0)
@@ -428,14 +529,14 @@ func main() {
 	}
 	defer resp2.Body.Close()
 
-	// Read the response body
 	data2, _ := io.ReadAll(resp2.Body)
-
 	response2 := HttpResponse2{}
 	json.Unmarshal(data2, &response2)
 
-	// Log the response
 	httpLog("Online info", "msg", response2.Message)
+
+	// Delay before WebSocket connection
+	time.Sleep(InitialConnectDelay)
 
 	// WS logic
 	wsURL := fmt.Sprintf("wss://localhost:3001/ws/drivers/%s", response.UserId)
@@ -443,7 +544,7 @@ func main() {
 
 	dialer := websocket.Dialer{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // Disable certificate verification
+			InsecureSkipVerify: true,
 		},
 	}
 
@@ -472,6 +573,9 @@ func main() {
 	go client.read()
 	go client.write()
 
+	// Delay before auth
+	time.Sleep(DBWriteDelay)
+
 	authMsg, _ := json.Marshal(websocketdto.AuthMessage{
 		WebSocketMessage: websocketdto.WebSocketMessage{
 			Type: websocketdto.MessageTypeAuth,
@@ -480,6 +584,9 @@ func main() {
 	})
 	client.ToDriver <- authMsg
 	wsLog("Auth message sent")
+
+	// Delay before setting online
+	time.Sleep(HTTPRequestDelay)
 
 	// Set online
 	locData, _ := json.Marshal(websocketdto.Location{
@@ -495,7 +602,7 @@ func main() {
 
 	cl := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 	res, err := cl.Do(req)
