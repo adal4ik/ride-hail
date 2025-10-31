@@ -72,6 +72,18 @@ type HttpRequest2 struct {
 	Longitude float64 `json:"longitude"`
 }
 
+type HttpRequest3 struct {
+	RideId        string   `json:"ride_id"`
+	FinalLocation FinalLoc `json:"final_location"`
+	ActualDist    float64  `json:"actual_distance_km"`
+	ActualDur     int      `json:"actual_duration_minutes"`
+}
+
+type FinalLoc struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
 type HttpResponse struct {
 	JWT    string `json:"jwt_access"`
 	Msg    string `json:"msg"`
@@ -81,6 +93,18 @@ type HttpResponse2 struct {
 	Status    string `json:"status"`
 	SessionId string `json:"session_id"`
 	Message   string `json:"message"`
+}
+type HttpResponse3 struct {
+	Ride_id          string   `json:"ride_id"`
+	FinalLocation    Location `json:"final_location"`
+	ActualDistancekm float64  `json:"actual_distance_km"`
+	ActualDurationm  float64  `json:"actual_duration_minutes"`
+}
+
+type Location struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Driver_id string  `json:"driver_id,omitempty"`
 }
 
 type Client struct {
@@ -179,6 +203,49 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 	target2 := offer.DestinationLocation
 
 	c.goToTarget(current2, target2, speed)
+
+	HttpRequest3 := HttpRequest3{
+		RideId: offer.RideID,
+		FinalLocation: FinalLoc{
+			Latitude:  c.CurrentLat,
+			Longitude: c.CurrentLng,
+		},
+		ActualDist: 5.5,
+		ActualDur:  16,
+	}
+	httpLog("Making him online...")
+
+	body3, _ := json.Marshal(&HttpRequest3)
+
+	url := fmt.Sprintf("http://localhost:3001/drivers/%s/complete", c.DriverId)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body3))
+	if err != nil {
+		errLog("Error creating request: %v", err)
+		return
+	}
+
+	jwtToken := c.Jwt
+	req.Header.Set("Authorization", "Bearer "+jwtToken)
+	// Set content-type header to application/json
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		errLog("cannot complete the drive: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	data, _ := io.ReadAll(resp.Body)
+
+	response := HttpResponse3{}
+	json.Unmarshal(data, &response)
+
+	// Log the response
+	httpLog("Completion info", "msg", response.Ride_id)
 }
 
 func (c *Client) goToTarget(current, target websocketdto.Location, speed float64) {

@@ -150,12 +150,12 @@ func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string
 		RETURNING coord_id, updated_at;
 	`
 	var t time.Time
-	err = dr.db.GetConn().QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &t)
+	err = tx.QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &t)
 	if err != nil {
 		return model.NewLocationResponse{}, err
 	}
 	response.Updated_at = t.String()
-	return response, nil
+	return response, tx.Commit(ctx)
 }
 
 func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.StartRide) (model.StartRideResponse, error) {
