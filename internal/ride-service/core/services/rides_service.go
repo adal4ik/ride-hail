@@ -75,7 +75,7 @@ func (rs *RidesService) CreateRide(req dto.RidesRequestDto) (dto.RidesResponseDt
 	ctx, cancel := context.WithTimeout(rs.ctx, time.Second*15)
 	defer cancel()
 
-	count, err := rs.RidesRepo.CheckDuplicate(ctx, req.PassengerId)
+	count, err := rs.RidesRepo.CheckDuplicate(ctx, *req.PassengerId)
 	if err != nil {
 		log.Error("cannot check for duplication", err)
 		return dto.RidesResponseDto{}, err
