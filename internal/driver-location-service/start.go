@@ -2,6 +2,7 @@ package rideservice
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -70,11 +71,22 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	}()
 	log.Info("Distribur successfully setted up and ready to work")
 
+	cert, err := tls.LoadX509KeyPair(cfg.App.CertPath, cfg.App.CertKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to load TLS cert/key: %w", err)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+
 	// Defining the rounter
 	mux := myhttp.Router(handler, cfg)
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%v", cfg.Srv.DriverLocationServicePort),
 		Handler: mux,
+		TLSConfig: tlsConfig,
 	}
 
 	// Running server
@@ -83,7 +95,7 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 	go func() {
 		defer wg.Done()
 		log.Info("Server is starting on port :" + cfg.Srv.DriverLocationServicePort)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServeTLS(cfg.App.CertPath, cfg.App.CertKeyPath); err != nil && err != http.ErrServerClosed {
 			runErrCh <- err
 		}
 	}()

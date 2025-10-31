@@ -45,3 +45,9 @@ help:
 .PHONY: helper
 helper:
 	go run ./cmd/helper/main.go
+
+.PHONY: cert
+cert:
+	openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
+  -nodes -keyout server.key -out server.crt \
+  -subj "/CN=localhost"
