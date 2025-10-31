@@ -113,6 +113,7 @@ func (d *Dispatcher) RemoveClient(client *Client) {
 
 	if _, ok := d.clients[client.passengerId]; ok {
 		client.conn.Close()
+		// close(d.clients[client.passengerId].egress)
 		delete(d.clients, client.passengerId)
 		log.Info("passenger successfully deleted", "passengerId", client.passengerId)
 	} else {

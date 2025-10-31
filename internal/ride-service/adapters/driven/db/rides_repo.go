@@ -222,11 +222,12 @@ func (pr *RidesRepo) FindDistanceAndPassengerId(ctx context.Context, longitude, 
 	return distance, passengerId, nil
 }
 
-func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (string, error) {
+func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (model.Rides, error) {
 	q1 := `
     SELECT  
         driver_id, 
-        status
+        status,
+		final_fare
     FROM 
         rides
     WHERE 
@@ -243,45 +244,38 @@ func (rr *RidesRepo) CancelRide(ctx context.Context, rideId, reason string) (str
 	conn := rr.db.conn
 
 	// Use sql.NullString or pointers to handle NULL values
-	var (
-		driverId sql.NullString
-		status   string
-	)
+
 
 	// Start transaction first to maintain consistency
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return "", err
+		return model.Rides{}, err
 	}
 	defer tx.Rollback(ctx) // Safe rollback if not committed
-
+	
+	var ride model.Rides
 	// Perform SELECT within the same transaction
 	row := tx.QueryRow(ctx, q1, rideId)
-	if err := row.Scan(&driverId, &status); err != nil {
-		return "", fmt.Errorf("failed to fetch ride details: %w", err)
+	if err := row.Scan(&ride.DriverId, &ride.Status, &ride.FinalFare); err != nil {
+		return model.Rides{}, fmt.Errorf("failed to fetch ride details: %w", err)
 	}
 
-	// Return driverId only if it's valid
-	// if !driverId.Valid {
-	// 	return "", fmt.Errorf("driver id not found")
-	// }
-
 	// Validate business rules
-	if status == "CANCELLED" {
-		return "", fmt.Errorf("ride already cancelled")
+	if ride.Status == "CANCELLED" {
+		return model.Rides{}, fmt.Errorf("ride already cancelled")
 	}
 
 	// Perform the update
 	if _, err := tx.Exec(ctx, q2, rideId, reason); err != nil {
-		return "", fmt.Errorf("failed to cancel ride: %w", err)
+		return model.Rides{}, fmt.Errorf("failed to cancel ride: %w", err)
 	}
 
 	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("failed to commit: %w", err)
+		return model.Rides{}, fmt.Errorf("failed to commit: %w", err)
 	}
 
-	return driverId.String, nil
+	return ride, nil
 }
 
 // ChangeStatus will return passenger id, ride number and driver information
@@ -389,7 +383,7 @@ func (pr *RidesRepo) CancelEveryPossibleRides(ctx context.Context) error {
 }
 
 func (pr *RidesRepo) GetCancelPossibleRides(ctx context.Context) ([]model.Rides, error) {
-	q := `SELECT ride_id FROM rides WHERE status IN ('REQUESTED', 'MATCHED', 'EN_ROUTE', 'ARRIVED');`
+	q := `SELECT ride_id, status, final_fare FROM rides WHERE status IN ('REQUESTED', 'MATCHED', 'IN_PROGRESS', 'EN_ROUTE', 'ARRIVED');`
 	cn := pr.db.conn
 
 	rows, err := cn.Query(ctx, q)
@@ -399,11 +393,11 @@ func (pr *RidesRepo) GetCancelPossibleRides(ctx context.Context) ([]model.Rides,
 
 	var rides []model.Rides
 	for rows.Next() {
-		var rideId string
-		if err := rows.Scan(&rideId); err != nil {
+		var ride model.Rides
+		if err := rows.Scan(&ride.ID, &ride.Status, &ride.FinalFare); err != nil {
 			continue
 		}
-		rides = append(rides, model.Rides{ID: rideId})
+		rides = append(rides, ride)
 	}
 
 	return rides, nil

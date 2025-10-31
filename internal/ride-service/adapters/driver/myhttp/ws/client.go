@@ -80,11 +80,12 @@ func (c *Client) ReadMessage() {
 }
 
 func (c *Client) WriteMessage() {
+	log := c.log.Action("WriteMessage").With("passenger-id", c.passengerId)
 	defer func() {
 		c.wg.Done()
 		c.dispatcher.RemoveClient(c)
+		log.Info("one client is closed")
 	}()
-	log := c.log.Action("WriteMessage").With("passenger-id", c.passengerId)
 
 	ticker := time.NewTicker(pingInterval)
 

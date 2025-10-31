@@ -25,12 +25,15 @@ var ErrServerClosed = errors.New("Server closed")
 const WaitTime = 10
 
 type Server struct {
-	ctx    context.Context
-	appCtx context.Context
-	mu     sync.Mutex
-	wg     sync.WaitGroup
-	mux    *http.ServeMux
-	srv    *http.Server
+	ctx              context.Context
+	appCtx           context.Context
+	dispatcherCtx    context.Context
+	dispathcerCancel context.CancelFunc
+
+	mu  sync.Mutex
+	wg  sync.WaitGroup
+	mux *http.ServeMux
+	srv *http.Server
 
 	mylog mylogger.Logger
 	cfg   *config.Config
@@ -45,13 +48,17 @@ type Server struct {
 }
 
 func NewServer(ctx, appCtx context.Context, mylog mylogger.Logger, cfg *config.Config) *Server {
+	disCtx, cancel := context.WithCancel(appCtx)
 	s := &Server{
-		ctx:    ctx,
-		appCtx: appCtx,
-		cfg:    cfg,
-		mylog:  mylog,
-		mux:    http.NewServeMux(),
-		wg:     sync.WaitGroup{},
+		ctx:              ctx,
+		appCtx:           appCtx,
+		dispatcherCtx:    disCtx,
+		dispathcerCancel: cancel,
+
+		cfg:   cfg,
+		mylog: mylog,
+		mux:   http.NewServeMux(),
+		wg:    sync.WaitGroup{},
 	}
 
 	return s
@@ -62,7 +69,7 @@ func (s *Server) Run() error {
 	mylog := s.mylog.Action("server_started").With("port", s.cfg.Srv.RideServicePort)
 
 	// Initialize database connection
-	db, err := db.New(s.ctx, s.cfg.DB, mylog)
+	db, err := db.New(s.appCtx, s.cfg.DB, mylog)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -102,16 +109,16 @@ func (s *Server) Stop(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	log.Info("Shutting down HTTP server...")
 	// web socket notification, that server is shutting down
 	msg := websocketdto.Event{
 		Type: "notify",
 		Data: []byte(`{"text":"shutting server lmao XD, now it is your problem XDXDXD"}`),
 	}
 	log.Info("sending broadcast message...")
-
 	s.dispatcher.BroadCast(msg)
-	s.wg.Wait()
+	log.Info("sent broadcast message...")
+	s.dispathcerCancel()
+	
 	// make rides that have status like
 	//   'REQUESTED'
 	//   'MATCHED'
@@ -126,6 +133,7 @@ func (s *Server) Stop(ctx context.Context) error {
 		log.Error("cannot cancel", err)
 	}
 	log.Info("cancelled everything...")
+	s.wg.Wait()
 
 	if s.srv != nil {
 		shutdownCtx, cancel := context.WithTimeout(ctx, WaitTime*time.Second)
@@ -186,7 +194,7 @@ func (s *Server) Configure() {
 	authMiddleware := middleware.NewAuthMiddleware(s.cfg.App.PublicJwtSecret)
 
 	eventHandle := ws.NewEventHandler(s.cfg.App.PublicJwtSecret)
-	dispatcher := ws.NewDispathcer(s.appCtx, s.mylog, passengerService, eventHandle, &s.wg)
+	dispatcher := ws.NewDispathcer(s.dispatcherCtx, s.mylog, passengerService, eventHandle, &s.wg)
 	dispatcher.InitHandler()
 	s.dispatcher = dispatcher
 

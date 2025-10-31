@@ -298,6 +298,7 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 		}
 		d.wsManager.SendToDriver(d.ctx, driverID, cancelMessage)
 		log.Info("Processing ride cancelation:", status.RideId)
+		d.driverService.PayDriverMoney(d.ctx, driverID, status.Final_fare)
 		d.driverService.UpdateDriverStatus(d.ctx, driverID, "AVAILABLE")
 		log.Info("Driver status changed:", driverID)
 		statusDelivery.Ack(false)
