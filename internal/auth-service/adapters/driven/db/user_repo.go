@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"ride-hail/internal/auth-service/core/domain/models"
+	"ride-hail/internal/auth-service/core/myerrors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -55,7 +56,7 @@ func (ar *AuthRepo) Create(ctx context.Context, user models.User) (string, error
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == "23505" { // unique_violation
-				return "", ErrEmailRegistered
+				return "", myerrors.ErrEmailRegistered
 			}
 		}
 		return "", fmt.Errorf("failed to insert user: %v", err)
@@ -100,7 +101,7 @@ func (ar *AuthRepo) GetByEmail(ctx context.Context, name string) (models.User, e
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.User{}, ErrUnknownEmail
+			return models.User{}, myerrors.ErrUnknownEmail
 		}
 		return models.User{}, err
 	}

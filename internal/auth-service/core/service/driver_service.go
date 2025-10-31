@@ -9,6 +9,7 @@ import (
 	"ride-hail/internal/auth-service/adapters/driven/db"
 	"ride-hail/internal/auth-service/core/domain/dto"
 	"ride-hail/internal/auth-service/core/domain/models"
+	"ride-hail/internal/auth-service/core/myerrors"
 	"ride-hail/internal/config"
 	"ride-hail/internal/mylogger"
 
@@ -68,11 +69,11 @@ func (ds *DriverService) Register(ctx context.Context, regReq dto.DriverRegistra
 	// add user to db
 	id, err := ds.driverRepo.Create(ctx, user)
 	if err != nil {
-		if errors.Is(err, db.ErrEmailRegistered) {
+		if errors.Is(err, myerrors.ErrEmailRegistered) {
 			mylog.Warn("Failed to register, email already registered")
 			return "", "", err
 		}
-		if errors.Is(err, db.ErrDriverLicenseNumberRegistered) {
+		if errors.Is(err, myerrors.ErrDriverLicenseNumberRegistered) {
 			mylog.Warn("Failed to register, driver licence number already registered")
 			return "", "", err
 		}
@@ -107,7 +108,7 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverAuthReques
 
 	user, err := ds.driverRepo.GetByEmail(ctx, authReq.Email)
 	if err != nil {
-		if errors.Is(err, ErrUnknownEmail) {
+		if errors.Is(err, myerrors.ErrUnknownEmail) {
 			mylog.Warn("Failed to login, unknown username")
 			return "", err
 		}
@@ -118,7 +119,7 @@ func (ds *DriverService) Login(ctx context.Context, authReq dto.DriverAuthReques
 	// Compare password hashes
 	if user.Password != authReq.Password {
 		mylog.Debug("Failed to login, unknown password")
-		return "", ErrPasswordUnknown
+		return "", myerrors.ErrPasswordUnknown
 	}
 
 	AccessTokenString := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

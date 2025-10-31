@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"ride-hail/internal/auth-service/core/domain/models"
+	"ride-hail/internal/auth-service/core/myerrors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -72,9 +73,9 @@ func (dr *DriverRepo) Create(ctx context.Context, driver models.Driver) (string,
 				// You can inspect pgErr.ConstraintName if you want to differentiate
 				switch pgErr.ConstraintName {
 				case "drivers_email_key":
-					return "", ErrEmailRegistered
+					return "", myerrors.ErrEmailRegistered
 				case "drivers_license_number_key":
-					return "", ErrDriverLicenseNumberRegistered
+					return "", myerrors.ErrDriverLicenseNumberRegistered
 				default:
 					return "", fmt.Errorf("unique constraint violation on %s", pgErr.ConstraintName)
 				}
@@ -135,7 +136,7 @@ func (dr *DriverRepo) GetByEmail(ctx context.Context, email string) (models.Driv
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.Driver{}, ErrUnknownEmail
+			return models.Driver{}, myerrors.ErrUnknownEmail
 		}
 		return models.Driver{}, fmt.Errorf("failed to get driver by email: %w", err)
 	}

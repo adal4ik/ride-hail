@@ -3,9 +3,8 @@ package db
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"ride-hail/internal/driver-location-service/core/domain/model"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -146,7 +145,7 @@ func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.Sta
 	return response, nil
 }
 
-func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide) (model.StartRideResponse, error) {
+func (dr *DriverRepository) StartRideTx(ctx context.Context, driverID, rideID string) (model.StartRideResponse, error) {
 	conn := dr.db.GetConn()
 	tx, err := conn.Begin(ctx)
 	if err != nil {
@@ -160,39 +159,6 @@ func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide
 		}
 	}()
 
-	// Проверка статуса
-	const qCheck = `
-		SELECT status
-		FROM rides
-		WHERE ride_id = $1 AND driver_id = $2
-		FOR UPDATE;
-	`
-	var current string
-	if err = tx.QueryRow(ctx, qCheck, req.Ride_id, req.Driver_location.Driver_id).Scan(&current); err != nil {
-		if err == pgx.ErrNoRows {
-			return model.StartRideResponse{}, fmt.Errorf("ride not found for this driver")
-		}
-		return model.StartRideResponse{}, err
-	}
-
-	switch current {
-	case "ARRIVED", "EN_ROUTE", "MATCHED":
-	default:
-		return model.StartRideResponse{}, fmt.Errorf("invalid status transition from %s", current)
-	}
-
-	// Обновляем ride
-	const qRide = `
-		UPDATE rides
-		SET status = 'IN_PROGRESS',
-		    started_at = NOW(),
-		    updated_at = NOW()
-		WHERE ride_id = $1;
-	`
-	if _, err = tx.Exec(ctx, qRide, req.Ride_id); err != nil {
-		return model.StartRideResponse{}, err
-	}
-
 	// Обновляем driver
 	const qDriver = `
 		UPDATE drivers
@@ -200,12 +166,12 @@ func (dr *DriverRepository) StartRideTx(ctx context.Context, req model.StartRide
 		    updated_at = NOW()
 		WHERE driver_id = $1;
 	`
-	if _, err = tx.Exec(ctx, qDriver, req.Driver_location.Driver_id); err != nil {
+	if _, err = tx.Exec(ctx, qDriver, driverID); err != nil {
 		return model.StartRideResponse{}, err
 	}
 
 	resp := model.StartRideResponse{
-		Ride_id:    req.Ride_id,
+		Ride_id:    rideID,
 		Status:     "BUSY",
 		Started_at: time.Now().Format(time.RFC3339),
 	}
