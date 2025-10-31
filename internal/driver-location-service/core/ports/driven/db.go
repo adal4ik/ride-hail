@@ -26,6 +26,6 @@ type IDriverRepository interface {
 	GetRideIdByDriverId(ctx context.Context, driver_id string) (string, error)
 	GetRideDetailsByRideId(ctx context.Context, ride_id string) (model.RideDetails, error)
 	PayDriverMoney(ctx context.Context, driver_id string, amount float64) error
-	SetAllOffline()
-	EndAllSessions()
+	SetAllOffline() error
+	EndAllSessions() error
 }

@@ -91,8 +91,9 @@ func (d *Distributor) MessageDistributor() error {
 			go d.handleDriverMessage(driverMsg)
 
 		case <-d.ctx.Done():
-			log.Info("Shuting down...")
+			log.Info("Shutting down...")
 			d.wg.Wait()
+			return nil
 		}
 	}
 }
@@ -279,7 +280,7 @@ func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
 	log := d.log.Action("handleRideStatus")
 	var status messagebrokerdto.RideStatus
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {
-		log.Error("Failed to unmarshal the ride response message: ", err)
+		log.Error("Failed to unmarshal the ride response message: ", err, "Message", statusDelivery.Body)
 		statusDelivery.Nack(false, false)
 		return
 	}

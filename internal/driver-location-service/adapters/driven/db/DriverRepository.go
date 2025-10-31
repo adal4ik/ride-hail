@@ -533,18 +533,20 @@ func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string
 	return nil
 }
 
-func (dr *DriverRepository) SetAllOffline() {
+func (dr *DriverRepository) SetAllOffline() error {
 	Query := `
 		UPDATE drivers
 		SET status = 'OFFLINE';
 	`
-	dr.db.conn.Exec(context.Background(), Query)
+	_, err := dr.db.conn.Exec(context.Background(), Query)
+	return err
 }
 
-func (dr *DriverRepository) EndAllSessions() {
+func (dr *DriverRepository) EndAllSessions() error {
 	Query := `
 		UPDATE driver_sessions
 		SET ended_at = NOW();
 	`
-	dr.db.conn.Exec(context.Background(), Query)
+	_, err := dr.db.conn.Exec(context.Background(), Query)
+	return err
 }

@@ -19,7 +19,7 @@ d:
 
 .PHONY: a
 a:
-	docker exec -it ridehail-postgres psql -U ridehail_user -W ridehail_db
+	docker exec -it ridehail-postgresql psql -U ridehail_user -W ridehail_db
 
 .PHONY: run
 run:

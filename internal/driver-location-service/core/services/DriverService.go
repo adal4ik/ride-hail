@@ -289,7 +289,14 @@ func (ds *DriverService) PayDriverMoney(ctx context.Context, driver_id string, a
 	return ds.repositories.PayDriverMoney(ctx, driver_id, amount)
 }
 
-func (ds *DriverService) GracefullShutdown() {
-	ds.repositories.SetAllOffline()
-	ds.repositories.EndAllSessions()
+func (ds *DriverService) GracefullShutdown(ctx context.Context) error {
+	err := ds.repositories.SetAllOffline()
+	if err != nil {
+		return err
+	}
+	err = ds.repositories.EndAllSessions()
+	if err != nil {
+		return err
+	}
+	return nil
 }

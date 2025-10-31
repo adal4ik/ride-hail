@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgis/postgis:16-3.4-alpine
-    container_name: ridehail-postgres
+    container_name: ridehail-postgresql
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-ridehail_user}

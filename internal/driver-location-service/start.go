@@ -19,15 +19,12 @@ import (
 	"ride-hail/internal/mylogger"
 )
 
-var wg sync.WaitGroup
-
 func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) error {
 	log := mylog.Action("Execute")
-
+	var wg sync.WaitGroup
 	// Context Declaration
 	signalCtx, close := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	defer close()
-
 	// Connecting to Database
 	database, err := db.ConnectDB(signalCtx, cfg.DB, mylog)
 	if err != nil {
@@ -90,21 +87,32 @@ func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) err
 			runErrCh <- err
 		}
 	}()
-	mylog.Info("Server is started successfully")
+	log.Info("Server is started successfully")
 
 	// Listening for channels
 	select {
 	case <-signalCtx.Done():
-		mylog.Info("Shutdown signal received")
+		log.Info("Shutdown signal received")
+		log.Info("Shutting down gracefully......")
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			log.Error("HTTP server shutdown failed", err)
+		}
+		// Waiting
+		log.Info("waiting for workers......")
+		wg.Wait()
+		log.Info("All workers are done")
+		// Drivers
+		err := service.DriverService.GracefullShutdown(context.Background())
+		if err != nil {
+			log.Error("Failed to shutdown drivers", err)
+		} else {
+			log.Info("All drivers are offline now and all sessions are completed")
+		}
 	case err = <-runErrCh:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			mylog.Error("Server failed unexpectedly", err)
+			log.Error("Server failed unexpectedly", err)
 		}
 	}
-	// Gracefull Shutdown
-	// Pay driver that in route, go offline all drivers, end all driver_sessions
-	log.Info("Shutting down gracefully......")
-	wg.Wait()
-	service.DriverService.GracefullShutdown()
+
 	return err
 }
