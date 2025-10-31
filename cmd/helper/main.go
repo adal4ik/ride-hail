@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -158,7 +159,7 @@ func (c *Client) read() {
 			c.ToDriver <- dataBytes
 			wsLog("✅ Accepted ride offer %s", offer.OfferID)
 
-			go c.LocationUpdate(offer, 100)
+			go c.LocationUpdate(offer, 1000)
 
 		default:
 			wsLog("📨 WS message: %+v", data)
@@ -217,7 +218,7 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 
 	body3, _ := json.Marshal(&HttpRequest3)
 
-	url := fmt.Sprintf("http://localhost:3001/drivers/%s/complete", c.DriverId)
+	url := fmt.Sprintf("https://localhost:3001/drivers/%s/complete", c.DriverId)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body3))
 	if err != nil {
 		errLog("Error creating request: %v", err)
@@ -230,7 +231,11 @@ func (c *Client) LocationUpdate(offer websocketdto.RideOfferMessage, speed float
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		errLog("cannot complete the drive: %v", err)
@@ -363,12 +368,20 @@ func main() {
 	body, _ := json.Marshal(&HttpRequest)
 	httpLog("Registering driver...")
 
-	resp, err := http.Post("http://localhost:3010/driver/register", "application/json", bytes.NewBuffer(body))
+	// Create an HTTP client with InsecureSkipVerify set to true
+	client0 := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+		},
+	}
+
+	// Make the POST request
+	resp, err := client0.Post("https://localhost:3010/driver/register", "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		errLog("cannot register driver: %v", err)
-		return
+		log.Fatalf("Cannot register driver: %v", err)
 	}
 	defer resp.Body.Close()
+
 	data, _ := io.ReadAll(resp.Body)
 
 	response := HttpResponse{}
@@ -384,7 +397,7 @@ func main() {
 
 	body2, _ := json.Marshal(&HttpRequest2)
 
-	url := fmt.Sprintf("http://localhost:3001/drivers/%s/online", response.UserId)
+	url := fmt.Sprintf("https://localhost:3001/drivers/%s/online", response.UserId)
 	req0, err := http.NewRequest("POST", url, bytes.NewBuffer(body2))
 	if err != nil {
 		errLog("Error creating request: %v", err)
@@ -399,7 +412,11 @@ func main() {
 	req0.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client2 := &http.Client{}
+	client2 := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+		},
+	}
 	resp2, err := client2.Do(req0)
 	if err != nil {
 		errLog("cannot make online driver: %v", err)
@@ -417,12 +434,18 @@ func main() {
 	httpLog("Online info", "msg", response2.Message)
 
 	// WS logic
-	wsURL := fmt.Sprintf("ws://localhost:3001/ws/drivers/%s", response.UserId)
-	wsLog("Connecting to WS: %s", wsURL)
+	wsURL := fmt.Sprintf("wss://localhost:3001/ws/drivers/%s", response.UserId)
+	wsLog("Connecting to WSs: %s", wsURL)
 
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	dialer := websocket.Dialer{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // Disable certificate verification
+		},
+	}
+
+	conn, _, err := dialer.Dial(wsURL, nil)
 	if err != nil {
-		errLog("cannot connect WS: %v", err)
+		log.Printf("cannot connect to WebSocket: %v", err)
 		return
 	}
 	defer conn.Close()
@@ -461,12 +484,16 @@ func main() {
 	})
 
 	req, _ := http.NewRequest("POST",
-		fmt.Sprintf("http://localhost:3001/drivers/%s/online", client.DriverId),
+		fmt.Sprintf("https://localhost:3001/drivers/%s/online", client.DriverId),
 		bytes.NewBuffer(locData))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", client.Jwt))
 
-	cl := &http.Client{}
+	cl := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Skip verification
+		},
+	}
 	res, err := cl.Do(req)
 	if err != nil {
 		errLog("cannot set online: %v", err)
