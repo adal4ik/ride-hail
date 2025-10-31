@@ -357,7 +357,7 @@ func (dr *DriverRepository) HasActiveRide(ctx context.Context, driverID string) 
             SELECT 1
             FROM rides
             WHERE driver_id = $1
-            AND status IN ('EN_ROUTE','ARRIVED','IN_PROGRESS')
+            AND status IN ('ARRIVED','IN_PROGRESS')
         )`
 	var ok bool
 	if err := dr.db.GetConn().QueryRow(ctx, q, driverID).Scan(&ok); err != nil {
@@ -560,7 +560,7 @@ func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) 
 				JOIN rides r on r.driver_id = d.driver_id
 				JOIN coordinates c_driver on d.driver_id = c_driver.entity_id
 				JOIN coordinates c_dest on r.pickup_coord_id = c_dest.coord_id
-				WHERE d.driver_id = $1 AND r.status = 'EN_ROUTE';
+				WHERE d.driver_id = $1 AND (r.status = 'EN_ROUTE' OR r.status = 'ARRIVED');
 	`
 	var res float64
 	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&res)

@@ -133,17 +133,7 @@ func (ds *DriverService) StartRide(ctx context.Context, msg dto.StartRide) (dto.
 		return dto.StartRideResponse{}, fmt.Errorf("forbidden: ride not assigned to this driver")
 	}
 
-	// 3️⃣ Получаем координаты pickup и водителя
-	pickupLat, pickupLng, driverLat, driverLng, err := ds.repositories.GetPickupAndDriverCoords(ctx, msg.Ride_id, driverID)
-	if err != nil {
-		l.Error("get coords failed", err)
-		return dto.StartRideResponse{}, fmt.Errorf("failed to get coordinates: %w", err)
-	}
-
-	dist := haversineMeters(pickupLat, pickupLng, driverLat, driverLng)
-	l.Info("distance calculated", "meters", fmt.Sprintf("%.2f", dist))
-
-	// 4️⃣ Проверка расстояния (допустим, максимум 300 м)
+	dist, err := ds.repositories.IsDriverNear(ctx, driverID)
 	if dist > maxPickupDistanceMeters {
 		l.Warn("driver too far from pickup", "distance_m", fmt.Sprintf("%.2f", dist))
 		return dto.StartRideResponse{}, fmt.Errorf("driver too far from pickup (%.1fm > %.0fm)", dist, maxPickupDistanceMeters)
