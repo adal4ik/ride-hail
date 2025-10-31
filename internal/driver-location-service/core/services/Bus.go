@@ -76,10 +76,17 @@ func (d *Distributor) MessageDistributor() error {
 	for {
 		select {
 		case requestDelivery := <-d.rideOffers:
+			if !d.broker.IsAlive() {
+				log.Info("RabbitMq aman bol!")
+				return nil
+			}
 			d.wg.Add(1)
 			go d.handleRideRequest(requestDelivery)
 
 		case statusDelivery := <-d.rideStatuses:
+			if !d.broker.IsAlive() {
+				return nil
+			}
 			d.wg.Add(1)
 			go d.handleRideStatus(statusDelivery)
 
@@ -96,6 +103,7 @@ func (d *Distributor) MessageDistributor() error {
 }
 
 func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
+	defer d.wg.Done()
 	log := d.log.Action("handleDriverMessage")
 	var LocationUpdate websocketdto.LocationUpdateMessage
 	if err := json.Unmarshal(msg.Message, &LocationUpdate); err != nil {
@@ -140,12 +148,15 @@ func (d *Distributor) handleDriverMessage(msg dto.DriverMessage) {
 }
 
 func (d *Distributor) handleRideRequest(requestDelivery amqp.Delivery) {
+	defer d.wg.Done()
 	log := d.log.Action("handleRideRequest")
 	var req dto.RideDetails
 
 	if err := json.Unmarshal(requestDelivery.Body, &req); err != nil {
 		log.Error("Error Unmarshalling request:", err)
-		requestDelivery.Nack(false, false)
+		if err := requestDelivery.Nack(false, false); err != nil {
+			log.Error("cannot read body", err)
+		}
 		return
 	}
 	if len(d.wsManager.GetConnectedDrivers()) == 0 {
@@ -237,6 +248,7 @@ func (d *Distributor) sendRideOffers(drivers []dto.DriverInfo, rideDetails dto.R
 }
 
 func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseMessage, rideDetails dto.RideDetails, requestDelivery amqp.Delivery, driver dto.DriverInfo) {
+	defer d.wg.Done()
 	log := d.log.Action("handleDriverAcceptance")
 	_ = log
 	driverMatch := dto.DriverMatchResponse{
@@ -261,6 +273,7 @@ func (d *Distributor) handleDriverAcceptance(response websocketdto.RideResponseM
 }
 
 func (d *Distributor) handleRideStatus(statusDelivery amqp.Delivery) {
+	defer d.wg.Done()
 	log := d.log.Action("handleRideStatus")
 	var status messagebrokerdto.RideStatus
 	if err := json.Unmarshal(statusDelivery.Body, &status); err != nil {

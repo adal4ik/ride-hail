@@ -94,15 +94,32 @@ func (r *RabbitMQ) ConsumeMessageFromDrivers(ctx context.Context, queue, driverN
 	return r.ch.ConsumeWithContext(ctx, queue, driverName, false, false, false, false, nil)
 }
 
+// func (r *RabbitMQ) IsAlive() bool {
+// 	r.mu.Lock()
+// 	defer r.mu.Unlock()
+
+// 	// Check if both connection and channel are initialized and not closed
+// 	if r.conn == nil || r.conn.IsClosed() {
+// 		// r.connect()
+// 		return false
+// 	}
+// 	if r.ch == nil || r.ch.IsClosed() {
+// 		return false
+// 	}
+
+// 	return true
+// }
+
 func (r *RabbitMQ) IsAlive() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Check if both connection and channel are initialized and not closed
-	if r.conn == nil || r.conn.IsClosed() {
-		return false
-	}
-	if r.ch == nil || r.ch.IsClosed() {
+	// Check if connection or channel are nil or closed
+	if r.conn == nil || r.conn.IsClosed() || r.ch == nil || r.ch.IsClosed() {
+		if !r.reconnecting {
+			r.mylog.Action("is_alive").Warn("connection/channel closed, triggering reconnection...")
+			go r.reconnect(r.ctx)
+		}
 		return false
 	}
 
