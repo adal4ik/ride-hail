@@ -11,7 +11,7 @@ import (
 func Router(handlers *handlers.Handlers, cfg *config.Config) http.Handler {
 	mux := http.NewServeMux()
 	mdl := middleware.NewAuthMiddleware(cfg.App.PublicJwtSecret)
-	mux.HandleFunc("/ws/drivers/{driver_id}", handlers.DriverHandler.HandleDriverConnection)
+	mux.HandleFunc("/ws/drivers/{driver_id}", handlers.WebSocketHandler.HandleDriverWebSocket)
 	mux.Handle("/drivers/{driver_id}/online", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.GoOnline }()))
 	mux.Handle("/drivers/{driver_id}/offline", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.GoOffline }()))
 	mux.Handle("/drivers/{driver_id}/location", mdl.SessionHandler(func() http.HandlerFunc { return handlers.DriverHandler.UpdateLocation }()))

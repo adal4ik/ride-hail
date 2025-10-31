@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"ride-hail/internal/config"
 	"ride-hail/internal/driver-location-service/adapters/driven/bm"
 	"ride-hail/internal/driver-location-service/adapters/driven/db"
+	"ride-hail/internal/driver-location-service/adapters/driven/ws"
 	"ride-hail/internal/driver-location-service/adapters/driver/myhttp"
 	"ride-hail/internal/driver-location-service/adapters/driver/myhttp/handlers"
 	"ride-hail/internal/driver-location-service/core/services"
@@ -18,58 +20,99 @@ import (
 )
 
 func Execute(ctx context.Context, mylog mylogger.Logger, cfg *config.Config) error {
-	newCtx, close := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	log := mylog.Action("Execute")
+	var wg sync.WaitGroup
+	// Context Declaration
+	signalCtx, close := signal.NotifyContext(ctx, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	defer close()
-
-	mylog.Action("Starting Driver Location Service").Info("Initializing components")
-	mylog.Action("Connecting to Database").Info("Connecting to the database")
-	database, err := db.ConnectDB(newCtx, cfg.DB, mylog)
+	// Connecting to Database
+	database, err := db.ConnectDB(signalCtx, cfg.DB, mylog)
 	if err != nil {
+		log.Error("Database connection failed: ", err)
 		return err
 	}
-	mylog.Action("Database connected").Info("Database connection established")
 	defer database.Close()
-	fmt.Println(cfg.RabbitMq)
-	mylog.Action("Setting up components").Info("Setting up repository, broker, service, and handlers")
-	repository := db.New(database)
+	log.Info("Database connection established successufuly")
+
+	// Declaring Broker
 	broker, err := bm.New(ctx, *cfg.RabbitMq, mylog)
 	if err != nil {
+		log.Error("Broker connection failed: ", err)
 		return err
 	}
-	mylog.Action("Broker connected").Info("Message broker connection established")
-	service := services.New(repository, &mylog, broker)
-	handler := handlers.New(service, mylog)
+	defer broker.Close()
+	log.Info("Successfully connected to message broker")
+
+	// Declaring Consumer
+	consumer := bm.NewConsumer(signalCtx, broker, mylog)
+	req, statusMsgs, err := consumer.ListenAll()
+	if err != nil {
+		log.Error("Failed to subscribe for messages", err)
+		return err
+	}
+	log.Info("Consumer is listenning for the messages")
+
+	// Declaring service components
+	repository := db.New(database)
+	wbManager := ws.NewWebSocketManager()
+	service := services.New(repository, mylog, broker, cfg.App.PublicJwtSecret)
+	handler := handlers.New(service, mylog, wbManager)
+	log.Info("All driver-location components are declared")
+
+	// Creating the distributor
+	wg.Add(1)
+	distributor := services.NewDistributor(signalCtx, req, statusMsgs, wbManager, broker, service.DriverService, mylog)
+	go func() {
+		defer wg.Done()
+		if err := distributor.MessageDistributor(); err != nil {
+			mylog.Error("Message distributor encountered an error", err)
+		}
+	}()
+	log.Info("Distribur successfully setted up and ready to work")
+
+	// Defining the rounter
 	mux := myhttp.Router(handler, cfg)
-	mylog.Action("Components set up").Info("All components are set up successfully")
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%v", cfg.Srv.DriverLocationServicePort),
 		Handler: mux,
 	}
-	mylog.Action("HTTP server configured").Info("HTTP server is configured and ready to start")
-	// Running server
 
-	mylog.Action("Starting server").Info("Starting HTTP server")
+	// Running server
+	wg.Add(1)
 	runErrCh := make(chan error, 1)
 	go func() {
-		mylog.Action("Server initialized").Info("server is starting on port :" + cfg.Srv.DriverLocationServicePort)
+		defer wg.Done()
+		log.Info("Server is starting on port :" + cfg.Srv.DriverLocationServicePort)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			runErrCh <- err
 		}
 	}()
+	log.Info("Server is started successfully")
 
-	mylog.Action("Server started").Info("HTTP server started successfully and is running")
-	// Wait for signal or server crash
+	// Listening for channels
 	select {
-	case <-newCtx.Done():
-		mylog.Info("Shutdown signal received")
-		// return GracefullShutDown(context.Background())
-	case err := <-runErrCh:
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			mylog.Error("Server failed unexpectedly", err)
-			return err
+	case <-signalCtx.Done():
+		log.Info("Shutdown signal received")
+		log.Info("Shutting down gracefully......")
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			log.Error("HTTP server shutdown failed", err)
 		}
-		mylog.Info("Server exited normally")
-		return nil
+		// Waiting
+		log.Info("waiting for workers......")
+		wg.Wait()
+		log.Info("All workers are done")
+		// Drivers
+		err := service.DriverService.GracefullShutdown(context.Background())
+		if err != nil {
+			log.Error("Failed to shutdown drivers", err)
+		} else {
+			log.Info("All drivers are offline now and all sessions are completed")
+		}
+	case err = <-runErrCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("Server failed unexpectedly", err)
+		}
 	}
-	return nil
+
+	return err
 }

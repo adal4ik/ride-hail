@@ -28,6 +28,7 @@ type RabbitMQ struct {
 	ch           *amqp.Channel
 	reconnecting bool
 	mu           *sync.Mutex
+	Messages     chan amqp.Delivery
 }
 
 var _ ports.IDriverBroker = (*RabbitMQ)(nil)
@@ -52,16 +53,17 @@ func (r *RabbitMQ) PublishJSON(ctx context.Context, exchange, routingKey string,
 		go r.reconnect(r.ctx)
 		return errors.New("amqp closed")
 	}
-	if err := r.ensureExchange(exchange); err != nil {
-		return fmt.Errorf("declare exchange: %w", err)
-	}
+	r.log.Action("publish").Info("publishing message to exchange %s with routing key %s", exchange, routingKey)
+	// if err := r.ensureExchange(exchange); err != nil {
+	// 	return fmt.Errorf("declare exchange: %w", err)
+	// }
 	body, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
 	}
 	pubctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-
+	r.log.Action("publish").Info("message marshaled, publishing now")
 	return r.ch.PublishWithContext(pubctx, exchange, routingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
@@ -73,31 +75,30 @@ func (r *RabbitMQ) Consume(ctx context.Context, queueName, bindingKey string, op
 	if !r.IsAlive() {
 		return nil, errors.New("amqp closed")
 	}
-	// гарантируем exchange ride_topic (мы читаем из него по биндингу)
-	if err := r.ensureExchange(rideExchangeName); err != nil {
-		return nil, fmt.Errorf("declare exchange: %w", err)
-	}
 	// очередь
-	_, err := r.ch.QueueDeclare(
-		queueName,
-		opts.QueueDurable,
-		false, // auto-delete
-		false, // exclusive
-		false, // no-wait
-		nil,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("queue declare: %w", err)
-	}
-	// биндинг очереди к ride_topic по ключу
-	if err := r.ch.QueueBind(
-		queueName,
-		bindingKey,
-		rideExchangeName,
-		false,
-		nil,
-	); err != nil {
-		return nil, fmt.Errorf("queue bind: %w", err)
+	if !r.IsAlive() {
+		_, err := r.ch.QueueDeclare(
+			queueName,
+			opts.QueueDurable,
+			false, // auto-delete
+			false, // exclusive
+			false, // no-wait
+			nil,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("queue declare: %w", err)
+		}
+
+		// Биндинг очереди к exchange только для новой очереди
+		if err := r.ch.QueueBind(
+			queueName,
+			bindingKey,
+			rideExchangeName,
+			false,
+			nil,
+		); err != nil {
+			return nil, fmt.Errorf("queue bind: %w", err)
+		}
 	}
 	// prefetch
 	if opts.Prefetch > 0 {
@@ -160,10 +161,6 @@ func (r *RabbitMQ) Close() error {
 		}
 	}
 	return nil
-}
-
-func (r *RabbitMQ) ensureExchange(name string) error {
-	return r.ch.ExchangeDeclare(name, "topic", true, false, false, false, nil)
 }
 
 func (r *RabbitMQ) connect() error {

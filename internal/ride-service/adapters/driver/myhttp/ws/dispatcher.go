@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"ride-hail/internal/mylogger"
+	"ride-hail/internal/ride-service/core/ports"
 	"sync"
 	"time"
 
-	"ride-hail/internal/mylogger"
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
-	"ride-hail/internal/ride-service/core/ports"
 
 	"github.com/gorilla/websocket"
 )
@@ -32,21 +32,25 @@ var websocketUpgrader = websocket.Upgrader{
 type ClientList map[string]*Client
 
 type Dispatcher struct {
+	ctx context.Context
 	PassengerService ports.IPassengerService
-	eventHandler     EventHandler
+	eventHandler     *EventHandler
 	hander           map[string]EventHandle
 	clients          ClientList
 	sync.RWMutex
+	wg *sync.WaitGroup
 	log mylogger.Logger
 }
 
-func NewDispathcer(log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader EventHandler) *Dispatcher {
+func NewDispathcer(ctx context.Context, log mylogger.Logger, passengerRepo ports.IPassengerService, eventHader *EventHandler, wg *sync.WaitGroup) *Dispatcher {
 	return &Dispatcher{
+		ctx: ctx,
 		clients:          make(ClientList),
-		hander: make(map[string]EventHandle),
+		hander:           make(map[string]EventHandle),
 		PassengerService: passengerRepo,
 		log:              log,
 		eventHandler:     eventHader,
+		wg: wg,
 	}
 }
 
@@ -65,7 +69,7 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 			return
 		}
 
-		ok, err := d.PassengerService.FindPassenger(passengerId)
+		ok, err := d.PassengerService.IsPassengerExists(passengerId)
 		if err != nil {
 			log.Error("db problem", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -81,24 +85,15 @@ func (d *Dispatcher) WsHandler() http.HandlerFunc {
 			log.Error("cannot upgrade", err)
 			return
 		}
-		ctx, cancel := context.WithCancel(context.Background())
-		ctxAuth, cancelAuth := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(d.ctx)
+		ctxAuth, cancelAuth := context.WithCancel(d.ctx)
 
-		client := NewClient(ctx, d.log, conn, d, passengerId, cancelAuth)
+		client := NewClient(ctx, d.log, conn, d, passengerId, cancelAuth, d.wg)
 		d.AddClient(client)
+		d.wg.Add(1)
 		go client.ReadMessage()
 		go client.WriteMessage()
 		go d.StartTimerAuth(client, cancel, ctxAuth)
-
-		// Code from temu
-		// select {
-		// case <-time.After(time.Second * 5):
-		// 	// close connection
-		// 	conn.Close()
-		// case msg := <-client.egress:
-		// 	if msg.Type != "auth" {
-		// 	}
-		// }
 	}
 }
 
@@ -118,6 +113,7 @@ func (d *Dispatcher) RemoveClient(client *Client) {
 
 	if _, ok := d.clients[client.passengerId]; ok {
 		client.conn.Close()
+		// close(d.clients[client.passengerId].egress)
 		delete(d.clients, client.passengerId)
 		log.Info("passenger successfully deleted", "passengerId", client.passengerId)
 	} else {
@@ -130,6 +126,15 @@ func (d *Dispatcher) WriteToUser(passengerId string, event websocketdto.Event) {
 	defer d.Unlock()
 
 	if client, ok := d.clients[passengerId]; ok {
+		client.egress <- event
+	}
+}
+
+func (d *Dispatcher) BroadCast(event websocketdto.Event) {
+	d.Lock()
+	defer d.Unlock()
+
+	for _, client := range d.clients {
 		client.egress <- event
 	}
 }

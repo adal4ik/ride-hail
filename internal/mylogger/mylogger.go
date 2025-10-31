@@ -56,12 +56,13 @@ func New(logLevel string) (Logger, error) {
 		return nil, fmt.Errorf("cannot create logs director: %s", err)
 	}
 	// Ensure the logfile exists
-	logFile, err := os.OpenFile("logs/app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create app.log: %s", err)
-	}
+	// logFile, err := os.OpenFile("logs/app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("cannot create app.log: %s", err)
+	// }
 
-	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	// multiWriter := io.MultiWriter(os.Stdout, logFile)
+	multiWriter := io.MultiWriter(os.Stdout)
 
 	handler := slog.NewJSONHandler(multiWriter, &slog.HandlerOptions{
 		Level: level,

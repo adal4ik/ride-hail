@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgis/postgis:16-3.4-alpine
-    container_name: ridehail-postgres
+    container_name: ridehail-postgresql
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-ridehail_user}
@@ -32,7 +32,7 @@ services:
 
   migrate:
     container_name: migrate
-    image: migrate/migrate
+    image: migrate/migrate:v4.15.2
     restart: on-failure
     depends_on:
       postgres:
@@ -48,75 +48,62 @@ services:
     env_file:
       - .env
 
-  ride-service:
-    build:
-      context: .
-      dockerfile: docker/ride-service.Dockerfile
-    env_file: .env
-    volumes:
-      - ./logs/:/app/logs/
-    restart: on-failure
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-    ports:
-      - "3000:${RIDE_HTTP_PORT:-3000}"
+  # ride-service:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/ride-service.Dockerfile
+  #   env_file: .env
+  #   volumes:
+  #     - ./logs/:/app/logs/
+  #   restart: on-failure
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #     migrate:
+  #       condition: service_completed_successfully
+  #   ports:
+  #     - "3000:${RIDE_HTTP_PORT:-3000}"
 
-  auth-service:
-    build:
-      context: .
-      dockerfile: docker/auth-service.Dockerfile
-    env_file: .env
-    volumes:
-      - ./logs/:/app/logs/
-    # restart: on-failure
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-    ports:
-      - "3010:${AUTH_SERVICE_PORT:-3010}"
+  # auth-service:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/auth-service.Dockerfile
+  #   env_file: .env
+  #   volumes:
+  #     - ./logs/:/app/logs/
+  #   # restart: on-failure
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #     migrate:
+  #       condition: service_completed_successfully
+  #   ports:
+  #     - "3010:${AUTH_SERVICE_PORT:-3010}"
   
-  admin-service:
-    build:
-      context: .
-      dockerfile: docker/admin-service.Dockerfile
-    env_file: .env
-    volumes:
-      - ./logs/:/app/logs/
-    # restart: on-failure
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-    ports:
-      - "3004:${ADMIN_SERVICE_PORT:-3004}"
-
-  driver-location-service:
-    build:
-      context: .
-      dockerfile: docker/driver-location-service.Dockerfile
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    ports:
-      - "3001:${DRIVER_HTTP_PORT}"
-
   # admin-service:
   #   build:
   #     context: .
   #     dockerfile: docker/admin-service.Dockerfile
+  #   env_file: .env
+  #   volumes:
+  #     - ./logs/:/app/logs/
+  #   # restart: on-failure
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     migrate:
+  #       condition: service_completed_successfully
+  #   ports:
+  #     - "3004:${ADMIN_SERVICE_PORT:-3004}"
+
+  # driver-location-service:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/driver-location-service.Dockerfile
   #   env_file: .env
   #   depends_on:
   #     postgres:
@@ -124,4 +111,4 @@ services:
   #     rabbitmq:
   #       condition: service_healthy
   #   ports:
-  #     - "3004:${ADMIN_HTTP_PORT}"
+  #     - "3001:${DRIVER_HTTP_PORT}"

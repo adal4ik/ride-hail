@@ -8,6 +8,7 @@ type DriverRegistrationRequest struct {
 	Password      string           `json:"password"`
 	LicenseNumber string           `json:"license_number"`
 	VehicleType   string           `json:"vehicle_type"`
+	UserAttrs     *json.RawMessage `json:"user_attrs"`
 	VehicleAttrs  *json.RawMessage `json:"vehicle_attrs"`
 }
 

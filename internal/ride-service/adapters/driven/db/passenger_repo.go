@@ -16,7 +16,7 @@ func NewPassengerRepo(db *DB) ports.IPassengerRepo {
 	}
 }
 
-func (pr *PassengerRepo) Find(ctx context.Context, passengerId string) (string, error) {
+func (pr *PassengerRepo) Exist(ctx context.Context, passengerId string) (string, error) {
 	q := `SELECT role FROM users WHERE user_id = $1`
 
 	conn := pr.db.conn
@@ -24,6 +24,10 @@ func (pr *PassengerRepo) Find(ctx context.Context, passengerId string) (string, 
 	role := ""
 	row := conn.QueryRow(ctx, q, passengerId)
 	if err := row.Scan(&role); err != nil {
+		// Check if the database is alive
+		if err2 := pr.db.IsAlive(); err2 != nil {
+			return "", err
+		}
 		return "", err
 	}
 	return role, nil

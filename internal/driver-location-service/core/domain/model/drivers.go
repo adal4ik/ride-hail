@@ -56,11 +56,6 @@ type RideCompleteForm struct {
 	ActualDurationm  float64
 }
 
-type Location struct {
-	Latitude  float64
-	Longitude float64
-}
-
 type RideCompleteResponse struct {
 	Ride_id       string
 	Status        string
@@ -68,3 +63,43 @@ type RideCompleteResponse struct {
 	DriverEarning float64
 	Message       string
 }
+
+// DriverInfo
+type DriverInfo struct {
+	DriverId  string
+	Name      string
+	Email     string
+	Vehicle   []byte
+	Rating    float64
+	Latitude  float64
+	Longitude float64
+	Distance  float64
+}
+
+// RideDetails for WebSocket
+type RideDetails struct {
+	Ride_id        string
+	PassengerName  string
+	PassengerAttrs []byte
+	PickupLocation Location
+}
+
+type DriverLocation struct {
+	Driver_id string  `json:"driver_id"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type Location struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Address   string  `json:"address,omitempty"`
+	Driver_id string  `json:"driver_id,omitempty"`
+}
+
+// type Location2 struct {
+// 	Latitude  float64
+// 	Longitude float64
+// 	Address   string
+// 	Notes     string
+// }

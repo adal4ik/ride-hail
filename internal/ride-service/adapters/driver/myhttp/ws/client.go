@@ -3,8 +3,10 @@ package ws
 import (
 	"context"
 	"encoding/json"
-	"ride-hail/internal/mylogger"
+	"sync"
 	"time"
+
+	"ride-hail/internal/mylogger"
 
 	websocketdto "ride-hail/internal/ride-service/core/domain/websocket_dto"
 
@@ -28,10 +30,11 @@ type Client struct {
 	dispatcher  *Dispatcher
 	egress      chan websocketdto.Event
 	passengerId string
+	wg          *sync.WaitGroup
 	cancelAuth  context.CancelFunc
 }
 
-func NewClient(ctx context.Context, log mylogger.Logger, conn *websocket.Conn, dis *Dispatcher, passengerId string, cancelAuth context.CancelFunc) *Client {
+func NewClient(ctx context.Context, log mylogger.Logger, conn *websocket.Conn, dis *Dispatcher, passengerId string, cancelAuth context.CancelFunc, wg *sync.WaitGroup) *Client {
 	return &Client{
 		log:         log,
 		ctx:         ctx,
@@ -40,6 +43,7 @@ func NewClient(ctx context.Context, log mylogger.Logger, conn *websocket.Conn, d
 		egress:      make(chan websocketdto.Event),
 		passengerId: passengerId,
 		cancelAuth:  cancelAuth,
+		wg:          wg,
 	}
 }
 
@@ -77,16 +81,19 @@ func (c *Client) ReadMessage() {
 }
 
 func (c *Client) WriteMessage() {
-	defer func() {
-		c.dispatcher.RemoveClient(c)
-	}()
 	log := c.log.Action("WriteMessage").With("passenger-id", c.passengerId)
+	defer func() {
+		c.wg.Done()
+		c.dispatcher.RemoveClient(c)
+		log.Info("one client is closed")
+	}()
 
 	ticker := time.NewTicker(pingInterval)
 
 	for {
 		select {
 		case <-c.ctx.Done():
+			// write that server is shutting down
 			c.conn.Close()
 			return
 		case msg, ok := <-c.egress:
@@ -110,7 +117,7 @@ func (c *Client) WriteMessage() {
 				log.Error("cannot write message", err)
 			}
 		case <-ticker.C:
-			log.Info("ping")
+			log.Debug("ping")
 
 			if err := c.conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				log.Error("write to ping", err)
@@ -122,6 +129,6 @@ func (c *Client) WriteMessage() {
 
 func (c *Client) PingHandler(pongMessage string) error {
 	log := c.log.Action("PingHandler").With("passenger-id", c.passengerId)
-	log.Info("pong")
+	log.Debug("pong")
 	return c.conn.SetReadDeadline(time.Now().Add(pongWait))
 }

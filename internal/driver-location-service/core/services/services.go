@@ -8,10 +8,13 @@ import (
 
 type Service struct {
 	DriverService *DriverService
+	AuthService   *AuthService
 }
 
-func New(repositories *db.Repository, log *mylogger.Logger, broker ports.IDriverBroker) *Service {
+// Must properly implement Auth Service
+func New(repositories *db.Repository, log mylogger.Logger, broker ports.IDriverBroker, secretKey string) *Service {
 	return &Service{
 		DriverService: NewDriverService(repositories.DriverRepository, log, broker),
+		AuthService:   NewAuthService(secretKey),
 	}
 }
