@@ -149,11 +149,13 @@ func (dr *DriverRepository) UpdateLocation(ctx context.Context, driver_id string
 		WHERE entity_id = $3
 		RETURNING coord_id, updated_at;
 	`
-	err = tx.QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &response.Updated_at)
+	var t time.Time
+	err = dr.db.GetConn().QueryRow(ctx, CoordinatesQuery, newLocation.Latitude, newLocation.Longitude, driver_id).Scan(&response.Coordinate_id, &t)
 	if err != nil {
 		return model.NewLocationResponse{}, err
 	}
-	return response, tx.Commit(ctx)
+	response.Updated_at = t.String()
+	return response, nil
 }
 
 func (dr *DriverRepository) StartRide(ctx context.Context, requestData model.StartRide) (model.StartRideResponse, error) {
@@ -606,7 +608,7 @@ func (dr *DriverRepository) PayDriverMoney(ctx context.Context, driver_id string
 		return err
 	}
 
-	SessionQuery := `
+	SessionQuery := `aled, publishin
 	UPDATE driver_sessions
 	SET total_rides = total_rides + 1,
 	total_earnings = total_earnings + $1
@@ -637,25 +639,21 @@ func (dr *DriverRepository) EndAllSessions() error {
 	return err
 }
 
-func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (bool, error) {
+func (dr *DriverRepository) IsDriverNear(ctx context.Context, driver_id string) (int, error) {
 	Query := `
-		SELECT
-			(
 				SELECT ST_Distance(ST_MakePoint(c_driver.longitude, c_driver.latitude)::geography, ST_MakePoint(c_dest.longitude, c_dest.latitude)::geography) 
 				FROM drivers d
 				JOIN rides r on r.driver_id = d.driver_id
 				JOIN coordinates c_driver on d.driver_id = c_driver.entity_id
-				JOIN coordinates c_dest on r.dest_coord_id = c_dest.coord_id
-				WHERE d.driver_id = $1 AND r.status = 'MATCHED';
-
-			) < 100;
+				JOIN coordinates c_dest on r.pickup_coord_id = c_dest.coord_id
+				WHERE d.driver_id = $1 AND r.status = 'EN_ROUTE';
 	`
-	var res bool
+	var res float64
 	err := dr.db.GetConn().QueryRow(ctx, Query, driver_id).Scan(&res)
 	if err != nil {
-		return false, err
+		return 1000000, err
 	}
-	return res, nil
+	return int(res), nil
 }
 
 func (dr *DriverRepository) IsOffline(ctx context.Context, driver_id string) (bool, error) {

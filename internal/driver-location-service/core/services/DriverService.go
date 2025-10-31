@@ -75,14 +75,17 @@ func (ds *DriverService) UpdateLocation(ctx context.Context, request dto.NewLoca
 	requestDAO.Longitude = request.Longitude
 	requestDAO.Speed_kmh = request.Speed_kmh
 	response, err := ds.repositories.UpdateLocation(ctx, driver_id, requestDAO)
+	l.Info("Updating driver location")
 	if err != nil {
+		l.Error("Failed to  update location", err)
 		return dto.NewLocationResponse{}, err
 	}
 	isNear, err := ds.repositories.IsDriverNear(ctx, driver_id)
 	if err != nil {
 		l.Error("Failed To check is driver near: ", err, "DriverID", driver_id)
 	}
-	if isNear {
+	l.Info("Driver distance to pickup location:", isNear)
+	if isNear <= 100 {
 		rideID, err := ds.GetRideIdByDriverId(ctx, driver_id)
 		if err != nil {
 			l.Error("Failed to get ride id by driver id: ", err, "DriverID", driver_id)
